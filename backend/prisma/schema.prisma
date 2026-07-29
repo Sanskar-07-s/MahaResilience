@@ -1,0 +1,337 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  CITIZEN
+  VOLUNTEER
+  OFFICIAL
+  ADMIN
+  TOURIST
+  MUNICIPAL_STAFF
+  EMERGENCY_STAFF
+}
+
+enum ComplaintStatus {
+  PENDING
+  IN_PROGRESS
+  RESOLVED
+  REJECTED
+}
+
+enum ComplaintCategory {
+  POTHOLE
+  GARBAGE
+  WATER_LEAK
+  STREETLIGHT
+  ILLEGAL_DUMPING
+  PUBLIC_TOILET
+  OTHER
+}
+
+enum AlertType {
+  WEATHER
+  AQI
+  DISASTER
+  TRAFFIC
+  COMMUNITY
+  OUTAGE
+}
+
+enum AlertSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum EventCategory {
+  BLOOD_DONATION
+  CLEANUP
+  VOLUNTEER_DRIVE
+  FESTIVAL
+  MUNICIPAL_MEETING
+}
+
+enum WasteCategory {
+  HAZARDOUS
+  GENERAL
+  RECYCLABLE
+  E_WASTE
+}
+
+enum WasteStatus {
+  PENDING
+  ASSIGNED
+  COMPLETED
+}
+
+enum PestReportType {
+  FOGGING_REQUEST
+  BREEDING_SITE
+  DISEASE_ALERT
+}
+
+enum TouristCategory {
+  HERITAGE
+  NATURE
+  TEMPLE
+  BEACH
+  ENTERTAINMENT
+}
+
+enum TransportType {
+  BUS
+  RAILWAY
+  METRO
+  PARKING
+  EV_CHARGING
+}
+
+model User {
+  id              String           @id @default(uuid())
+  email           String           @unique
+  passwordHash    String?          // Nullable for OAuth accounts
+  name            String
+  phone           String?          @unique
+  role            Role             @default(CITIZEN)
+  profileImage    String?
+  isVerified      Boolean          @default(false)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  
+  // Relations
+  complaintsReported Complaint[]   @relation("CitizenComplaints")
+  complaintsAssigned Complaint[]   @relation("OfficialComplaints")
+  notifications     Notification[]
+  wasteReports      WasteReport[]
+  pestReports       PestReport[]
+  createdAlerts     Alert[]
+  createdEvents     Event[]
+  volunteerProfile  Volunteer?
+  ratings           Rating[]
+  communityPosts    CommunityPost[]
+}
+
+model Volunteer {
+  id                 String    @id @default(uuid())
+  userId             String    @unique
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skills             String[]
+  areaOfOperations   String[]
+  verificationDocUrl String?
+  isVerified         Boolean   @default(false)
+  status             String    @default("AVAILABLE") // AVAILABLE, ENGAGED, OFFLINE
+  createdAt          DateTime  @default(now())
+}
+
+model Complaint {
+  id             String            @id @default(uuid())
+  title          String
+  description    String
+  category       ComplaintCategory
+  status         ComplaintStatus   @default(PENDING)
+  latitude       Float
+  longitude      Float
+  address        String
+  photoUrl       String?
+  priority       String            @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
+  upvotes        Int               @default(0)
+  
+  citizenId      String
+  citizen        User              @relation("CitizenComplaints", fields: [citizenId], references: [id])
+  assigneeId     String?
+  assignee       User?             @relation("OfficialComplaints", fields: [assigneeId], references: [id])
+  
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@index([latitude, longitude])
+}
+
+model GovernmentScheme {
+  id                   String   @id @default(uuid())
+  title                String
+  description          String
+  category             String
+  eligibilityCriteria  Json     // Map containing minAge, incomeLimit, professions, etc.
+  documentRequirements String[]
+  applicationUrl       String?
+  active               Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+model Hospital {
+  id               String   @id @default(uuid())
+  name             String
+  type             String   // PHC, PRIVATE, GOVERNMENT
+  contactNumber    String
+  address          String
+  latitude         Float
+  longitude        Float
+  availableBeds    Int      @default(0)
+  bloodGroupStock  Json     // Stock levels of different blood groups
+  hasEmergencyUnit Boolean  @default(false)
+  active           Boolean  @default(true)
+  createdAt        DateTime @default(now())
+
+  @@index([latitude, longitude])
+}
+
+model Alert {
+  id          String        @id @default(uuid())
+  title       String
+  description String
+  type        AlertType
+  severity    AlertSeverity @default(INFO)
+  latitude    Float
+  longitude   Float
+  radius      Float         // In meters
+  expiresAt   DateTime
+  
+  createdById String
+  createdBy   User          @relation(fields: [createdById], references: [id])
+  createdAt   DateTime      @default(now())
+
+  @@index([latitude, longitude])
+}
+
+model Event {
+  id             String        @id @default(uuid())
+  title          String
+  description    String
+  category       EventCategory
+  startDate      DateTime
+  endDate        DateTime
+  location       String
+  latitude       Float
+  longitude      Float
+  maxVolunteers  Int           @default(0)
+  volunteerCount Int           @default(0)
+  status         String        @default("UPCOMING")
+  
+  createdById    String
+  createdBy      User          @relation(fields: [createdById], references: [id])
+  createdAt      DateTime      @default(now())
+
+  @@index([latitude, longitude])
+}
+
+model Rating {
+  id          String   @id @default(uuid())
+  entityType  String   // HOSPITAL, TOURIST_PLACE, TRANSPORT, SERVICE
+  entityId    String
+  rating      Int      // 1 to 5
+  review      String?
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  body      String
+  type      String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model TouristPlace {
+  id           String          @id @default(uuid())
+  name         String
+  description  String
+  category     TouristCategory
+  address      String
+  latitude     Float
+  longitude    Float
+  imageUrls    String[]
+  ratingAvg    Float           @default(0.0)
+  reviewsCount Int             @default(0)
+  createdAt    DateTime        @default(now())
+
+  @@index([latitude, longitude])
+}
+
+model Transport {
+  id           String        @id @default(uuid())
+  name         String
+  type         TransportType
+  code         String?       // Route code, train number, etc.
+  routeDetails Json?         // Stops, schedule, pricing
+  latitude     Float
+  longitude    Float
+  active       Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+
+  @@index([latitude, longitude])
+}
+
+model WasteReport {
+  id            String        @id @default(uuid())
+  category      WasteCategory
+  description   String
+  latitude      Float
+  longitude     Float
+  photoUrl      String?
+  status        WasteStatus   @default(PENDING)
+  scheduledDate DateTime?
+  
+  citizenId     String
+  citizen       User          @relation(fields: [citizenId], references: [id])
+  createdAt     DateTime      @default(now())
+
+  @@index([latitude, longitude])
+}
+
+model PestReport {
+  id          String         @id @default(uuid())
+  title       String
+  description String
+  latitude    Float
+  longitude   Float
+  areaName    String
+  reportType  PestReportType
+  
+  reporterId  String
+  reporter    User           @relation(fields: [reporterId], references: [id])
+  createdAt   DateTime       @default(now())
+
+  @@index([latitude, longitude])
+}
+
+model EmergencyShelter {
+  id                 String   @id @default(uuid())
+  name               String
+  address            String
+  capacity           Int
+  currentOccupancy   Int      @default(0)
+  contactNumber      String
+  latitude           Float
+  longitude          Float
+  resourcesAvailable String[]
+  active             Boolean  @default(true)
+  createdAt          DateTime @default(now())
+
+  @@index([latitude, longitude])
+}
+
+model CommunityPost {
+  id             String   @id @default(uuid())
+  title          String
+  content        String
+  authorId       String
+  author         User     @relation(fields: [authorId], references: [id])
+  upvotes        Int      @default(0)
+  category       String
+  isAnnouncement Boolean  @default(false)
+  status         String   @default("APPROVED") // APPROVED, SPAM
+  createdAt      DateTime @default(now())
+}
