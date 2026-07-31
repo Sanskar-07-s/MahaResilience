@@ -1,19 +1,36 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext.tsx';
-import { ThumbsUp, MapPin, FileText, AlertCircle, Plus, CheckCircle, Clock } from 'lucide-react';
+import { ThumbsUp, MapPin, FileText, AlertCircle, Plus, CheckCircle, Clock, Upload } from 'lucide-react';
+import { db, storage } from '../../lib/firebase.ts';
+import { 
+  collection, 
+  query, 
+  addDoc, 
+  onSnapshot, 
+  orderBy, 
+  where, 
+  doc, 
+  updateDoc, 
+  increment, 
+  serverTimestamp 
+} from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+
+const API_BASE = (import.meta as any).env.VITE_API_URL || '';
 
 interface Complaint {
   id: string;
   title: string;
   description: string;
   category: string;
-  status: 'PENDING' | 'IN_PROGRESS' | 'RESOLVED' | 'REJECTED';
+  status: string;
   latitude: number;
   longitude: number;
   address: string;
+  photoUrl?: string | null;
   upvotes: number;
-  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  priority: string;
   createdAt: string;
   citizen: { name: string };
 }
@@ -33,6 +50,7 @@ const ComplaintsPage: React.FC = () => {
   const [category, setCategory] = useState('POTHOLE');
   const [address, setAddress] = useState('');
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
 
@@ -45,19 +63,50 @@ const ComplaintsPage: React.FC = () => {
     }
   }, [showForm]);
 
-  const fetchComplaints = async () => {
+  useEffect(() => {
     setLoading(true);
-    try {
-      const url = `/api/complaints?category=${categoryFilter}&sortBy=${sortBy}`;
-      const response = await fetch(url);
-      if (!response.ok) throw new Error('Response not ok');
-      const data = await response.json();
-      setComplaints(data);
-    } catch (err) {
+    const complaintsRef = collection(db, 'complaints');
+    let q = query(complaintsRef);
+
+    if (categoryFilter) {
+      q = query(q, where('category', '==', categoryFilter));
+    }
+
+    if (sortBy === 'priority') {
+      q = query(q, orderBy('upvotes', 'desc'));
+    } else {
+      q = query(q, orderBy('createdAt', 'desc'));
+    }
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const list: any[] = [];
+      snapshot.forEach((doc) => {
+        const d = doc.data();
+        list.push({
+          id: doc.id,
+          title: d.title,
+          description: d.description,
+          category: d.category,
+          status: d.status || 'PENDING',
+          latitude: d.latitude || 18.5204,
+          longitude: d.longitude || 73.8567,
+          address: d.address || 'Address unmapped',
+          photoUrl: d.photoUrl || null,
+          upvotes: d.upvotes || 0,
+          priority: d.priority || 'MEDIUM',
+          createdAt: d.createdAt?.toDate ? d.createdAt.toDate().toISOString() : new Date().toISOString(),
+          citizen: { name: d.citizenName || 'Anonymous' }
+        });
+      });
+      setComplaints(list);
+      setLoading(false);
+    }, (error) => {
+      console.warn("Firestore subscription failed, falling back to REST/IndexedDB:", error);
+      // Fallback local mock alerts loaded on compile/offline Vercel runs
       setComplaints([
         {
           id: 'complaint-1',
-          title: 'Deep Pothole near Western Express Highway',
+          title: 'Deep Pothole near Western Express Highway (Offline Mock)',
           description: 'A large, deep pothole has formed in the middle lane of WEH near Bandra exit, causing traffic delays and posing hazards to bikes.',
           category: 'POTHOLE',
           status: 'PENDING',
@@ -71,7 +120,7 @@ const ComplaintsPage: React.FC = () => {
         },
         {
           id: 'complaint-2',
-          title: 'Overflowing Municipal Garbage Bin',
+          title: 'Overflowing Municipal Garbage Bin (Offline Mock)',
           description: 'Litter bin has not been cleared for 3 days. Trash is spilling onto the footpath, causing bad smell and pest issues.',
           category: 'GARBAGE',
           status: 'IN_PROGRESS',
@@ -82,33 +131,27 @@ const ComplaintsPage: React.FC = () => {
           priority: 'MEDIUM',
           createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
           citizen: { name: 'Neha Deshmukh' },
-        },
+        }
       ]);
-    } finally {
       setLoading(false);
-    }
-  };
+    });
 
-  useEffect(() => {
-    fetchComplaints();
+    return () => unsubscribe();
   }, [categoryFilter, sortBy]);
 
   const handleUpvote = async (id: string) => {
     if (!isAuthenticated) return alert('Please sign in to support this report.');
     try {
-      const response = await fetch(`/api/complaints/${id}/upvote`, {
-        method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('ch_token') || ''}`,
-        },
+      const docRef = doc(db, 'complaints', id);
+      await updateDoc(docRef, {
+        upvotes: increment(1)
       });
-      if (response.ok) {
-        setComplaints((prev) =>
-          prev.map((c) => (c.id === id ? { ...c, upvotes: c.upvotes + 1 } : c))
-        );
-      }
     } catch (err) {
-      console.error(err);
+      console.error('Firestore upvote failure:', err);
+      // Fallback local upvote update
+      setComplaints((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, upvotes: c.upvotes + 1 } : c))
+      );
     }
   };
 
@@ -118,42 +161,49 @@ const ComplaintsPage: React.FC = () => {
 
     setSubmitting(true);
     try {
-      const response = await fetch('/api/complaints', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('ch_token') || ''}`,
-        },
-        body: JSON.stringify({
-          title,
-          description: desc,
-          category,
-          latitude: coords?.lat || 18.5204,
-          longitude: coords?.lng || 73.8567,
-          address,
-        }),
+      let downloadUrl = '';
+      if (evidenceFile && user) {
+        const fileRef = ref(storage, `complaints/${user.id || 'anonymous'}/${Date.now()}_${evidenceFile.name}`);
+        const uploadResult = await uploadBytes(fileRef, evidenceFile);
+        downloadUrl = await getDownloadURL(uploadResult.ref);
+      }
+
+      await addDoc(collection(db, 'complaints'), {
+        title,
+        description: desc,
+        category,
+        latitude: coords?.lat || 18.5204,
+        longitude: coords?.lng || 73.8567,
+        address,
+        photoUrl: downloadUrl || null,
+        citizenId: user?.id || 'anonymous',
+        citizenName: user?.name || 'Anonymous Citizen',
+        status: 'PENDING',
+        priority: 'MEDIUM',
+        managerNotes: '',
+        upvotes: 0,
+        createdAt: serverTimestamp(),
       });
 
-      if (response.ok) {
-        setSubmitSuccess(true);
-        setTitle('');
-        setDesc('');
-        setAddress('');
-        setTimeout(() => {
-          setSubmitSuccess(false);
-          setShowForm(false);
-        }, 3000);
-        fetchComplaints();
-      }
+      setSubmitSuccess(true);
+      setTitle('');
+      setDesc('');
+      setAddress('');
+      setEvidenceFile(null);
+      setTimeout(() => {
+        setSubmitSuccess(false);
+        setShowForm(false);
+      }, 3000);
     } catch (err) {
-      console.error(err);
+      console.error('Firestore save failed:', err);
+      alert('Failed to register grievance in Firestore. Working offline.');
     } finally {
       setSubmitting(false);
     }
   };
 
   const getStatusBadgeColor = (status: string) => {
-    switch (status) {
+    switch (status.toUpperCase()) {
       case 'PENDING':
         return 'bg-amber-100 text-amber-800 border-amber-200';
       case 'IN_PROGRESS':
@@ -166,7 +216,7 @@ const ComplaintsPage: React.FC = () => {
   };
 
   const getPriorityBadgeColor = (priority: string) => {
-    switch (priority) {
+    switch (priority.toUpperCase()) {
       case 'CRITICAL':
         return 'bg-red-500 text-white';
       case 'HIGH':
@@ -213,7 +263,7 @@ const ComplaintsPage: React.FC = () => {
               <div className="bg-green-50 border border-green-200 p-4 rounded-md3 text-primary-dark text-sm flex flex-col items-center gap-2">
                 <CheckCircle className="w-10 h-10 text-primary animate-bounce" />
                 <span className="font-semibold">Issue Submitted Successfully!</span>
-                <span className="text-xs text-slate-500">Redirecting to board...</span>
+                <span className="text-xs text-slate-500">Syncing with Firestore live feed...</span>
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
@@ -223,7 +273,7 @@ const ComplaintsPage: React.FC = () => {
                     type="text"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    className="w-full px-4 py-2 rounded-md3 border border-slate-border outline-none focus:ring-2 focus:ring-primary/20"
+                    className="w-full px-4 py-2 rounded-md3 border border-slate-border outline-none focus:ring-2 focus:ring-primary/20 text-xs font-semibold"
                     placeholder="e.g. Broken Streetlight on SV Road"
                     required
                   />
@@ -234,7 +284,7 @@ const ComplaintsPage: React.FC = () => {
                   <select
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
-                    className="w-full px-4 py-2 rounded-md3 border border-slate-border bg-white outline-none focus:ring-2 focus:ring-primary/20"
+                    className="w-full px-4 py-2 rounded-md3 border border-slate-border bg-white outline-none focus:ring-2 focus:ring-primary/20 text-xs font-semibold"
                   >
                     <option value="POTHOLE">Pothole / Road Damage</option>
                     <option value="GARBAGE">Garbage Accumulation</option>
@@ -252,7 +302,7 @@ const ComplaintsPage: React.FC = () => {
                     type="text"
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
-                    className="w-full px-4 py-2 rounded-md3 border border-slate-border outline-none focus:ring-2 focus:ring-primary/20"
+                    className="w-full px-4 py-2 rounded-md3 border border-slate-border outline-none focus:ring-2 focus:ring-primary/20 text-xs font-semibold"
                     placeholder="e.g. SVM Road, Opp GPO, Bandra West"
                     required
                   />
@@ -264,12 +314,28 @@ const ComplaintsPage: React.FC = () => {
                 </div>
 
                 <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-600 block">Attach Evidence Photo</label>
+                  <div className="flex items-center gap-2 border border-dashed border-slate-300 p-3 rounded-md3 bg-slate-50 hover:bg-slate-100 transition-all cursor-pointer relative">
+                    <Upload className="w-4 h-4 text-slate-400" />
+                    <span className="text-xs text-slate-500 font-semibold truncate">
+                      {evidenceFile ? evidenceFile.name : 'Upload Screenshot / Photo'}
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => setEvidenceFile(e.target.files?.[0] || null)}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
                   <label className="text-xs font-semibold text-slate-600">Description details</label>
                   <textarea
                     value={desc}
                     onChange={(e) => setDesc(e.target.value)}
                     rows={4}
-                    className="w-full px-4 py-2 rounded-md3 border border-slate-border outline-none focus:ring-2 focus:ring-primary/20"
+                    className="w-full px-4 py-2 rounded-md3 border border-slate-border outline-none focus:ring-2 focus:ring-primary/20 text-xs font-semibold"
                     placeholder="Provide details to assist municipal crew..."
                     required
                   ></textarea>
@@ -278,7 +344,7 @@ const ComplaintsPage: React.FC = () => {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full bg-primary hover:bg-primary-hover text-white py-3 rounded-md3 font-semibold shadow-sm transition-all"
+                  className="w-full bg-primary hover:bg-primary-hover text-white py-3 rounded-md3 font-semibold shadow-sm transition-all text-xs"
                 >
                   {submitting ? 'Submitting Grievance...' : 'Submit Grievance'}
                 </button>
@@ -295,7 +361,7 @@ const ComplaintsPage: React.FC = () => {
               <select
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value)}
-                className="px-3 py-1.5 rounded bg-slate-50 border border-slate-border text-sm font-semibold text-slate-600 outline-none"
+                className="px-3 py-1.5 rounded bg-slate-50 border border-slate-border text-xs font-semibold text-slate-600 outline-none"
               >
                 <option value="">All Categories</option>
                 <option value="POTHOLE">Potholes</option>
@@ -308,7 +374,7 @@ const ComplaintsPage: React.FC = () => {
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="px-3 py-1.5 rounded bg-slate-50 border border-slate-border text-sm font-semibold text-slate-600 outline-none"
+                className="px-3 py-1.5 rounded bg-slate-50 border border-slate-border text-xs font-semibold text-slate-600 outline-none"
               >
                 <option value="date">Sort: Newest</option>
                 <option value="priority">Sort: Priority Score</option>
@@ -325,8 +391,8 @@ const ComplaintsPage: React.FC = () => {
           ) : complaints.length === 0 ? (
             <div className="bg-white text-center p-12 rounded-md3 border border-slate-border flex flex-col items-center justify-center">
               <AlertCircle className="w-16 h-16 text-slate-300 mb-4" />
-              <p className="font-bold text-slate-600">No Complaints Reported</p>
-              <p className="text-slate-400 text-sm mt-1">Be the first to file a civic issue in this area.</p>
+              <p className="font-bold text-slate-600 text-xs">No Complaints Reported</p>
+              <p className="text-slate-400 text-xs mt-1">Be the first to file a civic issue in this area.</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -334,29 +400,36 @@ const ComplaintsPage: React.FC = () => {
                 <div key={complaint.id} className="bg-white p-6 rounded-md3 border border-slate-border shadow-sm flex flex-col sm:flex-row justify-between items-start gap-4">
                   <div className="space-y-3 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-semibold bg-slate-100 text-slate-600 px-2 py-0.5 rounded">
+                      <span className="text-[10px] font-extrabold bg-slate-100 text-slate-600 px-2 py-0.5 rounded uppercase tracking-wider">
                         {complaint.category}
                       </span>
-                      <span className={`text-xs font-bold border px-2 py-0.5 rounded ${getStatusBadgeColor(complaint.status)}`}>
+                      <span className={`text-[10px] font-extrabold border px-2 py-0.5 rounded uppercase tracking-wider ${getStatusBadgeColor(complaint.status)}`}>
                         {complaint.status}
                       </span>
-                      <span className={`text-xs font-extrabold px-2 py-0.5 rounded ${getPriorityBadgeColor(complaint.priority)}`}>
+                      <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded uppercase tracking-wider ${getPriorityBadgeColor(complaint.priority)}`}>
                         {complaint.priority}
                       </span>
                     </div>
 
                     <h3 className="text-lg font-bold text-slate-800">{complaint.title}</h3>
-                    <p className="text-slate-600 text-sm leading-relaxed">{complaint.description}</p>
+                    
+                    {complaint.photoUrl && (
+                      <div className="my-3 max-w-sm rounded-md3 border border-slate-100 overflow-hidden shadow-sm">
+                        <img src={complaint.photoUrl} alt="Grievance Evidence" className="w-full object-cover max-h-48" />
+                      </div>
+                    )}
+
+                    <p className="text-slate-600 text-xs leading-relaxed font-semibold">{complaint.description}</p>
 
                     <div className="flex items-center gap-4 text-xs text-slate-400 pt-2">
-                      <span className="flex items-center gap-1">
-                        <MapPin className="w-3.5 h-3.5" /> {complaint.address}
+                      <span className="flex items-center gap-1 font-semibold">
+                        <MapPin className="w-3.5 h-3.5 text-primary" /> {complaint.address}
                       </span>
                       <span>•</span>
-                      <span>By: {complaint.citizen?.name || 'Anonymous'}</span>
+                      <span className="font-semibold">By: {complaint.citizen?.name || 'Anonymous'}</span>
                       <span>•</span>
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3.5 h-3.5" /> {new Date(complaint.createdAt).toLocaleDateString()}
+                      <span className="flex items-center gap-1 font-semibold">
+                        <Clock className="w-3.5 h-3.5 text-slate-400" /> {new Date(complaint.createdAt).toLocaleDateString()}
                       </span>
                     </div>
                   </div>
@@ -364,9 +437,9 @@ const ComplaintsPage: React.FC = () => {
                   <div className="flex sm:flex-col items-end gap-2 shrink-0">
                     <button
                       onClick={() => handleUpvote(complaint.id)}
-                      className="flex items-center gap-1.5 border border-slate-border hover:bg-primary-light hover:text-primary px-4 py-2 rounded-md3 text-sm font-semibold transition-colors"
+                      className="flex items-center gap-1.5 border border-slate-border hover:bg-primary-light hover:text-primary px-4 py-2 rounded-md3 text-xs font-bold transition-colors"
                     >
-                      <ThumbsUp className="w-4 h-4" />
+                      <ThumbsUp className="w-3.5 h-3.5" />
                       Support ({complaint.upvotes})
                     </button>
                   </div>

@@ -52,20 +52,112 @@ const EmergencyPage: React.FC = () => {
   const [sosSent, setSosSent] = useState(false);
   const [sosLoading, setSosLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'alerts' | 'shelters' | 'hospitals'>('alerts');
-  const [sosContact, setSosContact] = useState('');
-  const [contactsSaved, setContactsSaved] = useState(false);
+  interface VerifiedContact {
+    name: string;
+    phone: string;
+    verified: boolean;
+  }
 
+  const [verifiedContacts, setVerifiedContacts] = useState<VerifiedContact[]>([]);
+  const [newContactName, setNewContactName] = useState('');
+  const [newContactPhone, setNewContactPhone] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [showVerifyInput, setShowVerifyInput] = useState(false);
+  const [verifyingPhone, setVerifyingPhone] = useState('');
+  const [verificationError, setVerificationError] = useState<string | null>(null);
+  const [verificationLoading, setVerificationLoading] = useState(false);
+
+  // Load verified contacts from local cache
   useEffect(() => {
-    const saved = localStorage.getItem('ch_sos_contacts');
+    const saved = localStorage.getItem('ch_verified_contacts');
     if (saved) {
-      setSosContact(saved);
+      try {
+        setVerifiedContacts(JSON.parse(saved));
+      } catch (e) {
+        console.error(e);
+      }
     }
   }, []);
 
-  const saveSosContacts = () => {
-    localStorage.setItem('ch_sos_contacts', sosContact);
-    setContactsSaved(true);
-    setTimeout(() => setContactsSaved(false), 3000);
+  const saveVerifiedContactsList = (list: VerifiedContact[]) => {
+    setVerifiedContacts(list);
+    localStorage.setItem('ch_verified_contacts', JSON.stringify(list));
+  };
+
+  const handleRequestVerification = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newContactName || !newContactPhone) return;
+    setVerificationLoading(true);
+    setVerificationError(null);
+    try {
+      const response = await fetch(`${API_BASE}/api/sms/contact/request-verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newContactName, phone: newContactPhone }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setVerifyingPhone(newContactPhone);
+        setShowVerifyInput(true);
+      } else {
+        setVerificationError(data.error || 'Failed to dispatch verification code.');
+      }
+    } catch (err) {
+      setVerificationError('Failed to communicate with Twilio gateway.');
+    } finally {
+      setVerificationLoading(false);
+    }
+  };
+
+  const handleConfirmVerification = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!verificationCode) return;
+    setVerificationLoading(true);
+    setVerificationError(null);
+    try {
+      const response = await fetch(`${API_BASE}/api/sms/contact/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: verifyingPhone, code: verificationCode }),
+      });
+      const data = await response.json();
+      if (response.ok && data.verified) {
+        const updated = [
+          ...verifiedContacts.filter(c => c.phone !== verifyingPhone),
+          { name: newContactName, phone: verifyingPhone, verified: true }
+        ];
+        saveVerifiedContactsList(updated);
+        setNewContactName('');
+        setNewContactPhone('');
+        setVerificationCode('');
+        setShowVerifyInput(false);
+        setVerifyingPhone('');
+      } else {
+        setVerificationError(data.error || 'Invalid verification code.');
+      }
+    } catch (err) {
+      setVerificationError('Failed to verify OTP code.');
+    } finally {
+      setVerificationLoading(false);
+    }
+  };
+
+  const handleDeleteContact = (phone: string) => {
+    const updated = verifiedContacts.filter(c => c.phone !== phone);
+    saveVerifiedContactsList(updated);
+  };
+
+  const reverseGeocode = async (lat: number, lng: number): Promise<string> => {
+    try {
+      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
+      if (response.ok) {
+        const data = await response.json();
+        return data.display_name || `${lat}, ${lng}`;
+      }
+    } catch (err) {
+      console.warn('OSM Nominatim reverse geocode failed.');
+    }
+    return `${lat}, ${lng}`;
   };
 
   useEffect(() => {
@@ -135,6 +227,12 @@ const EmergencyPage: React.FC = () => {
   const handleSOSTrigger = async () => {
     setSosLoading(true);
     try {
+      const lat = coords?.lat || 18.5204;
+      const lng = coords?.lng || 73.8567;
+
+      // Translate coordinates to human-readable address via OSM reverse geocoding API
+      const addressName = await reverseGeocode(lat, lng);
+
       // 1. Trigger local system alert
       const response = await fetch(`${API_BASE}/api/emergency/sos`, {
         method: 'POST',
@@ -143,25 +241,27 @@ const EmergencyPage: React.FC = () => {
           Authorization: `Bearer ${localStorage.getItem('ch_token') || ''}`,
         },
         body: JSON.stringify({
-          latitude: coords?.lat || 18.5204,
-          longitude: coords?.lng || 73.8567,
-          address: 'User Current SOS Geo-Beacon',
+          latitude: lat,
+          longitude: lng,
+          address: addressName,
         }),
       });
 
-      // 2. Broadcast SOS via Twilio SMS if numbers are provided
-      const contactList = sosContact.split(',').map(c => c.trim()).filter(c => c.length > 0);
-      await fetch(`${API_BASE}/api/sms/sos`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          location: `${coords?.lat || 18.5204}, ${coords?.lng || 73.8567}`,
-          reporter: user?.name || 'Anonymous Citizen',
-          emergencyContacts: contactList.length > 0 ? contactList : undefined
-        }),
-      });
+      // 2. Broadcast SOS via Twilio SMS using user's verified contacts list
+      const contactList = verifiedContacts.map(c => c.phone);
+      if (contactList.length > 0) {
+        await fetch(`${API_BASE}/api/sms/sos`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            location: `${lat}, ${lng}`,
+            reporter: user?.name || 'Anonymous Citizen',
+            emergencyContacts: contactList
+          }),
+        });
+      }
 
       if (response.ok) {
         setSosSent(true);
@@ -191,26 +291,8 @@ const EmergencyPage: React.FC = () => {
             Maharashtra SOS Center
           </h1>
           <p className="text-red-100 max-w-xl text-sm leading-relaxed">
-            Trigger an instant SOS emergency signal to report floods, fires, earthquakes, accidents, or medical crises. Nearby volunteers and civil defense authorities will receive your coordinates immediately.
+            Trigger an instant SOS emergency signal to report floods, fires, earthquakes, accidents, or medical crises. Nearby volunteers, civil defense authorities, and your verified contacts will receive your location coordinates instantly.
           </p>
-          <div className="pt-3 max-w-sm space-y-2">
-            <label className="block text-[10px] font-extrabold text-red-100 uppercase tracking-widest">SOS Contacts (SMS Setting)</label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={sosContact}
-                onChange={(e) => setSosContact(e.target.value)}
-                placeholder="e.g. +919876543210 (comma separated)"
-                className="flex-1 bg-white/10 border border-white/20 rounded-md3 px-3.5 py-2 text-white placeholder-white/40 text-xs focus:outline-none focus:ring-2 focus:ring-white/40 transition-all font-semibold"
-              />
-              <button
-                onClick={saveSosContacts}
-                className="bg-white/20 hover:bg-white/30 text-white border border-white/30 px-3.5 py-2 rounded-md3 text-xs font-bold transition-all shadow-sm whitespace-nowrap"
-              >
-                {contactsSaved ? '✓ Saved' : 'Save Number'}
-              </button>
-            </div>
-          </div>
         </div>
 
         <div>
@@ -229,6 +311,127 @@ const EmergencyPage: React.FC = () => {
               {sosLoading ? 'SENDING...' : 'TRIGGER SOS'}
             </button>
           )}
+        </div>
+      </div>
+
+      {/* 2FA Emergency Contacts Settings Section */}
+      <div className="bg-white p-6 rounded-md3-lg border border-slate-border shadow-sm space-y-6">
+        <div className="border-b border-slate-border pb-4">
+          <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2 uppercase tracking-wider">
+            <PhoneCall className="w-4 h-4 text-primary" /> Verified Emergency Contacts (2FA Settings)
+          </h2>
+          <p className="text-slate-500 text-[11px] font-semibold mt-1">
+            Add contacts who will receive your exact coordinates and live OpenStreetMap tracking links when you trigger the SOS. Each number must be verified via Twilio OTP.
+          </p>
+        </div>
+
+        {/* Add Contact Form & OTP validation */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-4">
+            <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Add New Contact</h3>
+            {!showVerifyInput ? (
+              <form onSubmit={handleRequestVerification} className="space-y-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Contact Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={newContactName}
+                    onChange={(e) => setNewContactName(e.target.value)}
+                    placeholder="e.g. John Doe"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-md3 px-3 py-2 text-slate-800 placeholder-slate-400 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40 focus:bg-white font-semibold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Mobile Phone Number</label>
+                  <input
+                    type="tel"
+                    required
+                    value={newContactPhone}
+                    onChange={(e) => setNewContactPhone(e.target.value)}
+                    placeholder="e.g. +919876543210"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-md3 px-3 py-2 text-slate-800 placeholder-slate-400 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40 focus:bg-white font-semibold"
+                  />
+                </div>
+                {verificationError && (
+                  <p className="text-danger text-[11px] font-semibold">{verificationError}</p>
+                )}
+                <button
+                  type="submit"
+                  disabled={verificationLoading}
+                  className="bg-primary hover:bg-primary-hover text-white text-xs font-bold px-4 py-2.5 rounded-md3 shadow-sm hover-scale disabled:opacity-50"
+                >
+                  {verificationLoading ? 'SENDING OTP...' : 'Send Verification OTP'}
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={handleConfirmVerification} className="space-y-3">
+                <div className="bg-blue-50 border border-blue-100 p-3 rounded-md3 text-xs text-blue-800 leading-relaxed font-semibold">
+                  We've sent a 6-digit verification code to <strong>{verifyingPhone}</strong>. Enter the code below to verify and save the contact.
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">6-Digit OTP Code</label>
+                  <input
+                    type="text"
+                    required
+                    value={verificationCode}
+                    onChange={(e) => setVerificationCode(e.target.value)}
+                    placeholder="123456"
+                    maxLength={6}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-md3 px-3 py-2 text-slate-800 placeholder-slate-400 text-xs tracking-widest text-center font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 focus:bg-white"
+                  />
+                </div>
+                {verificationError && (
+                  <p className="text-danger text-[11px] font-semibold">{verificationError}</p>
+                )}
+                <div className="flex gap-2">
+                  <button
+                    type="submit"
+                    disabled={verificationLoading}
+                    className="bg-green-600 hover:bg-green-700 text-white text-xs font-bold px-4 py-2.5 rounded-md3 shadow-sm hover-scale disabled:opacity-50"
+                  >
+                    {verificationLoading ? 'VERIFYING...' : 'Verify & Add Contact'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowVerifyInput(false)}
+                    className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold px-4 py-2.5 rounded-md3"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+
+          <div className="space-y-4">
+            <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Active SOS Contacts</h3>
+            {verifiedContacts.length === 0 ? (
+              <div className="border border-dashed border-slate-200 p-8 rounded-md3 text-center text-slate-400 text-xs font-semibold">
+                No active SOS contacts saved. Add a verified mobile number above to enable emergency broadcasts.
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100 border border-slate-200 rounded-md3 bg-slate-50/50">
+                {verifiedContacts.map((contact, index) => (
+                  <div key={index} className="p-3.5 flex items-center justify-between gap-4">
+                    <div>
+                      <h4 className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
+                        {contact.name}
+                        <span className="bg-green-100 text-green-800 text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider">VERIFIED</span>
+                      </h4>
+                      <p className="text-slate-500 text-xs font-semibold mt-0.5">{contact.phone}</p>
+                    </div>
+                    <button
+                      onClick={() => handleDeleteContact(contact.phone)}
+                      className="text-danger hover:text-red-700 text-xs font-bold hover:underline"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

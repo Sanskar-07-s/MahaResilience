@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import crypto from 'crypto';
 import { sendSMS, sendSOS, sendOTP, verifyOTP } from '../services/twilioService.js';
 
 export const sendSmsController = async (req: Request, res: Response, next: NextFunction) => {
@@ -70,5 +71,68 @@ export const verifyOtpController = async (req: Request, res: Response, next: Nex
   } catch (error: any) {
     console.error('[SMS Controller Verify Error]', error);
     return res.status(500).json({ error: error.message || 'OTP verification process failed.' });
+  }
+};
+
+// In-memory 2FA Verification Cache for Emergency Contacts
+const contactOtpCache = new Map<string, { code: string; expires: number; name: string }>();
+
+export const requestContactVerifyController = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { phone, name } = req.body;
+    if (!phone || !name) {
+      return res.status(400).json({ error: 'Parameters "phone" and "name" are required.' });
+    }
+
+    // Generate secure 6-digit verification code using randomInt
+    const otpCode = crypto.randomInt(100000, 999999).toString();
+    contactOtpCache.set(phone, {
+      code: otpCode,
+      expires: Date.now() + 5 * 60 * 1000, // 5 minute validity
+      name
+    });
+
+    const smsBody = `[MahaResilience] Emergency contact verification code: ${otpCode}. Valid for 5 minutes.`;
+    await sendSMS(phone, smsBody);
+
+    return res.status(200).json({ message: '2FA verification code dispatched to contact.' });
+  } catch (error: any) {
+    console.error('[SMS Contact OTP Error]', error);
+    return res.status(500).json({ error: error.message || 'Failed to dispatch verification code.' });
+  }
+};
+
+export const verifyContactController = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { phone, code } = req.body;
+    if (!phone || !code) {
+      return res.status(400).json({ error: 'Parameters "phone" and "code" are required.' });
+    }
+
+    const cachedRecord = contactOtpCache.get(phone);
+    if (!cachedRecord) {
+      return res.status(400).json({ error: 'No active verification request found for this contact.', verified: false });
+    }
+
+    if (Date.now() > cachedRecord.expires) {
+      contactOtpCache.delete(phone);
+      return res.status(400).json({ error: 'Verification code expired.', verified: false });
+    }
+
+    if (cachedRecord.code !== code) {
+      return res.status(400).json({ error: 'Incorrect verification code.', verified: false });
+    }
+
+    // Verification Success
+    contactOtpCache.delete(phone);
+    return res.status(200).json({
+      message: 'Contact verified successfully.',
+      verified: true,
+      name: cachedRecord.name,
+      phone
+    });
+  } catch (error: any) {
+    console.error('[SMS Contact Verify Error]', error);
+    return res.status(500).json({ error: error.message || 'Failed to verify code.' });
   }
 };

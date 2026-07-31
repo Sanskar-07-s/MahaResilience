@@ -18,7 +18,11 @@ export const sendSMS = async (to: string, body: string) => {
 };
 
 export const sendSOS = async (to: string, location: string, reporter: string) => {
-  const sosBody = `🚨 EMERGENCY SOS BEACON DETECTED!\nReporter: ${reporter}\nLock Coords: ${location}\nRescue assets routed. Please stay safe.`;
+  const coords = location.split(',').map(s => s.trim());
+  const lat = coords[0] || '18.5204';
+  const lng = coords[1] || '73.8567';
+  const trackLink = `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=18/${lat}/${lng}`;
+  const sosBody = `🚨 EMERGENCY SOS BEACON DETECTED!\nReporter: ${reporter}\nCoords: ${location}\nTrack Live OSM Link: ${trackLink}\nRescue units dispatched. Stay safe.`;
   return sendSMS(to, sosBody);
 };
 
