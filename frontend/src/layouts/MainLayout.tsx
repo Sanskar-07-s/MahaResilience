@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.tsx';
+import { AlertOverlay } from '../components/alerts/AlertOverlay.tsx';
+import { OfflineBanner } from '../components/common/OfflineBanner.tsx';
 import {
   Menu,
   X,
@@ -54,6 +56,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-background">
+      <AlertOverlay />
+      <OfflineBanner />
       {/* Top Navbar */}
       <nav className="sticky top-0 z-50 glass shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

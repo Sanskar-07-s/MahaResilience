@@ -7,6 +7,8 @@ import emergencyRoutes from './routes/emergencyRoutes.js';
 import complaintRoutes from './routes/complaintRoutes.js';
 import schemeRoutes from './routes/schemeRoutes.js';
 import civicRoutes from './routes/civicRoutes.js';
+import smsRoutes from './routes/smsRoutes.js';
+import alertRoutes from './routes/alertRoutes.js';
 import { errorHandler } from './middleware/error.js';
 
 const app = express();
@@ -42,6 +44,8 @@ app.use('/api/emergency', emergencyRoutes);
 app.use('/api/complaints', complaintRoutes);
 app.use('/api/schemes', schemeRoutes);
 app.use('/api/civic', civicRoutes);
+app.use('/api/sms', smsRoutes);
+app.use('/api/alerts', alertRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

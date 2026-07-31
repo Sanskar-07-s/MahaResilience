@@ -2,6 +2,9 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from '../contexts/AuthContext.tsx';
+import { AlertProvider } from '../contexts/AlertContext.tsx';
+import { NotificationProvider } from '../contexts/NotificationContext.tsx';
+import { seedOfflineDatabase } from '../utils/db.ts';
 
 // Layouts
 import MainLayout from '../layouts/MainLayout.tsx';
@@ -57,49 +60,57 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; allowedRoles?: strin
 };
 
 const App: React.FC = () => {
+  React.useEffect(() => {
+    seedOfflineDatabase();
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <Router>
-          <Routes>
-            {/* Auth routes */}
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
+        <AlertProvider>
+          <NotificationProvider>
+            <Router>
+              <Routes>
+                {/* Auth routes */}
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/register" element={<RegisterPage />} />
 
-            {/* Standard and Civic routes wrapped in MainLayout */}
-            <Route path="/" element={<MainLayout><LandingPage /></MainLayout>} />
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute>
-                  <MainLayout><DashboardPage /></MainLayout>
-                </ProtectedRoute>
-              }
-            />
-            <Route path="/emergency" element={<MainLayout><EmergencyPage /></MainLayout>} />
-            <Route path="/government" element={<MainLayout><GovernmentPage /></MainLayout>} />
-            <Route path="/healthcare" element={<MainLayout><HealthcarePage /></MainLayout>} />
-            <Route path="/alerts" element={<MainLayout><AlertsPage /></MainLayout>} />
-            <Route path="/complaints" element={<MainLayout><ComplaintsPage /></MainLayout>} />
-            <Route path="/tourism" element={<MainLayout><TourismPage /></MainLayout>} />
-            <Route path="/transport" element={<MainLayout><TransportPage /></MainLayout>} />
-            <Route path="/community" element={<MainLayout><CommunityPage /></MainLayout>} />
-            <Route path="/map" element={<MainLayout><MapPage /></MainLayout>} />
+                {/* Standard and Civic routes wrapped in MainLayout */}
+                <Route path="/" element={<MainLayout><LandingPage /></MainLayout>} />
+                <Route
+                  path="/dashboard"
+                  element={
+                    <ProtectedRoute>
+                      <MainLayout><DashboardPage /></MainLayout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route path="/emergency" element={<MainLayout><EmergencyPage /></MainLayout>} />
+                <Route path="/government" element={<MainLayout><GovernmentPage /></MainLayout>} />
+                <Route path="/healthcare" element={<MainLayout><HealthcarePage /></MainLayout>} />
+                <Route path="/alerts" element={<MainLayout><AlertsPage /></MainLayout>} />
+                <Route path="/complaints" element={<MainLayout><ComplaintsPage /></MainLayout>} />
+                <Route path="/tourism" element={<MainLayout><TourismPage /></MainLayout>} />
+                <Route path="/transport" element={<MainLayout><TransportPage /></MainLayout>} />
+                <Route path="/community" element={<MainLayout><CommunityPage /></MainLayout>} />
+                <Route path="/map" element={<MainLayout><MapPage /></MainLayout>} />
 
-            {/* Admin only dashboard */}
-            <Route
-              path="/admin"
-              element={
-                <ProtectedRoute allowedRoles={['ADMIN', 'OFFICIAL']}>
-                  <MainLayout><AdminDashboardPage /></MainLayout>
-                </ProtectedRoute>
-              }
-            />
+                {/* Admin only dashboard */}
+                <Route
+                  path="/admin"
+                  element={
+                    <ProtectedRoute allowedRoles={['ADMIN', 'OFFICIAL']}>
+                      <MainLayout><AdminDashboardPage /></MainLayout>
+                    </ProtectedRoute>
+                  }
+                />
 
-            {/* Fallback route */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Router>
+                {/* Fallback route */}
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </Router>
+          </NotificationProvider>
+        </AlertProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

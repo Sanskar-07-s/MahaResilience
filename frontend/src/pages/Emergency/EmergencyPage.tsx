@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext.tsx';
 import { Flame, ShieldAlert, HeartPulse, Building2, MapPin, PhoneCall, CheckCircle } from 'lucide-react';
+import { getAllData } from '../../utils/db.ts';
 
 interface Shelter {
   id: string;
@@ -81,18 +82,27 @@ const EmergencyPage: React.FC = () => {
         if (sheltersRes.ok) setShelters(await sheltersRes.json());
         if (hospitalsRes.ok) setHospitals(await hospitalsRes.json());
       } catch (err) {
-        setAlerts([
-          { id: '1', title: 'Severe Cyclone Alert - Konkan Coast', description: 'Monsoon cyclone warning issued for the next 24 hours. Fisherman are advised not to venture into the sea. Safe shelters are open.', type: 'DISASTER', severity: 'CRITICAL', createdAt: new Date().toISOString() },
-          { id: '2', title: 'Pune Metro Line 1 Delay Warning', description: 'Minor signaling issue near Shivaji Nagar. Expect delays of 10-15 minutes.', type: 'TRAFFIC', severity: 'WARNING', createdAt: new Date().toISOString() },
-        ]);
-        setShelters([
-          { id: '1', name: 'Bandra Reclamation Primary Shelter', address: 'KC Road, Bandra West, Mumbai', capacity: 300, currentOccupancy: 120, contactNumber: '022-26510012', latitude: 19.052, longitude: 72.825, resourcesAvailable: ['Food', 'Water', 'Medical Aid'], distance: 1.2 },
-          { id: '2', name: 'Dharavi Sports Complex Safe Zone', address: 'Sion Road, Dharavi, Mumbai', capacity: 600, currentOccupancy: 85, contactNumber: '022-24018890', latitude: 19.038, longitude: 72.854, resourcesAvailable: ['Blankets', 'Sanitation', 'Power Outlets'], distance: 3.8 },
-        ]);
-        setHospitals([
-          { id: '1', name: 'Lilavati Hospital & Research Center', type: 'PRIVATE', contactNumber: '022-26751000', address: 'A-791, Bandra West, Mumbai', latitude: 19.051, longitude: 72.822, availableBeds: 24, bloodGroupStock: {}, hasEmergencyUnit: true, distance: 0.9 },
-          { id: '2', name: 'Bhabha Municipal General Hospital', type: 'GOVERNMENT', contactNumber: '022-26422775', address: 'Waterfield Road, Bandra West, Mumbai', latitude: 19.059, longitude: 72.831, availableBeds: 12, bloodGroupStock: {}, hasEmergencyUnit: true, distance: 1.5 },
-        ]);
+        console.warn('Network offline. Pulling from local IndexedDB databases...');
+        try {
+          const dbAlerts = await getAllData('alerts');
+          const dbShelters = await getAllData('shelters');
+          const dbHospitals = await getAllData('hospitals');
+
+          setAlerts(dbAlerts.length > 0 ? dbAlerts : [
+            { id: '1', title: 'Severe Cyclone Alert - Konkan Coast', description: 'Monsoon cyclone warning issued for the next 24 hours. Fisherman are advised not to venture into the sea. Safe shelters are open.', type: 'DISASTER', severity: 'CRITICAL', createdAt: new Date().toISOString() },
+            { id: '2', title: 'Pune Metro Line 1 Delay Warning', description: 'Minor signaling issue near Shivaji Nagar. Expect delays of 10-15 minutes.', type: 'TRAFFIC', severity: 'WARNING', createdAt: new Date().toISOString() },
+          ]);
+          setShelters(dbShelters.length > 0 ? dbShelters : [
+            { id: '1', name: 'Bandra Reclamation Primary Shelter', address: 'KC Road, Bandra West, Mumbai', capacity: 300, currentOccupancy: 120, contactNumber: '022-26510012', latitude: 19.052, longitude: 72.825, resourcesAvailable: ['Food', 'Water', 'Medical Aid'], distance: 1.2 },
+            { id: '2', name: 'Dharavi Sports Complex Safe Zone', address: 'Sion Road, Dharavi, Mumbai', capacity: 600, currentOccupancy: 85, contactNumber: '022-24018890', latitude: 19.038, longitude: 72.854, resourcesAvailable: ['Blankets', 'Sanitation', 'Power Outlets'], distance: 3.8 },
+          ]);
+          setHospitals(dbHospitals.length > 0 ? dbHospitals : [
+            { id: '1', name: 'Lilavati Hospital & Research Center', type: 'PRIVATE', contactNumber: '022-26751000', address: 'A-791, Bandra West, Mumbai', latitude: 19.051, longitude: 72.822, availableBeds: 24, bloodGroupStock: {}, hasEmergencyUnit: true, distance: 0.9 },
+            { id: '2', name: 'Bhabha Municipal General Hospital', type: 'GOVERNMENT', contactNumber: '022-26422775', address: 'Waterfield Road, Bandra West, Mumbai', latitude: 19.059, longitude: 72.831, availableBeds: 12, bloodGroupStock: {}, hasEmergencyUnit: true, distance: 1.5 },
+          ]);
+        } catch (dbErr) {
+          console.error('[Emergency Page] IndexedDB query error:', dbErr);
+        }
       }
     };
 
