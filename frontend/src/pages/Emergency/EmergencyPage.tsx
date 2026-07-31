@@ -5,6 +5,8 @@ import { getAllData } from '../../utils/db.ts';
 import { MapProvider } from '../../components/maps/MapProvider.tsx';
 import { LiveMap } from '../../components/maps/Maps.tsx';
 
+const API_BASE = (import.meta as any).env.VITE_API_URL || '';
+
 interface Shelter {
   id: string;
   name: string;
@@ -51,6 +53,20 @@ const EmergencyPage: React.FC = () => {
   const [sosLoading, setSosLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'alerts' | 'shelters' | 'hospitals'>('alerts');
   const [sosContact, setSosContact] = useState('');
+  const [contactsSaved, setContactsSaved] = useState(false);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('ch_sos_contacts');
+    if (saved) {
+      setSosContact(saved);
+    }
+  }, []);
+
+  const saveSosContacts = () => {
+    localStorage.setItem('ch_sos_contacts', sosContact);
+    setContactsSaved(true);
+    setTimeout(() => setContactsSaved(false), 3000);
+  };
 
   useEffect(() => {
     // 1. Get current citizen coordinates
@@ -76,9 +92,9 @@ const EmergencyPage: React.FC = () => {
     const loadEmergencyData = async () => {
       try {
         const [alertsRes, sheltersRes, hospitalsRes] = await Promise.all([
-          fetch(`/api/emergency/alerts?lat=${coords.lat}&lng=${coords.lng}`),
-          fetch(`/api/emergency/shelters?lat=${coords.lat}&lng=${coords.lng}&radius=20`),
-          fetch(`/api/emergency/hospitals?lat=${coords.lat}&lng=${coords.lng}&radius=20`),
+          fetch(`${API_BASE}/api/emergency/alerts?lat=${coords.lat}&lng=${coords.lng}`),
+          fetch(`${API_BASE}/api/emergency/shelters?lat=${coords.lat}&lng=${coords.lng}&radius=20`),
+          fetch(`${API_BASE}/api/emergency/hospitals?lat=${coords.lat}&lng=${coords.lng}&radius=20`),
         ]);
 
         if (!alertsRes.ok || !sheltersRes.ok || !hospitalsRes.ok) {
@@ -120,7 +136,7 @@ const EmergencyPage: React.FC = () => {
     setSosLoading(true);
     try {
       // 1. Trigger local system alert
-      const response = await fetch('/api/emergency/sos', {
+      const response = await fetch(`${API_BASE}/api/emergency/sos`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -135,7 +151,7 @@ const EmergencyPage: React.FC = () => {
 
       // 2. Broadcast SOS via Twilio SMS if numbers are provided
       const contactList = sosContact.split(',').map(c => c.trim()).filter(c => c.length > 0);
-      await fetch('/api/sms/sos', {
+      await fetch(`${API_BASE}/api/sms/sos`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -177,15 +193,23 @@ const EmergencyPage: React.FC = () => {
           <p className="text-red-100 max-w-xl text-sm leading-relaxed">
             Trigger an instant SOS emergency signal to report floods, fires, earthquakes, accidents, or medical crises. Nearby volunteers and civil defense authorities will receive your coordinates immediately.
           </p>
-          <div className="pt-3 max-w-sm">
-            <label className="block text-[10px] font-extrabold text-red-100 mb-1 uppercase tracking-widest">Custom SOS Contacts (SMS)</label>
-            <input
-              type="text"
-              value={sosContact}
-              onChange={(e) => setSosContact(e.target.value)}
-              placeholder="e.g. +919876543210 (comma separated)"
-              className="w-full bg-white/10 border border-white/20 rounded-md3 px-3.5 py-2 text-white placeholder-white/40 text-xs focus:outline-none focus:ring-2 focus:ring-white/40 transition-all font-semibold"
-            />
+          <div className="pt-3 max-w-sm space-y-2">
+            <label className="block text-[10px] font-extrabold text-red-100 uppercase tracking-widest">SOS Contacts (SMS Setting)</label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={sosContact}
+                onChange={(e) => setSosContact(e.target.value)}
+                placeholder="e.g. +919876543210 (comma separated)"
+                className="flex-1 bg-white/10 border border-white/20 rounded-md3 px-3.5 py-2 text-white placeholder-white/40 text-xs focus:outline-none focus:ring-2 focus:ring-white/40 transition-all font-semibold"
+              />
+              <button
+                onClick={saveSosContacts}
+                className="bg-white/20 hover:bg-white/30 text-white border border-white/30 px-3.5 py-2 rounded-md3 text-xs font-bold transition-all shadow-sm whitespace-nowrap"
+              >
+                {contactsSaved ? '✓ Saved' : 'Save Number'}
+              </button>
+            </div>
           </div>
         </div>
 
