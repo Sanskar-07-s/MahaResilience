@@ -50,6 +50,7 @@ const EmergencyPage: React.FC = () => {
   const [sosSent, setSosSent] = useState(false);
   const [sosLoading, setSosLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'alerts' | 'shelters' | 'hospitals'>('alerts');
+  const [sosContact, setSosContact] = useState('');
 
   useEffect(() => {
     // 1. Get current citizen coordinates
@@ -118,6 +119,7 @@ const EmergencyPage: React.FC = () => {
   const handleSOSTrigger = async () => {
     setSosLoading(true);
     try {
+      // 1. Trigger local system alert
       const response = await fetch('/api/emergency/sos', {
         method: 'POST',
         headers: {
@@ -128,6 +130,20 @@ const EmergencyPage: React.FC = () => {
           latitude: coords?.lat || 18.5204,
           longitude: coords?.lng || 73.8567,
           address: 'User Current SOS Geo-Beacon',
+        }),
+      });
+
+      // 2. Broadcast SOS via Twilio SMS if numbers are provided
+      const contactList = sosContact.split(',').map(c => c.trim()).filter(c => c.length > 0);
+      await fetch('/api/sms/sos', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          location: `${coords?.lat || 18.5204}, ${coords?.lng || 73.8567}`,
+          reporter: user?.name || 'Anonymous Citizen',
+          emergencyContacts: contactList.length > 0 ? contactList : undefined
         }),
       });
 
@@ -161,6 +177,16 @@ const EmergencyPage: React.FC = () => {
           <p className="text-red-100 max-w-xl text-sm leading-relaxed">
             Trigger an instant SOS emergency signal to report floods, fires, earthquakes, accidents, or medical crises. Nearby volunteers and civil defense authorities will receive your coordinates immediately.
           </p>
+          <div className="pt-3 max-w-sm">
+            <label className="block text-[10px] font-extrabold text-red-100 mb-1 uppercase tracking-widest">Custom SOS Contacts (SMS)</label>
+            <input
+              type="text"
+              value={sosContact}
+              onChange={(e) => setSosContact(e.target.value)}
+              placeholder="e.g. +919876543210 (comma separated)"
+              className="w-full bg-white/10 border border-white/20 rounded-md3 px-3.5 py-2 text-white placeholder-white/40 text-xs focus:outline-none focus:ring-2 focus:ring-white/40 transition-all font-semibold"
+            />
+          </div>
         </div>
 
         <div>
