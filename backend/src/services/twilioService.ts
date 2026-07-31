@@ -1,11 +1,12 @@
 import twilio from 'twilio';
 
 const accountSid = process.env.TWILIO_ACCOUNT_SID || 'ACmockaccount';
-const authToken = process.env.TWILIO_AUTH_TOKEN || 'mockauthtoken';
+const apiKeySid = process.env.TWILIO_API_KEY_SID || 'SKmockapisid';
+const apiKeySecret = process.env.TWILIO_API_KEY_SECRET || 'mockapisecret';
 const phoneNumber = process.env.TWILIO_PHONE_NUMBER || '+15017122661';
 const verifyServiceSid = process.env.TWILIO_VERIFY_SERVICE_SID || 'VA-mock-verify-sid';
 
-const client = twilio(accountSid, authToken);
+const client = twilio(apiKeySid, apiKeySecret, { accountSid });
 
 export const sendSMS = async (to: string, body: string) => {
   console.log(`[Twilio Service] Sending SMS to ${to}: ${body}`);
