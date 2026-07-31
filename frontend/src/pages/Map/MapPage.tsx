@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { MapPin, Building, HeartPulse, ShieldAlert, Bus, HelpCircle } from 'lucide-react';
+import { MapProvider } from '../../components/maps/MapProvider.tsx';
+import { LiveMap } from '../../components/maps/Maps.tsx';
 
 interface AssetMarker {
   id: string;
@@ -104,57 +106,21 @@ const MapPage: React.FC = () => {
         </div>
 
         {/* Map Grid */}
-        <div className="lg:col-span-3 h-[500px] bg-slate-100 rounded-md3 border border-slate-border shadow-inner relative overflow-hidden flex flex-col justify-between p-6">
-          {/* Ambient Map Grid View (OSM Render Mock) */}
-          <div className="absolute inset-0 bg-slate-200 opacity-60 z-0">
-            {/* Visual Grid representing street lines */}
-            <div className="w-full h-full bg-[linear-gradient(rgba(0,0,0,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(0,0,0,0.05)_1px,transparent_1px)] bg-[size:40px_40px]"></div>
-          </div>
-
-          <div className="relative z-10 flex justify-between items-start">
-            <span className="bg-white/80 backdrop-blur-md px-3 py-1 rounded-md3 text-xs font-semibold text-slate-600 border border-slate-border flex items-center gap-1">
-              <MapPin className="w-3.5 h-3.5 text-primary" /> Mapping area: Pune Center
-            </span>
-          </div>
-
-          {/* Render Mock pins visually on grid */}
-          <div className="relative flex-1 z-10">
-            {filteredAssets.map((asset) => {
-              // Map latitude and longitude to percentage bounds for visual grid fallback
-              const topVal = ((18.535 - asset.latitude) / 0.025) * 100;
-              const leftVal = ((asset.longitude - 73.840) / 0.025) * 100;
-
-              return (
-                <button
-                  key={asset.id}
-                  onClick={() => setSelectedAsset(asset)}
-                  style={{ top: `${Math.max(10, Math.min(topVal, 90))}%`, left: `${Math.max(10, Math.min(leftVal, 90))}%` }}
-                  className={`absolute transform -translate-x-1/2 -translate-y-1/2 p-2.5 rounded-full shadow-lg border-2 border-white transition-all hover:scale-125 ${
-                    asset.category === 'HOSPITAL'
-                      ? 'bg-red-500 text-white'
-                      : asset.category === 'SHELTER'
-                      ? 'bg-green-500 text-white'
-                      : asset.category === 'COMPLAINT'
-                      ? 'bg-amber-500 text-white'
-                      : 'bg-blue-500 text-white'
-                  }`}
-                  title={asset.name}
-                >
-                  {asset.category === 'HOSPITAL' && <HeartPulse className="w-4 h-4" />}
-                  {asset.category === 'SHELTER' && <Building className="w-4 h-4" />}
-                  {asset.category === 'COMPLAINT' && <ShieldAlert className="w-4 h-4" />}
-                  {asset.category === 'TRANSIT' && <Bus className="w-4 h-4" />}
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="relative z-10 bg-white/90 backdrop-blur-md p-4 rounded-md3 border border-slate-border shadow-sm text-xs text-slate-500 max-w-sm">
-            <p className="font-semibold text-slate-700 mb-1 flex items-center gap-1">
-              <HelpCircle className="w-4 h-4 text-primary" /> Leaflet & OpenStreetMap Integrated
-            </p>
-            When loaded inside live browser, this grid connects directly to coordinate markers. In local mode, fallback grid indicators represent physical locations.
-          </div>
+        <div className="lg:col-span-3 h-[500px] relative overflow-hidden rounded-md3 border border-slate-border">
+          <MapProvider>
+            <LiveMap
+              assets={filteredAssets.map(a => ({
+                id: a.id,
+                name: a.name,
+                category: a.category,
+                latitude: a.latitude,
+                longitude: a.longitude,
+                address: a.details,
+                details: a.details
+              }))}
+              height="500px"
+            />
+          </MapProvider>
         </div>
       </div>
     </div>

@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext.tsx';
 import { Flame, ShieldAlert, HeartPulse, Building2, MapPin, PhoneCall, CheckCircle } from 'lucide-react';
 import { getAllData } from '../../utils/db.ts';
+import { MapProvider } from '../../components/maps/MapProvider.tsx';
+import { LiveMap } from '../../components/maps/Maps.tsx';
 
 interface Shelter {
   id: string;
@@ -175,6 +177,40 @@ const EmergencyPage: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Dynamic Emergency Map */}
+      {coords && (
+        <div className="bg-white p-4 rounded-md3 border border-slate-border shadow-sm space-y-3">
+          <h3 className="font-bold text-slate-800 text-sm flex items-center gap-1.5">
+            <MapPin className="w-4 h-4 text-primary animate-pulse" /> Live Emergency Resiliency Map
+          </h3>
+          <MapProvider>
+            <LiveMap
+              assets={[
+                ...shelters.map(s => ({
+                  id: s.id,
+                  name: s.name,
+                  category: 'SHELTER' as const,
+                  latitude: s.latitude,
+                  longitude: s.longitude,
+                  address: s.address,
+                  details: `Capacity: ${s.capacity} beds`
+                })),
+                ...hospitals.map(h => ({
+                  id: h.id,
+                  name: h.name,
+                  category: 'HOSPITAL' as const,
+                  latitude: h.latitude,
+                  longitude: h.longitude,
+                  address: h.address,
+                  details: `Beds: ${h.availableBeds} free`
+                }))
+              ]}
+              height="350px"
+            />
+          </MapProvider>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left/Middle Column: Resource Directory */}
