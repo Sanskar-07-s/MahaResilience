@@ -50,10 +50,9 @@ const ComplaintsPage: React.FC = () => {
     try {
       const url = `/api/complaints?category=${categoryFilter}&sortBy=${sortBy}`;
       const response = await fetch(url);
+      if (!response.ok) throw new Error('Response not ok');
       const data = await response.json();
-      if (response.ok) {
-        setComplaints(data);
-      }
+      setComplaints(data);
     } catch (err) {
       setComplaints([
         {

@@ -80,9 +80,13 @@ const EmergencyPage: React.FC = () => {
           fetch(`/api/emergency/hospitals?lat=${coords.lat}&lng=${coords.lng}&radius=20`),
         ]);
 
-        if (alertsRes.ok) setAlerts(await alertsRes.json());
-        if (sheltersRes.ok) setShelters(await sheltersRes.json());
-        if (hospitalsRes.ok) setHospitals(await hospitalsRes.json());
+        if (!alertsRes.ok || !sheltersRes.ok || !hospitalsRes.ok) {
+          throw new Error('Network response not ok');
+        }
+
+        setAlerts(await alertsRes.json());
+        setShelters(await sheltersRes.json());
+        setHospitals(await hospitalsRes.json());
       } catch (err) {
         console.warn('Network offline. Pulling from local IndexedDB databases...');
         try {

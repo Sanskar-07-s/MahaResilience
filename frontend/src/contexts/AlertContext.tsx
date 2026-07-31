@@ -58,26 +58,45 @@ export const AlertProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const fetchAlerts = async () => {
     try {
       const response = await fetch('/api/alerts?state=maharashtra');
-      if (response.ok) {
-        const data: DisasterAlert[] = await response.json();
-        setAlerts(data);
+      if (!response.ok) throw new Error('Response not ok');
+      const data: DisasterAlert[] = await response.json();
+      setAlerts(data);
 
-        // Check for any active critical alerts
-        const critical = data.find(item => item.severity === 'CRITICAL');
-        if (critical) {
-          // Only show banner if it is a new critical alert
-          setActiveCriticalAlert(prev => {
-            if (prev?.title !== critical.title) {
-              triggerAlarmSound();
-              return critical;
-            }
-            return prev;
-          });
-        }
+      // Check for any active critical alerts
+      const critical = data.find(item => item.severity === 'CRITICAL');
+      if (critical) {
+        // Only show banner if it is a new critical alert
+        setActiveCriticalAlert(prev => {
+          if (prev?.title !== critical.title) {
+            triggerAlarmSound();
+            return critical;
+          }
+          return prev;
+        });
       }
     } catch (error) {
       console.error('[Alert Engine] Sync failed:', error);
-      // Fallback local mock trigger if fully offline and offline mode is initialized
+      // Fallback local mock alerts if backend is down or offline
+      setAlerts([
+        {
+          title: 'RED ALERT: Severe Flooding Warning for Pune-East (Offline Mock)',
+          description: 'Mutha river discharge exceeded critical limits. Heavy rainfall expected in next 6 hours. Residents near river beds must evacuate immediately to safe shelters.',
+          publishedDate: new Date().toISOString(),
+          severity: 'CRITICAL',
+          category: 'FLOOD',
+          state: 'MAHARASHTRA',
+          officialLink: 'https://sachet.ndma.gov.in',
+        },
+        {
+          title: 'HEATWAVE WARNING: Nagpur District (Offline Mock)',
+          description: 'Nagpur and adjacent vidarbha districts are experiencing peak temperatures up to 46°C. Keep hydrated and avoid direct sunlight.',
+          publishedDate: new Date(Date.now() - 3 * 3600 * 1000).toISOString(),
+          severity: 'CRITICAL',
+          category: 'HEATWAVE',
+          state: 'MAHARASHTRA',
+          officialLink: 'https://sachet.ndma.gov.in',
+        }
+      ]);
     } finally {
       setIsLoading(false);
     }

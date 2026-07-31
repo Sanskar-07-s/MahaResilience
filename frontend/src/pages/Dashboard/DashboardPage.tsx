@@ -24,12 +24,11 @@ const DashboardPage: React.FC = () => {
   useEffect(() => {
     const fetchSafetyData = async () => {
       try {
-        const response = await fetch('/api/complaints/safety-score?lat=18.922&lng=72.834'); // Mumbai coordinates
+        const response = await fetch('/api/complaints/safety-score?lat=18.922&lng=72.834');
+        if (!response.ok) throw new Error('Response not ok');
         const data = await response.json();
-        if (response.ok) {
-          setSafetyScore(data.safetyScore);
-          setSafetyMetrics(data.metrics);
-        }
+        setSafetyScore(data.safetyScore);
+        setSafetyMetrics(data.metrics);
       } catch (err) {
         console.error('Failed to load safety score', err);
       } finally {
