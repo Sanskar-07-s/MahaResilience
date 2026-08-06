@@ -9,6 +9,7 @@ import schemeRoutes from './routes/schemeRoutes.js';
 import civicRoutes from './routes/civicRoutes.js';
 import smsRoutes from './routes/smsRoutes.js';
 import alertRoutes from './routes/alertRoutes.js';
+import adminRoutes from './routes/adminRoutes.js';
 import { errorHandler } from './middleware/error.js';
 
 const app = express();
@@ -25,7 +26,7 @@ app.use(
   })
 );
 
-// Rate limiting (15 minutes, 100 requests)
+// Rate limiting (15 minutes, 200 requests)
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 200,
@@ -46,6 +47,7 @@ app.use('/api/schemes', schemeRoutes);
 app.use('/api/civic', civicRoutes);
 app.use('/api/sms', smsRoutes);
 app.use('/api/alerts', alertRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

@@ -66,6 +66,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Get or create Firestore UserProfile
           let profile = await getUserProfile(firebaseUser.uid);
 
+          // Special Admin Auto-Assignment check for sanskardhat6@gmail.com
+          const isDefaultAdmin = firebaseUser.email?.toLowerCase() === 'sanskardhat6@gmail.com';
+
           if (!profile) {
             const email = firebaseUser.email || 'citizen@maharesilience.org';
             const name = firebaseUser.displayName || email.split('@')[0];
@@ -76,13 +79,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               name,
               photoURL: firebaseUser.photoURL || '',
               phone: firebaseUser.phoneNumber || '',
-              role: firebaseUser.isAnonymous ? 'TOURIST' : 'CITIZEN',
+              role: isDefaultAdmin ? 'ADMIN' : (firebaseUser.isAnonymous ? 'TOURIST' : 'CITIZEN'),
               isEmailVerified: firebaseUser.emailVerified,
               isPhoneVerified: !!firebaseUser.phoneNumber,
               state: 'Maharashtra',
             });
 
             profile = await getUserProfile(firebaseUser.uid);
+          } else if (isDefaultAdmin && profile.role !== 'ADMIN') {
+            // Update role to ADMIN for sanskardhat6@gmail.com
+            await createOrUpdateUserProfile(firebaseUser.uid, { role: 'ADMIN' });
+            profile.role = 'ADMIN';
           }
 
           if (profile) {
@@ -110,6 +117,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = (newToken: string, profileData: Partial<UserProfile>) => {
     setToken(newToken);
     const uid = profileData.uid || profileData.id || 'user-' + Date.now();
+    const userEmail = (profileData.email || '').toLowerCase();
+    const isDefaultAdmin = userEmail === 'sanskardhat6@gmail.com';
+
     const fullProfile: UserProfile = {
       uid,
       id: uid,
@@ -117,7 +127,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       email: profileData.email || '',
       phone: profileData.phone || '',
       photoURL: profileData.photoURL || '',
-      role: profileData.role || 'CITIZEN',
+      role: isDefaultAdmin ? 'ADMIN' : (profileData.role || 'CITIZEN'),
       language: profileData.language || 'en',
       theme: profileData.theme || 'light',
       notificationsEnabled: profileData.notificationsEnabled ?? true,

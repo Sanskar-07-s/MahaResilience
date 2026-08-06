@@ -22,6 +22,8 @@ import {
   Users
 } from 'lucide-react';
 
+import { CriticalAlertBanner } from '../components/alerts/CriticalAlertBanner.tsx';
+
 interface MainLayoutProps {
   children: React.ReactNode;
 }
@@ -58,6 +60,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     <div className="min-h-screen flex flex-col bg-slate-background">
       <AlertOverlay />
       <OfflineBanner />
+      <CriticalAlertBanner />
       {/* Top Navbar */}
       <nav className="sticky top-0 z-50 glass shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

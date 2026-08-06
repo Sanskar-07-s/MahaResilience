@@ -203,8 +203,9 @@ export const recordAuditLog = async (
   const auditRef = collection(db, 'auditLogs');
 
   const logData: Omit<AuditLog, 'id'> = {
-    uid,
+    adminId: uid,
     action,
+    target: details,
     details,
     timestamp: new Date().toISOString(),
   };
