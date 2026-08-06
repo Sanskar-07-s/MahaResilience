@@ -22,6 +22,22 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({ isOpen
     setIsSubmitting(true);
 
     try {
+      // 1. Try Brevo REST API via backend endpoint POST /api/auth/forgot-password
+      const response = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setSuccessMessage('Password reset email sent via Brevo! Please check your inbox.');
+        setEmail('');
+        return;
+      }
+
+      // 2. Fallback to Firebase Client reset email
       await sendPasswordResetLink(email);
       setSuccessMessage('Password reset link sent! Check your inbox to reset your password.');
       setEmail('');
@@ -48,7 +64,7 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({ isOpen
           </div>
           <div>
             <h3 className="font-bold text-slate-800 text-lg">Reset Password</h3>
-            <p className="text-xs text-slate-500">Enter your email address to receive a recovery link.</p>
+            <p className="text-xs text-slate-500">Enter your email address to receive a Brevo recovery link.</p>
           </div>
         </div>
 

@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import prisma from '../config/db.js';
 import { Role } from '@prisma/client';
 import { AuthenticatedRequest } from '../middleware/auth.js';
+import { sendWelcomeEmail } from '../services/brevoEmailService.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'maharesilience-secret-session-key-2026-auth';
 
@@ -59,6 +60,11 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
       JWT_SECRET,
       { expiresIn: '7d' }
     );
+
+    // Send welcome email via Brevo REST API
+    sendWelcomeEmail(user.email, user.name).catch((err) => {
+      console.warn('[Brevo Welcome Email Dispatch Warning]:', err);
+    });
 
     return res.status(201).json({
       message: 'User registered successfully.',
