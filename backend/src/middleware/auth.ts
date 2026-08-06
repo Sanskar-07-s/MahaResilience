@@ -11,7 +11,7 @@ export interface AuthenticatedRequest extends Request {
   };
 }
 
-const JWT_SECRET = process.env.JWT_SECRET || 'communityhub-secret-session-key-2026-auth';
+const JWT_SECRET = process.env.JWT_SECRET || 'maharesilience-secret-session-key-2026-auth';
 
 export const authenticate = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;

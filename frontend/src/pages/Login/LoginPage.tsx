@@ -61,9 +61,9 @@ const LoginPage: React.FC = () => {
             <ArrowLeft className="w-3.5 h-3.5" /> Back to Home
           </Link>
           <div className="w-12 h-12 rounded-md3 bg-primary text-white flex items-center justify-center mx-auto text-xl font-bold shadow-md">
-            CH
+            MR
           </div>
-          <h2 className="text-2xl font-bold text-slate-800">Sign In to CommunityHUB</h2>
+          <h2 className="text-2xl font-bold text-slate-800">Sign In to MahaResilience</h2>
           <p className="text-sm text-slate-500">Access your citizen dashboard</p>
         </div>
 
@@ -108,7 +108,7 @@ const LoginPage: React.FC = () => {
         </form>
 
         <div className="text-center text-xs text-slate-500">
-          New to CommunityHUB?{' '}
+          New to MahaResilience?{' '}
           <Link to="/register" className="text-primary font-semibold hover:underline">
             Create an Account
           </Link>

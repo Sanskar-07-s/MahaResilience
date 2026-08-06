@@ -1,3 +1,3 @@
-# CommunityHUB
+# MahaResilience
 
-Welcome to CommunityHUB!
+Welcome to MahaResilience!

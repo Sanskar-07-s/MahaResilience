@@ -1,7 +1,7 @@
 {
-  "name": "communityhub-backend",
+  "name": "maharesilience-backend",
   "version": "1.0.0",
-  "description": "Smart Community Engagement Platform Backend",
+  "description": "MahaResilience Smart Engagement Platform Backend",
   "main": "dist/server.js",
   "scripts": {
     "dev": "nodemon src/server.ts",

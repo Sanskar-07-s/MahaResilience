@@ -181,7 +181,7 @@ const LandingPage: React.FC = () => {
           </div>
           <div className="space-y-4">
             <div className="space-y-1">
-              <p className="font-semibold text-slate-800">Does CommunityHUB work without internet access?</p>
+              <p className="font-semibold text-slate-800">Does MahaResilience work without internet access?</p>
               <p className="text-sm text-slate-500">Yes! The platform is designed offline-first. Critical datasets like hospital directories, shelters, first-aid manuals, and public schemes are cached inside browser IndexedDB storage and remain fully usable offline.</p>
             </div>
             <div className="space-y-1">

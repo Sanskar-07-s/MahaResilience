@@ -66,10 +66,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             <div className="flex items-center">
               <Link to="/" className="flex items-center gap-2">
                 <div className="w-10 h-10 rounded-md3 bg-primary flex items-center justify-center text-white shadow-md">
-                  <span className="font-bold text-lg">CH</span>
+                  <span className="font-bold text-lg">MR</span>
                 </div>
                 <span className="font-bold text-xl tracking-tight text-slate-800 hidden sm:block">
-                  Community<span className="text-primary">HUB</span>
+                  Maha<span className="text-primary">Resilience</span>
                 </span>
               </Link>
             </div>
@@ -286,9 +286,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded bg-primary flex items-center justify-center text-white font-bold text-sm">
-              CH
+              MR
             </div>
-            <span className="font-bold text-slate-700">CommunityHUB Maharashtra</span>
+            <span className="font-bold text-slate-700">MahaResilience Maharashtra</span>
           </div>
           <p className="text-xs text-slate-400">
             © 2026 Government of Maharashtra. Under Digital India & Civic-Tech Initiatives.

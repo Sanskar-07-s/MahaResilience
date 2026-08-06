@@ -5,7 +5,7 @@ import prisma from '../config/db.js';
 import { Role } from '@prisma/client';
 import { AuthenticatedRequest } from '../middleware/auth.js';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'communityhub-secret-session-key-2026-auth';
+const JWT_SECRET = process.env.JWT_SECRET || 'maharesilience-secret-session-key-2026-auth';
 
 export const register = async (req: Request, res: Response, next: NextFunction) => {
   try {
