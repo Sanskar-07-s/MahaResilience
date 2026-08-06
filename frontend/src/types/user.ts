@@ -1,6 +1,6 @@
 import { Timestamp } from 'firebase/firestore';
 
-export type UserRole = 'CITIZEN' | 'VOLUNTEER' | 'OFFICIAL' | 'ADMIN' | 'TOURIST';
+export type UserRole = 'CITIZEN' | 'VOLUNTEER' | 'OFFICIAL' | 'ADMIN' | 'SUPER_ADMIN' | 'TOURIST';
 
 export interface UserPreferences {
   theme: 'light' | 'dark' | 'system';
@@ -19,6 +19,13 @@ export interface UserProfile {
   phone?: string;
   photoURL?: string;
   role: UserRole;
+  displayRole?: string;
+  isAdmin?: boolean;
+  permissions?: string[];
+  accountStatus?: 'ACTIVE' | 'SUSPENDED' | 'BANNED';
+  isSuspended?: boolean;
+  isBanned?: boolean;
+  isVerified?: boolean;
   language: 'en' | 'mr' | 'hi';
   theme: 'light' | 'dark' | 'system';
   notificationsEnabled: boolean;
@@ -32,10 +39,10 @@ export interface UserProfile {
   isPhoneVerified: boolean;
   isProfileComplete: boolean;
   emergencyContactsConfigured: boolean;
-  isSuspended?: boolean;
   createdAt: string | Timestamp | Date;
   updatedAt: string | Timestamp | Date;
   lastLogin: string | Timestamp | Date;
+  createdBy?: string;
 }
 
 export type AlertCategory =
@@ -64,10 +71,13 @@ export interface AlertItem {
   radius?: number;
   startTime?: string | Timestamp | Date;
   endTime?: string | Timestamp | Date;
+  scheduledAt?: string | Timestamp | Date;
   image?: string;
   attachments?: string[];
   isPinned: boolean;
-  status: 'ACTIVE' | 'EXPIRED' | 'CANCELLED';
+  isPaused?: boolean;
+  isGeoFenced?: boolean;
+  status: 'ACTIVE' | 'EXPIRED' | 'CANCELLED' | 'PAUSED' | 'SCHEDULED';
   createdBy?: string;
   createdAt: string | Timestamp | Date;
 }

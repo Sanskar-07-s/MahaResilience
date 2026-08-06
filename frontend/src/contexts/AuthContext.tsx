@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { useNavigate } from 'react-router-dom';
 import { auth } from '../lib/firebase.ts';
 import {
   getUserProfile,
@@ -10,6 +11,8 @@ import {
 import { logoutUser } from '../services/firebase/auth.service.ts';
 import { UserProfile, UserRole } from '../types/user.ts';
 import { useInactivityLogout } from '../hooks/useInactivityLogout.ts';
+import { bootstrapSuperAdmin } from '../utils/superAdminBootstrap.ts';
+import { isSuperAdmin, isDistrictAdmin, isOfficer, isCitizen, hasPermission, SUPER_ADMIN_UID } from '../utils/permissions.ts';
 
 export type { UserRole };
 export type User = UserProfile;
@@ -22,6 +25,12 @@ interface AuthContextType {
   login: (token: string, userProfile: Partial<UserProfile>) => void;
   logout: () => void;
   updateUser: (fields: Partial<UserProfile>) => Promise<void>;
+  // Permission Helpers
+  isSuperAdmin: () => boolean;
+  isDistrictAdmin: () => boolean;
+  isOfficer: () => boolean;
+  isCitizen: () => boolean;
+  hasPermission: (permission: string) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -50,7 +59,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(JSON.parse(savedUser));
         setToken(savedToken);
       } catch (e) {
-        // Corrupt cache
+        // Corrupt cache — ignore
       }
     }
 
@@ -63,15 +72,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setToken(userToken);
           localStorage.setItem('ch_token', userToken);
 
+          // Bootstrap Super Admin if this is the Super Admin UID
+          const isSuperAdminLogin = firebaseUser.uid === SUPER_ADMIN_UID;
+          if (isSuperAdminLogin) {
+            await bootstrapSuperAdmin();
+          }
+
           // Get or create Firestore UserProfile
           let profile = await getUserProfile(firebaseUser.uid);
 
-          // Special Admin Auto-Assignment check for sanskardhat6@gmail.com
+          // Determine correct role
           const isDefaultAdmin = firebaseUser.email?.toLowerCase() === 'sanskardhat6@gmail.com';
 
           if (!profile) {
             const email = firebaseUser.email || 'citizen@maharesilience.org';
             const name = firebaseUser.displayName || email.split('@')[0];
+
+            let role: UserRole = firebaseUser.isAnonymous ? 'TOURIST' : 'CITIZEN';
+            if (isSuperAdminLogin) role = 'SUPER_ADMIN';
+            else if (isDefaultAdmin) role = 'ADMIN';
 
             await createOrUpdateUserProfile(firebaseUser.uid, {
               uid: firebaseUser.uid,
@@ -79,24 +98,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               name,
               photoURL: firebaseUser.photoURL || '',
               phone: firebaseUser.phoneNumber || '',
-              role: isDefaultAdmin ? 'ADMIN' : (firebaseUser.isAnonymous ? 'TOURIST' : 'CITIZEN'),
+              role,
+              isAdmin: isSuperAdminLogin || isDefaultAdmin,
+              permissions: isSuperAdminLogin ? ['*'] : [],
+              accountStatus: 'ACTIVE',
               isEmailVerified: firebaseUser.emailVerified,
               isPhoneVerified: !!firebaseUser.phoneNumber,
               state: 'Maharashtra',
             });
 
             profile = await getUserProfile(firebaseUser.uid);
-          } else if (isDefaultAdmin && profile.role !== 'ADMIN') {
-            // Update role to ADMIN for sanskardhat6@gmail.com
-            await createOrUpdateUserProfile(firebaseUser.uid, { role: 'ADMIN' });
-            profile.role = 'ADMIN';
+          } else {
+            // Update existing profile for special roles
+            if (isSuperAdminLogin && profile.role !== 'SUPER_ADMIN') {
+              await createOrUpdateUserProfile(firebaseUser.uid, {
+                role: 'SUPER_ADMIN',
+                displayRole: 'Super Administrator',
+                isAdmin: true,
+                permissions: ['*'],
+                accountStatus: 'ACTIVE',
+              });
+              profile.role = 'SUPER_ADMIN';
+              profile.isAdmin = true;
+              profile.permissions = ['*'];
+            } else if (isDefaultAdmin && profile.role !== 'ADMIN' && profile.role !== 'SUPER_ADMIN') {
+              await createOrUpdateUserProfile(firebaseUser.uid, { role: 'ADMIN', isAdmin: true });
+              profile.role = 'ADMIN';
+            }
           }
 
           if (profile) {
             setUser(profile);
             localStorage.setItem('ch_user', JSON.stringify(profile));
-
-            // Create active session record
             createOrUpdateUserSession(firebaseUser.uid).catch(console.error);
           }
         } catch (error) {
@@ -118,7 +151,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setToken(newToken);
     const uid = profileData.uid || profileData.id || 'user-' + Date.now();
     const userEmail = (profileData.email || '').toLowerCase();
+    const isSuperAdminLogin = uid === SUPER_ADMIN_UID;
     const isDefaultAdmin = userEmail === 'sanskardhat6@gmail.com';
+
+    let role: UserRole = profileData.role || 'CITIZEN';
+    if (isSuperAdminLogin) role = 'SUPER_ADMIN';
+    else if (isDefaultAdmin && role !== 'SUPER_ADMIN') role = 'ADMIN';
 
     const fullProfile: UserProfile = {
       uid,
@@ -127,7 +165,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       email: profileData.email || '',
       phone: profileData.phone || '',
       photoURL: profileData.photoURL || '',
-      role: isDefaultAdmin ? 'ADMIN' : (profileData.role || 'CITIZEN'),
+      role,
+      displayRole: isSuperAdminLogin ? 'Super Administrator' : profileData.displayRole,
+      isAdmin: isSuperAdminLogin || isDefaultAdmin || profileData.isAdmin || false,
+      permissions: isSuperAdminLogin ? ['*'] : (profileData.permissions || []),
+      accountStatus: 'ACTIVE',
       language: profileData.language || 'en',
       theme: profileData.theme || 'light',
       notificationsEnabled: profileData.notificationsEnabled ?? true,
@@ -149,7 +191,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(fullProfile);
     localStorage.setItem('ch_user', JSON.stringify(fullProfile));
 
-    // Async record session
     if (profileData.uid) {
       createOrUpdateUserSession(profileData.uid).catch(console.error);
       recordLoginHistory(profileData.uid, 'EMAIL', 'SUCCESS').catch(console.error);
@@ -193,6 +234,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         login,
         logout,
         updateUser,
+        // Bound permission helpers
+        isSuperAdmin: () => isSuperAdmin(user),
+        isDistrictAdmin: () => isDistrictAdmin(user),
+        isOfficer: () => isOfficer(user),
+        isCitizen: () => isCitizen(user),
+        hasPermission: (p: string) => hasPermission(user, p),
       }}
     >
       {children}
@@ -200,10 +247,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 };
 
-export const useAuth = () => {
+export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within AuthProvider');
   return context;
 };

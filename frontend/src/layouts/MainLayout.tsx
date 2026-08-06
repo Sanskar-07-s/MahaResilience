@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.tsx';
+import { isSuperAdmin, canAccessAdmin } from '../utils/permissions.ts';
 import { AlertOverlay } from '../components/alerts/AlertOverlay.tsx';
 import { OfflineBanner } from '../components/common/OfflineBanner.tsx';
 import {
@@ -152,11 +153,17 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 <div className="flex items-center gap-3">
                   <div className="text-right">
                     <p className="text-sm font-semibold text-slate-800 leading-tight">{user.name}</p>
-                    <p className="text-xs text-slate-500 capitalize">{user.role.toLowerCase()}</p>
+                    {isSuperAdmin(user) ? (
+                      <span className="text-[10px] bg-yellow-400 text-slate-900 font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+                        🛡 Super Admin
+                      </span>
+                    ) : (
+                      <p className="text-xs text-slate-500 capitalize">{user.role.toLowerCase()}</p>
+                    )}
                   </div>
-                  {user.role === 'ADMIN' || user.role === 'OFFICIAL' ? (
+                  {canAccessAdmin(user) ? (
                     <Link
-                      to="/admin"
+                      to="/admin/dashboard"
                       className="p-2 text-primary hover:bg-primary-light rounded-full transition-colors"
                       title="Admin Panel"
                     >

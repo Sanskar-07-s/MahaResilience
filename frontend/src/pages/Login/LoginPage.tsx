@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext.tsx';
+import { SUPER_ADMIN_UID } from '../../utils/permissions.ts';
 import { loginWithEmail, loginWithGoogle } from '../../services/firebase/auth.service.ts';
 import {
   checkAccountLockout,
@@ -62,10 +63,10 @@ const LoginPage: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      // 1. Firebase Auth email/password login
-      await loginWithEmail(email, password);
+      const firebaseResult = await loginWithEmail(email, password);
       clearFailedLoginAttempts(email);
-      navigate('/dashboard');
+      const redirectPath = ((firebaseResult as any)?.uid === SUPER_ADMIN_UID || email === 'sanskardhat6@gmail.com') ? '/admin/dashboard' : '/dashboard';
+      navigate(redirectPath);
     } catch (firebaseErr: any) {
       console.warn('[Firebase Auth] Login error:', firebaseErr.message);
 
@@ -93,7 +94,8 @@ const LoginPage: React.FC = () => {
 
         clearFailedLoginAttempts(email);
         login(data.token, data.user);
-        navigate('/dashboard');
+        const redirectPath = (data.user?.uid === SUPER_ADMIN_UID || email === 'sanskardhat6@gmail.com') ? '/admin/dashboard' : '/dashboard';
+        navigate(redirectPath);
       } catch (backendErr: any) {
         // 3. Offline Mock Fallback
         let mockRole = 'CITIZEN';
@@ -122,8 +124,9 @@ const LoginPage: React.FC = () => {
     setError(null);
     setIsSubmitting(true);
     try {
-      await loginWithGoogle();
-      navigate('/dashboard');
+      const googleResult = await loginWithGoogle();
+      const redirectPath = ((googleResult as any)?.uid === SUPER_ADMIN_UID) ? '/admin/dashboard' : '/dashboard';
+      navigate(redirectPath);
     } catch (err: any) {
       setError(err.message || 'Google authentication failed');
     } finally {
