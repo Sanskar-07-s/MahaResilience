@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { setupRecaptcha, sendPhoneOTP, verifyPhoneOTP } from '../../services/firebase/auth.service.ts';
 import { ConfirmationResult } from 'firebase/auth';
-import { Phone, ShieldCheck, RefreshCw, X, AlertTriangle, CheckCircle } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext.tsx';
+import { Phone, RefreshCw, X, AlertTriangle, CheckCircle } from 'lucide-react';
 
 interface PhoneOTPModalProps {
   isOpen: boolean;
@@ -14,6 +15,7 @@ const OTP_EXPIRY_SECONDS = 300; // 5 minutes
 const RESEND_COOLDOWN_SECONDS = 30; // 30 seconds
 
 export const PhoneOTPModal: React.FC<PhoneOTPModalProps> = ({ isOpen, onClose, onSuccess }) => {
+  const { login } = useAuth();
   const [phoneNumber, setPhoneNumber] = useState('');
   const [step, setStep] = useState<'INPUT_PHONE' | 'ENTER_OTP'>('INPUT_PHONE');
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
@@ -69,7 +71,7 @@ export const PhoneOTPModal: React.FC<PhoneOTPModalProps> = ({ isOpen, onClose, o
     setError(null);
     setSuccessMsg(null);
 
-    // Format phone number
+    // Format phone number to E.164
     let formatted = phoneNumber.trim();
     if (!formatted.startsWith('+')) {
       formatted = `+91${formatted.replace(/^0+/, '')}`;
@@ -83,20 +85,48 @@ export const PhoneOTPModal: React.FC<PhoneOTPModalProps> = ({ isOpen, onClose, o
     setIsSending(true);
 
     try {
-      // Setup reCAPTCHA
-      const verifier = setupRecaptcha('recaptcha-container');
-      const result = await sendPhoneOTP(formatted, verifier);
+      // 1. Try Backend Express endpoint /api/auth/send-otp (Twilio Node SDK)
+      const response = await fetch('/api/auth/send-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: formatted }),
+      });
 
-      setConfirmationResult(result);
-      setStep('ENTER_OTP');
-      setExpiryTimer(OTP_EXPIRY_SECONDS);
-      setResendTimer(RESEND_COOLDOWN_SECONDS);
-      setAttempts(0);
-      setIsLocked(false);
-      setSuccessMsg(`OTP sent to ${formatted}`);
-    } catch (err: any) {
-      console.error('Phone OTP error:', err);
-      setError(err.message || 'Failed to send OTP. Please check the phone number.');
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setStep('ENTER_OTP');
+        setExpiryTimer(data.expiresIn || OTP_EXPIRY_SECONDS);
+        setResendTimer(RESEND_COOLDOWN_SECONDS);
+        setAttempts(0);
+        setIsLocked(false);
+        setSuccessMsg(`Twilio OTP sent to ${formatted}`);
+        return;
+      }
+
+      if (!response.ok && response.status === 429) {
+        throw new Error(data.error || 'Rate limit exceeded. Please wait before retrying.');
+      }
+
+      // If backend offline or missing, fall back to Firebase Client Auth reCAPTCHA OTP
+      throw new Error(data.error || 'Backend Twilio endpoint unavailable, falling back to Firebase reCAPTCHA...');
+    } catch (backendErr: any) {
+      console.warn('[Twilio OTP Fallback]:', backendErr.message);
+
+      try {
+        const verifier = setupRecaptcha('recaptcha-container');
+        const result = await sendPhoneOTP(formatted, verifier);
+
+        setConfirmationResult(result);
+        setStep('ENTER_OTP');
+        setExpiryTimer(OTP_EXPIRY_SECONDS);
+        setResendTimer(RESEND_COOLDOWN_SECONDS);
+        setAttempts(0);
+        setIsLocked(false);
+        setSuccessMsg(`Firebase OTP sent to ${formatted}`);
+      } catch (fbErr: any) {
+        setError(fbErr.message || backendErr.message || 'Failed to send OTP. Please try again.');
+      }
     } finally {
       setIsSending(false);
     }
@@ -140,15 +170,49 @@ export const PhoneOTPModal: React.FC<PhoneOTPModalProps> = ({ isOpen, onClose, o
     setError(null);
     setIsVerifying(true);
 
-    try {
-      if (!confirmationResult) throw new Error('No OTP session found.');
-      const user = await verifyPhoneOTP(confirmationResult, otpCode);
-      setSuccessMsg('Phone number verified successfully!');
+    let formatted = phoneNumber.trim();
+    if (!formatted.startsWith('+')) {
+      formatted = `+91${formatted.replace(/^0+/, '')}`;
+    }
 
-      setTimeout(() => {
-        onSuccess(user);
-        onClose();
-      }, 800);
+    try {
+      // 1. Try Backend verification endpoint /api/auth/verify-otp
+      const response = await fetch('/api/auth/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: formatted, otp: otpCode }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setSuccessMsg('Phone verified successfully!');
+        login(data.token, data.user);
+
+        setTimeout(() => {
+          onSuccess(data.user);
+          onClose();
+        }, 600);
+        return;
+      }
+
+      // If backend verification returned an error
+      if (!response.ok && !confirmationResult) {
+        throw new Error(data.error || 'Invalid OTP verification');
+      }
+
+      // 2. Fallback to Firebase Client verification
+      if (confirmationResult) {
+        const user = await verifyPhoneOTP(confirmationResult, otpCode);
+        setSuccessMsg('Phone number verified via Firebase!');
+
+        setTimeout(() => {
+          onSuccess(user);
+          onClose();
+        }, 600);
+      } else {
+        throw new Error(data.error || 'Invalid OTP verification');
+      }
     } catch (err: any) {
       const newAttempts = attempts + 1;
       setAttempts(newAttempts);
@@ -157,7 +221,7 @@ export const PhoneOTPModal: React.FC<PhoneOTPModalProps> = ({ isOpen, onClose, o
         setIsLocked(true);
         setError('Maximum 3 verification attempts reached. Please request a new OTP.');
       } else {
-        setError(`Invalid OTP code. Attempt ${newAttempts} of ${MAX_ATTEMPTS}.`);
+        setError(err.message || `Invalid OTP code. Attempt ${newAttempts} of ${MAX_ATTEMPTS}.`);
       }
     } finally {
       setIsVerifying(false);
@@ -189,7 +253,7 @@ export const PhoneOTPModal: React.FC<PhoneOTPModalProps> = ({ isOpen, onClose, o
           </div>
           <div>
             <h3 className="font-bold text-slate-800 text-lg">Phone OTP Verification</h3>
-            <p className="text-xs text-slate-500">Secure instant login using SMS code</p>
+            <p className="text-xs text-slate-500">Secure SMS login via Twilio & Firebase</p>
           </div>
         </div>
 
@@ -234,7 +298,7 @@ export const PhoneOTPModal: React.FC<PhoneOTPModalProps> = ({ isOpen, onClose, o
               {isSending ? (
                 <>
                   <RefreshCw className="w-4 h-4 animate-spin" />
-                  Generating OTP...
+                  Generating & Sending OTP...
                 </>
               ) : (
                 'Send Verification OTP'
