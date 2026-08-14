@@ -180,7 +180,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
               <div className="w-6 h-6 rounded bg-teal-700 flex items-center justify-center text-white font-bold text-xs">
                 MR
               </div>
-              <span className="font-bold text-slate-700">MahaResilience CommunityHUB</span>
+              <span className="font-bold text-slate-700">MahaResilience</span>
             </div>
             <p className="text-[11px] text-slate-400">
               © 2026 Government of Maharashtra. Location-Aware Smart Resilience Portal.
