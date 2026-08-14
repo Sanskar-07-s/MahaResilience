@@ -24,9 +24,24 @@ app.use(
 );
 
 // CORS configuration
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  'https://mahareilience.web.app',
+  'https://mahareilience.firebaseapp.com',
+  'http://localhost:5173',
+  'http://localhost:3000',
+].filter(Boolean);
+
 app.use(
   cors({
-    origin: '*', // Allow all origins for the developer environment
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
+        callback(null, true);
+      } else {
+        callback(null, true);
+      }
+    },
+    credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   })
@@ -44,6 +59,17 @@ app.use('/api', limiter);
 
 // Request parsing
 app.use(express.json());
+
+// Root API Server welcome & health route
+app.get('/', (req, res) => {
+  res.json({
+    name: 'MahaResilience API Server',
+    status: 'ACTIVE',
+    version: '1.0.0',
+    frontend: process.env.FRONTEND_URL || 'https://mahareilience.web.app',
+    health: '/health',
+  });
+});
 
 // API route mappings
 app.use('/api/auth', authRoutes);
