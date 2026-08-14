@@ -32,6 +32,8 @@ interface AlertContextType {
   activeCriticalAlert: DisasterAlert | null;
   dismissCriticalAlert: () => void;
   isLoading: boolean;
+  soundEnabled: boolean;
+  toggleAlertSounds: () => void;
   triggerAlarmSound: () => void;
 }
 
@@ -105,18 +107,41 @@ export const AlertProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [alerts, setAlerts] = useState<DisasterAlert[]>([]);
   const [activeCriticalAlert, setActiveCriticalAlert] = useState<DisasterAlert | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [soundEnabled, setSoundEnabled] = useState(false);
   const hasFirestoreData = useRef(false);
 
   // ─── Play synthesized siren safely (Lazy audio initialization) ──────────────────────────
   const audioContextRef = useRef<AudioContext | null>(null);
 
+  const toggleAlertSounds = () => {
+    setSoundEnabled((prev) => {
+      const next = !prev;
+      if (next) {
+        // Explicit user gesture: create or resume AudioContext
+        try {
+          const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+          if (AudioContextClass) {
+            if (!audioContextRef.current) {
+              audioContextRef.current = new AudioContextClass();
+            }
+            if (audioContextRef.current.state === 'suspended') {
+              audioContextRef.current.resume().catch(() => {});
+            }
+          }
+        } catch (_) {}
+      }
+      return next;
+    });
+  };
+
   const triggerAlarmSound = () => {
+    if (!soundEnabled) return;
+
     try {
       const AudioContextClass =
         window.AudioContext || (window as any).webkitAudioContext;
       if (!AudioContextClass) return;
 
-      // Only reuse or create if context is running or can resume
       if (!audioContextRef.current) {
         audioContextRef.current = new AudioContextClass();
       }
@@ -278,6 +303,8 @@ export const AlertProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         activeCriticalAlert,
         dismissCriticalAlert,
         isLoading,
+        soundEnabled,
+        toggleAlertSounds,
         triggerAlarmSound,
       }}
     >
@@ -291,3 +318,5 @@ export const useDisasterAlerts = () => {
   if (!context) throw new Error('useDisasterAlerts must be used inside AlertProvider');
   return context;
 };
+
+export const useAlert = useDisasterAlerts;

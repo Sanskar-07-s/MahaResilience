@@ -60,15 +60,23 @@ const LoginPage: React.FC = () => {
       return;
     }
 
+    if ((import.meta as any).env?.DEV) {
+      console.log('[Auth Diagnostics] Login started for:', email);
+    }
     setIsSubmitting(true);
 
     try {
       const firebaseResult = await loginWithEmail(email, password);
+      if ((import.meta as any).env?.DEV) {
+        console.log('[Auth Diagnostics] Login successful via Firebase');
+      }
       clearFailedLoginAttempts(email);
       const redirectPath = ((firebaseResult as any)?.uid === SUPER_ADMIN_UID || email === 'sanskardhat6@gmail.com') ? '/admin/dashboard' : '/dashboard';
       navigate(redirectPath);
     } catch (firebaseErr: any) {
-      console.warn('[Firebase Auth] Login error:', firebaseErr.message);
+      if ((import.meta as any).env?.DEV) {
+        console.log('[Auth Diagnostics] Login failed via Firebase Auth:', firebaseErr.message);
+      }
 
       // Register failed login attempt & update lockout state
       const locked = await registerFailedLoginAttempt(email || 'anonymous');

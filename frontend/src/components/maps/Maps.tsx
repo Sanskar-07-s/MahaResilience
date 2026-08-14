@@ -88,6 +88,68 @@ export const createMapTilerIcon = (category: string, isUser = false) => {
   });
 };
 
+export const getDynamicLocationServices = (
+  lat: number = 18.5204,
+  lng: number = 73.8567,
+  district: string = 'Pune',
+  city: string = 'Pune'
+): AssetPin[] => [
+  {
+    id: 'dyn-h1',
+    name: `${district} General Civil Hospital & Emergency Unit`,
+    category: 'HOSPITAL',
+    latitude: lat + 0.005,
+    longitude: lng + 0.007,
+    address: `Civil Hospital Complex, ${city}, ${district}`,
+    phone: '020-26120120',
+    details: 'Free ICU Beds, 24x7 Emergency Unit, Oxygen & Blood Bank Unit',
+    badge: '24x7 Emergency',
+  },
+  {
+    id: 'dyn-s1',
+    name: `${district} Disaster Relief Shelter & Safe Zone`,
+    category: 'SHELTER',
+    latitude: lat - 0.008,
+    longitude: lng + 0.009,
+    address: `Community Refuge Hall, ${city}, ${district}`,
+    phone: '108',
+    details: 'Equipped with food rations, clean drinking water & emergency power',
+    badge: 'Active Shelter',
+  },
+  {
+    id: 'dyn-sk1',
+    name: `${district} Collectorate & Aaple Sarkar Seva Kendra`,
+    category: 'SEVA_KENDRA',
+    latitude: lat + 0.002,
+    longitude: lng - 0.005,
+    address: `Administrative Complex, ${district}`,
+    phone: '1800-120-8040',
+    details: 'Citizen Services: 7/12 land records, caste certificate, income proof',
+    badge: 'Govt Services',
+  },
+  {
+    id: 'dyn-t1',
+    name: `${city} Central MSRTC Bus Depot & Transit Junction`,
+    category: 'TRANSIT',
+    latitude: lat - 0.004,
+    longitude: lng - 0.006,
+    address: `Bus Stand Road, ${city}`,
+    phone: '1912',
+    details: 'MSRTC Bus Depot & Local Commuter Interchange',
+    badge: 'Public Transit',
+  },
+  {
+    id: 'dyn-c1',
+    name: `${city} Main Road Drainage Hazard`,
+    category: 'COMPLAINT',
+    latitude: lat + 0.009,
+    longitude: lng - 0.003,
+    address: `Main Chowk, ${city}`,
+    details: 'Civic Complaint Logged via Citizen Portal. Municipal Crew Assigned.',
+    badge: 'In Progress',
+  },
+];
+
 export const MAHARASHTRA_DEFAULT_SERVICES: AssetPin[] = [
   // Pune Services
   { id: 'h1', name: 'Pune General Civil Hospital (Sassoon)', category: 'HOSPITAL', latitude: 18.5244, longitude: 73.8527, address: 'Near Pune Railway Station, Shivajinagar, Pune', phone: '020-26120120', details: 'Free Emergency ICU, Trauma Center & Blood Bank (54 Beds Free)', badge: '24x7 Emergency' },
@@ -117,11 +179,19 @@ interface MapProps {
   showStyleSelector?: boolean;
 }
 
+import { useLocation } from '../../contexts/LocationContext.tsx';
+
 export const LiveMap: React.FC<MapProps> = ({ assets = [], height = '480px', showStyleSelector = true }) => {
   const { coords } = useMapSettings();
+  const { latitude, longitude, district, city } = useLocation();
   const [selected, setSelected] = useState<AssetPin | null>(null);
 
-  const pins: AssetPin[] = assets.length > 0 ? assets : MAHARASHTRA_DEFAULT_SERVICES;
+  const userLat = latitude || coords?.lat || 18.5204;
+  const userLng = longitude || coords?.lng || 73.8567;
+
+  const dynamicFallback = getDynamicLocationServices(userLat, userLng, district, city);
+
+  const pins: AssetPin[] = assets.length > 0 ? assets : [...dynamicFallback, ...MAHARASHTRA_DEFAULT_SERVICES];
 
   return (
     <div className="relative w-full">

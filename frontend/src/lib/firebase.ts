@@ -35,6 +35,10 @@ const firebaseConfig = {
 // Prevent duplicate app initialization (important for HMR / Vite dev mode)
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 
+if ((import.meta as any).env?.DEV) {
+  console.log('[Firebase] Initialized with config projectId:', firebaseConfig.projectId);
+}
+
 export const auth = getAuth(app);
 
 // ─── Firestore with full offline persistence ──────────────────────────────────

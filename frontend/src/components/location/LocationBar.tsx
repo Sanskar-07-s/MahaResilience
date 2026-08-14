@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useLocation, MAHARASHTRA_DISTRICTS } from '../../contexts/LocationContext.tsx';
+import { LocationPromptModal } from './LocationPromptModal.tsx';
 import { MapPin, Navigation, ChevronDown, Check, X, RefreshCw, AlertCircle } from 'lucide-react';
 
 export const LocationModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
@@ -192,7 +193,7 @@ export const LocationModal: React.FC<{ isOpen: boolean; onClose: () => void }> =
 };
 
 export const LocationBar: React.FC = () => {
-  const { ward, taluka, district, state, source, isPermissionDenied } = useLocation();
+  const { ward, taluka, district, state, source, isPermissionDenied, isFirstVisitPromptOpen, setIsFirstVisitPromptOpen } = useLocation();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   return (
@@ -231,6 +232,15 @@ export const LocationBar: React.FC = () => {
       </div>
 
       <LocationModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+
+      {/* First-Visit Prompt Modal */}
+      {isFirstVisitPromptOpen && (
+        <LocationPromptModal
+          isOpen={isFirstVisitPromptOpen}
+          onClose={() => setIsFirstVisitPromptOpen(false)}
+          onOpenManualModal={() => setIsModalOpen(true)}
+        />
+      )}
     </>
   );
 };

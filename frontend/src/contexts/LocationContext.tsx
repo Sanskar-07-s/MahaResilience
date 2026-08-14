@@ -129,6 +129,10 @@ export function haversineDistance(
 
 interface LocationContextType extends LocationData {
   detectLocation: () => Promise<void>;
+  requestGpsLocation: () => Promise<void>;
+  permissionStatus: 'granted' | 'denied' | 'prompt' | 'unknown';
+  isFirstVisitPromptOpen: boolean;
+  setIsFirstVisitPromptOpen: (open: boolean) => void;
   setManualLocation: (loc: {
     state?: string;
     district: string;
@@ -162,6 +166,14 @@ const DEFAULT_LOCATION: LocationData = {
 const LocationContext = createContext<LocationContextType | undefined>(undefined);
 
 export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [isFirstVisitPromptOpen, setIsFirstVisitPromptOpen] = useState<boolean>(() => {
+    try {
+      return !localStorage.getItem(STORAGE_KEY);
+    } catch (_) {
+      return false;
+    }
+  });
+
   const [location, setLocation] = useState<LocationData>(() => {
     try {
       const cached = localStorage.getItem(STORAGE_KEY);
@@ -352,6 +364,10 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       value={{
         ...location,
         detectLocation,
+        requestGpsLocation: detectLocation,
+        permissionStatus: location.isPermissionDenied ? 'denied' : 'granted',
+        isFirstVisitPromptOpen,
+        setIsFirstVisitPromptOpen,
         setManualLocation,
         refreshLocation,
       }}

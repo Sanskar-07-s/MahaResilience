@@ -5,31 +5,21 @@ import { isSuperAdmin, canAccessAdmin } from '../utils/permissions.ts';
 import { AlertOverlay } from '../components/alerts/AlertOverlay.tsx';
 import { OfflineBanner } from '../components/common/OfflineBanner.tsx';
 import { LocationBar } from '../components/location/LocationBar.tsx';
+import { Sidebar } from '../components/navigation/Sidebar.tsx';
+import { AIAssistantDrawer } from '../components/ai/AIAssistantDrawer.tsx';
+import { CriticalAlertBanner } from '../components/alerts/CriticalAlertBanner.tsx';
 import {
   Menu,
-  X,
   AlertTriangle,
+  Bell,
+  Volume2,
+  VolumeX,
+  Bot,
   User,
   LogOut,
-  Building,
-  Bell,
-  Home,
-  Shield,
-  HeartPulse,
-  Flame,
-  FileText,
-  Map,
-  Compass,
-  Bus,
-  Users,
-  Droplets,
-  Zap,
-  Trash2,
-  Wheat,
-  GraduationCap
+  ShieldCheck,
 } from 'lucide-react';
-
-import { CriticalAlertBanner } from '../components/alerts/CriticalAlertBanner.tsx';
+import { useAlert } from '../contexts/AlertContext.tsx';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -37,290 +27,167 @@ interface MainLayoutProps {
 
 const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const { user, logout, isAuthenticated } = useAuth();
+  const { soundEnabled, toggleAlertSounds } = useAlert();
   const navigate = useNavigate();
   const location = useLocation();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [aiDrawerOpen, setAiDrawerOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
 
-  const activeLink = (path: string) => location.pathname === path;
-
-  const handleSOS = async () => {
+  const handleSOS = () => {
     navigate('/emergency');
   };
 
-  const navLinks = [
-    { name: 'Home', path: '/', icon: Home },
-    { name: 'Dashboard', path: '/dashboard', icon: Shield, authRequired: true },
-    { name: 'Emergency SOS', path: '/emergency', icon: Flame, highlight: true },
-    { name: 'Alerts', path: '/alerts', icon: Bell },
-    { name: 'Complaints', path: '/complaints', icon: FileText },
-    { name: 'Map View', path: '/map', icon: Map },
-    { name: 'Water', path: '/water', icon: Droplets },
-    { name: 'Electricity', path: '/electricity', icon: Zap },
-    { name: 'Waste', path: '/waste', icon: Trash2 },
-    { name: 'Healthcare', path: '/healthcare', icon: HeartPulse },
-    { name: 'Transport', path: '/transport', icon: Bus },
-    { name: 'Agriculture', path: '/agriculture', icon: Wheat },
-    { name: 'Education', path: '/education', icon: GraduationCap },
-    { name: 'Government', path: '/government', icon: Building },
-    { name: 'Tourism', path: '/tourism', icon: Compass },
-    { name: 'Community', path: '/community', icon: Users },
-  ];
-
   return (
-    <div className="min-h-screen flex flex-col bg-slate-background">
+    <div className="min-h-screen flex bg-slate-background">
       <AlertOverlay />
       <OfflineBanner />
-      <CriticalAlertBanner />
-      <LocationBar />
-      {/* Top Navbar */}
-      <nav className="sticky top-0 z-50 glass shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            {/* Logo */}
-            <div className="flex items-center">
-              <Link to="/" className="flex items-center gap-2">
-                <div className="w-10 h-10 rounded-md3 bg-primary flex items-center justify-center text-white shadow-md">
-                  <span className="font-bold text-lg">MR</span>
-                </div>
-                <span className="font-bold text-xl tracking-tight text-slate-800 hidden sm:block">
-                  Maha<span className="text-primary">Resilience</span>
-                </span>
-              </Link>
-            </div>
 
-            {/* Desktop Navigation Links */}
-            <div className="hidden lg:flex items-center space-x-1">
-              {navLinks
-                .filter((link) => !link.authRequired || isAuthenticated)
-                .slice(0, 7) // Limit links in top nav for design space
-                .map((link) => (
-                  <Link
-                    key={link.name}
-                    to={link.path}
-                    className={`flex items-center gap-1.5 px-3 py-2 rounded-md3 text-sm font-medium transition-all duration-200 ${
-                      link.highlight
-                        ? 'bg-danger text-white hover:bg-danger-hover shadow-sm'
-                        : activeLink(link.path)
-                        ? 'bg-primary-light text-primary'
-                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                    }`}
-                  >
-                    <link.icon className="w-4 h-4" />
-                    {link.name}
-                  </Link>
-                ))}
-            </div>
+      {/* Persistent Left Sidebar Navigation */}
+      <Sidebar
+        onOpenAIAssistant={() => setAiDrawerOpen(true)}
+        mobileOpen={mobileSidebarOpen}
+        setMobileOpen={setMobileSidebarOpen}
+      />
 
-            {/* Right side controls */}
-            <div className="hidden lg:flex items-center gap-4">
+      {/* AI Community Assistant Drawer */}
+      <AIAssistantDrawer
+        isOpen={aiDrawerOpen}
+        onClose={() => setAiDrawerOpen(false)}
+      />
+
+      {/* Main Content Viewport */}
+      <div className="flex-1 flex flex-col md:pl-64 min-w-0 transition-all duration-300">
+        <CriticalAlertBanner />
+        <LocationBar />
+
+        {/* Top Control Bar for Mobile Toggle & Sound Controls */}
+        <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-border shadow-xs px-4 py-2.5 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            {/* Mobile Hamburger Menu Toggle */}
+            <button
+              onClick={() => setMobileSidebarOpen(true)}
+              className="md:hidden p-2 rounded-xl text-slate-700 hover:bg-slate-100 focus:outline-none"
+              title="Open Navigation Menu"
+            >
+              <Menu className="w-6 h-6" />
+            </button>
+
+            {/* Emergency Quick SOS Button */}
+            <button
+              onClick={handleSOS}
+              className="bg-red-600 hover:bg-red-700 text-white px-3.5 py-1.5 rounded-xl font-black text-xs flex items-center gap-1.5 shadow-sm animate-pulse"
+            >
+              <AlertTriangle className="w-4 h-4" />
+              <span>SOS EMERGENCY</span>
+            </button>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {/* Sound Toggle Control */}
+            <button
+              onClick={toggleAlertSounds}
+              className={`p-2 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all ${
+                soundEnabled
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+                  : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'
+              }`}
+              title={soundEnabled ? 'Alert Sounds Active' : 'Enable Alert Sounds'}
+            >
+              {soundEnabled ? (
+                <>
+                  <Volume2 className="w-4 h-4 text-emerald-600" />
+                  <span className="hidden sm:inline">Sounds ON</span>
+                </>
+              ) : (
+                <>
+                  <VolumeX className="w-4 h-4 text-slate-400" />
+                  <span className="hidden sm:inline">Muted</span>
+                </>
+              )}
+            </button>
+
+            {/* AI Assistant Launcher Button */}
+            <button
+              onClick={() => setAiDrawerOpen(true)}
+              className="bg-teal-600 hover:bg-teal-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm"
+              title="Launch AI Community Assistant"
+            >
+              <Bot className="w-4 h-4" />
+              <span className="hidden sm:inline">AI Assistant</span>
+            </button>
+
+            {/* Notifications Toggle */}
+            <div className="relative">
               <button
-                onClick={handleSOS}
-                className="flex items-center gap-1.5 bg-danger text-white px-4 py-2 rounded-md3 font-semibold hover:bg-danger-hover shadow-md hover-scale"
+                onClick={() => setShowNotifications(!showNotifications)}
+                className="p-2 text-slate-600 hover:bg-slate-100 rounded-xl transition-colors relative"
               >
-                <AlertTriangle className="w-4 h-4 animate-bounce" />
-                SOS
+                <Bell className="w-5 h-5" />
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-600 rounded-full ring-2 ring-white"></span>
               </button>
 
-              {/* Notification icon */}
-              <div className="relative">
-                <button
-                  onClick={() => setShowNotifications(!showNotifications)}
-                  className="p-2 text-slate-600 hover:bg-slate-100 rounded-full transition-colors relative"
-                >
-                  <Bell className="w-5 h-5" />
-                  <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-danger rounded-full ring-2 ring-white"></span>
-                </button>
-
-                {showNotifications && (
-                  <div className="absolute right-0 mt-2 w-80 bg-white rounded-md3 shadow-md3-elevation-2 py-2 z-50 border border-slate-border">
-                    <div className="px-4 py-2 border-b border-slate-border font-semibold text-slate-700 flex justify-between items-center">
-                      <span>Recent Alerts</span>
-                      <span className="text-xs text-primary font-normal cursor-pointer hover:underline">Mark read</span>
-                    </div>
-                    <div className="max-h-60 overflow-y-auto">
-                      <div className="px-4 py-3 hover:bg-slate-50 border-b border-slate-border cursor-pointer">
-                        <p className="text-xs text-danger font-semibold">CRITICAL ALERT</p>
-                        <p className="text-sm font-medium text-slate-800">Severe Water Interruption in Pune-West</p>
-                        <p className="text-xs text-slate-400 mt-1">10 minutes ago</p>
-                      </div>
-                      <div className="px-4 py-3 hover:bg-slate-50 border-b border-slate-border cursor-pointer">
-                        <p className="text-xs text-warning font-semibold">WEATHER WARNING</p>
-                        <p className="text-sm font-medium text-slate-800">Heavy Rainfall warnings for Mumbai suburbs</p>
-                        <p className="text-xs text-slate-400 mt-1">1 hour ago</p>
-                      </div>
-                    </div>
-                    <div className="text-center py-2 border-t border-slate-border">
-                      <Link to="/alerts" onClick={() => setShowNotifications(false)} className="text-xs text-primary font-medium hover:underline">
-                        See All Local Notifications
-                      </Link>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Authentication profile link */}
-              {isAuthenticated && user ? (
-                <div className="flex items-center gap-3">
-                  <div className="text-right">
-                    <p className="text-sm font-semibold text-slate-800 leading-tight">{user.name}</p>
-                    {isSuperAdmin(user) ? (
-                      <span className="text-[10px] bg-yellow-400 text-slate-900 font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
-                        🛡 Super Admin
-                      </span>
-                    ) : (
-                      <p className="text-xs text-slate-500 capitalize">{user.role.toLowerCase()}</p>
-                    )}
-                  </div>
-                  {canAccessAdmin(user) ? (
-                    <Link
-                      to="/admin/dashboard"
-                      className="p-2 text-primary hover:bg-primary-light rounded-full transition-colors"
-                      title="Admin Panel"
+              {showNotifications && (
+                <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-xl py-2 z-50 border border-slate-200 text-xs">
+                  <div className="px-4 py-2 border-b border-slate-100 font-bold text-slate-800 flex justify-between items-center">
+                    <span>Regional Bulletins</span>
+                    <span
+                      onClick={() => setShowNotifications(false)}
+                      className="text-[10px] text-teal-600 cursor-pointer hover:underline"
                     >
-                      <User className="w-5 h-5" />
-                    </Link>
-                  ) : null}
-                  <button
-                    onClick={logout}
-                    className="p-2 text-slate-600 hover:text-danger hover:bg-danger-light rounded-full transition-colors"
-                    title="Log Out"
-                  >
-                    <LogOut className="w-5 h-5" />
-                  </button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <Link to="/login" className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800">
-                    Sign In
-                  </Link>
-                  <Link
-                    to="/register"
-                    className="bg-primary text-white px-4 py-2 rounded-md3 text-sm font-semibold hover:bg-primary-hover shadow-sm transition-colors"
-                  >
-                    Register
-                  </Link>
-                </div>
-              )}
-            </div>
-
-            {/* Mobile menu button */}
-            <div className="flex items-center lg:hidden gap-3">
-              <button
-                onClick={handleSOS}
-                className="bg-danger text-white px-3 py-1.5 rounded-md3 text-sm font-bold flex items-center gap-1 shadow-sm"
-              >
-                SOS
-              </button>
-              <button
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="p-2 rounded-md3 text-slate-600 hover:bg-slate-100 focus:outline-none"
-              >
-                {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Mobile Navigation Menu */}
-        {mobileMenuOpen && (
-          <div className="lg:hidden border-t border-slate-border bg-white py-2 px-4 shadow-inner">
-            <div className="space-y-1">
-              {navLinks.map((link) => (
-                <Link
-                  key={link.name}
-                  to={link.path}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center gap-2 px-3 py-2.5 rounded-md3 text-base font-medium ${
-                    link.highlight
-                      ? 'bg-danger text-white'
-                      : activeLink(link.path)
-                      ? 'bg-primary-light text-primary'
-                      : 'text-slate-600 hover:bg-slate-50'
-                  }`}
-                >
-                  <link.icon className="w-5 h-5" />
-                  {link.name}
-                </Link>
-              ))}
-
-              {isAuthenticated && (user?.role === 'ADMIN' || user?.role === 'OFFICIAL') && (
-                <Link
-                  to="/admin"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-2 px-3 py-2.5 rounded-md3 text-base font-medium text-slate-600 hover:bg-slate-50"
-                >
-                  <User className="w-5 h-5" />
-                  Admin Dashboard
-                </Link>
-              )}
-            </div>
-
-            <div className="border-t border-slate-border mt-4 pt-4 pb-2">
-              {isAuthenticated ? (
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-800">{user?.name}</p>
-                    <p className="text-xs text-slate-500">{user?.email}</p>
+                      Close
+                    </span>
                   </div>
-                  <button
-                    onClick={() => {
-                      logout();
-                      setMobileMenuOpen(false);
-                    }}
-                    className="flex items-center gap-1.5 text-danger bg-danger-light px-3 py-1.5 rounded-md3 text-sm font-medium"
-                  >
-                    <LogOut className="w-4 h-4" />
-                    Logout
-                  </button>
-                </div>
-              ) : (
-                <div className="flex gap-2">
-                  <Link
-                    to="/login"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="flex-1 text-center py-2 border border-slate-border text-slate-600 rounded-md3 text-sm font-medium"
-                  >
-                    Sign In
-                  </Link>
-                  <Link
-                    to="/register"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="flex-1 text-center py-2 bg-primary text-white rounded-md3 text-sm font-semibold hover:bg-primary-hover"
-                  >
-                    Register
-                  </Link>
+                  <div className="max-h-60 overflow-y-auto divide-y divide-slate-100">
+                    <div className="px-4 py-3 hover:bg-slate-50 cursor-pointer">
+                      <p className="text-[10px] text-red-600 font-black uppercase">CRITICAL WEATHER</p>
+                      <p className="text-xs font-bold text-slate-800 mt-0.5">Heavy Rain & High Tide Watch</p>
+                      <p className="text-[10px] text-slate-400 mt-1">10 minutes ago</p>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
+
+            {/* User Badge / Admin Status */}
+            {isAuthenticated && user && (
+              <div className="hidden sm:flex items-center gap-2 pl-2 border-l border-slate-200">
+                <div className="text-right text-xs">
+                  <div className="font-bold text-slate-800 truncate max-w-[120px]">{user.name}</div>
+                  {isSuperAdmin(user) ? (
+                    <span className="text-[9px] bg-amber-400 text-slate-950 font-black px-1.5 py-0.2 rounded-full uppercase">
+                      Super Admin
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-slate-400 uppercase">{user.role}</span>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
-        )}
-      </nav>
+        </header>
 
-      {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {children}
-      </main>
+        {/* Main Content Body */}
+        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          {children}
+        </main>
 
-      {/* Footer */}
-      <footer className="bg-white border-t border-slate-border py-8 mt-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded bg-primary flex items-center justify-center text-white font-bold text-sm">
-              MR
+        {/* Footer */}
+        <footer className="bg-white border-t border-slate-border py-6 mt-12 text-xs text-slate-500">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded bg-teal-700 flex items-center justify-center text-white font-bold text-xs">
+                MR
+              </div>
+              <span className="font-bold text-slate-700">MahaResilience CommunityHUB</span>
             </div>
-            <span className="font-bold text-slate-700">MahaResilience Maharashtra</span>
+            <p className="text-[11px] text-slate-400">
+              © 2026 Government of Maharashtra. Location-Aware Smart Resilience Portal.
+            </p>
           </div>
-          <p className="text-xs text-slate-400">
-            © 2026 Government of Maharashtra. Under Digital India & Civic-Tech Initiatives.
-          </p>
-          <div className="flex gap-4 text-xs text-slate-500">
-            <a href="#" className="hover:text-primary transition-colors">Privacy Policy</a>
-            <a href="#" className="hover:text-primary transition-colors">Terms of Service</a>
-            <a href="#" className="hover:text-primary transition-colors">Helpline Contacts</a>
-          </div>
-        </div>
-      </footer>
+        </footer>
+      </div>
     </div>
   );
 };

@@ -99,6 +99,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
 
   useEffect(() => {
+    if ((import.meta as any).env?.DEV) {
+      console.log('[Auth Diagnostics] Auth listener started');
+    }
+
     // Safety fallback: Never allow auth loading state to stick for > 3.5s
     const safetyTimer = setTimeout(() => {
       setIsLoading(false);
@@ -107,6 +111,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const unsubscribe = onAuthStateChanged(
       auth,
       async (firebaseUser: FirebaseUser | null) => {
+        if ((import.meta as any).env?.DEV) {
+          console.log('[Auth Diagnostics] Auth state received:', firebaseUser ? firebaseUser.uid : 'NO_USER');
+        }
         try {
           if (firebaseUser) {
             // Get fresh token
@@ -238,6 +245,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = useCallback(
     (newToken: string, profileData: Partial<UserProfile>) => {
+      if ((import.meta as any).env?.DEV) {
+        console.log('[Auth Diagnostics] Login started with token/profile');
+      }
       setToken(newToken);
       setCachedToken(newToken);
 

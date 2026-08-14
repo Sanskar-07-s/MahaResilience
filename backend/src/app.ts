@@ -10,6 +10,8 @@ import civicRoutes from './routes/civicRoutes.js';
 import smsRoutes from './routes/smsRoutes.js';
 import alertRoutes from './routes/alertRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
+import recaptchaRoutes from './routes/recaptcha.routes';
+import aiRoutes from './routes/ai.routes';
 import { errorHandler } from './middleware/error.js';
 
 const app = express();
@@ -48,6 +50,8 @@ app.use('/api/civic', civicRoutes);
 app.use('/api/sms', smsRoutes);
 app.use('/api/alerts', alertRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/recaptcha', recaptchaRoutes);
+app.use('/api/ai', aiRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
