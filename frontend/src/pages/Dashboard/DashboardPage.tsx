@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext.tsx';
 import { useLocation } from '../../contexts/LocationContext.tsx';
+import { getApiUrl } from '../../config/api.config.ts';
 import {
   TrendingUp,
   ShieldCheck,
@@ -30,7 +31,7 @@ const DashboardPage: React.FC = () => {
       try {
         const lat = latitude || 18.5204;
         const lng = longitude || 73.8567;
-        const response = await fetch(`/api/complaints/safety-score?lat=${lat}&lng=${lng}`);
+        const response = await fetch(getApiUrl(`/api/complaints/safety-score?lat=${lat}&lng=${lng}`));
         if (!response.ok) throw new Error('Response not ok');
         const data = await response.json();
         setSafetyScore(data.safetyScore);

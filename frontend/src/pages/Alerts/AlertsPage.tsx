@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Bell, Info, AlertTriangle, ShieldCheck, MapPin, ShieldAlert, CheckCircle, Navigation } from 'lucide-react';
 import { useLocation } from '../../contexts/LocationContext.tsx';
+import { getApiUrl } from '../../config/api.config.ts';
 
 interface Alert {
   id: string;
@@ -23,7 +24,7 @@ const AlertsPage: React.FC = () => {
   useEffect(() => {
     const fetchAlerts = async () => {
       try {
-        const response = await fetch(`/api/alerts?state=${district}`);
+        const response = await fetch(getApiUrl(`/api/alerts?state=${district}`));
         if (response.ok) {
           const data = await response.json();
           setAlerts(data);

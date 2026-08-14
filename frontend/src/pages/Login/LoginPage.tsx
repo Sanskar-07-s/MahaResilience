@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext.tsx';
+import { getApiUrl } from '../../config/api.config.ts';
 import { SUPER_ADMIN_UID } from '../../utils/permissions.ts';
 import { loginWithEmail, loginWithGoogle } from '../../services/firebase/auth.service.ts';
 import {
@@ -89,7 +90,7 @@ const LoginPage: React.FC = () => {
 
       // 2. Try backend API as fallback
       try {
-        const response = await fetch('/api/auth/login', {
+        const response = await fetch(getApiUrl('/api/auth/login'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password }),

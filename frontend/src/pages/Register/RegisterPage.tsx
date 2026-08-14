@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext.tsx';
+import { getApiUrl } from '../../config/api.config.ts';
 import { registerWithEmail, loginWithGoogle } from '../../services/firebase/auth.service.ts';
 import { createOrUpdateUserProfile } from '../../services/firebase/firestore.service.ts';
 import { PhoneOTPModal } from '../../components/auth/PhoneOTPModal.tsx';
@@ -69,7 +70,7 @@ const RegisterPage: React.FC = () => {
 
       // 3. Fallback to backend API
       try {
-        const response = await fetch('/api/auth/register', {
+        const response = await fetch(getApiUrl('/api/auth/register'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { setupRecaptcha, sendPhoneOTP, verifyPhoneOTP } from '../../services/firebase/auth.service.ts';
 import { ConfirmationResult } from 'firebase/auth';
 import { useAuth } from '../../contexts/AuthContext.tsx';
+import { getApiUrl } from '../../config/api.config.ts';
 import { Phone, RefreshCw, X, AlertTriangle, CheckCircle } from 'lucide-react';
 
 interface PhoneOTPModalProps {
@@ -86,7 +87,7 @@ export const PhoneOTPModal: React.FC<PhoneOTPModalProps> = ({ isOpen, onClose, o
 
     try {
       // 1. Try Backend Express endpoint /api/auth/send-otp (Twilio Node SDK)
-      const response = await fetch('/api/auth/send-otp', {
+      const response = await fetch(getApiUrl('/api/auth/send-otp'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: formatted }),
@@ -177,7 +178,7 @@ export const PhoneOTPModal: React.FC<PhoneOTPModalProps> = ({ isOpen, onClose, o
 
     try {
       // 1. Try Backend verification endpoint /api/auth/verify-otp
-      const response = await fetch('/api/auth/verify-otp', {
+      const response = await fetch(getApiUrl('/api/auth/verify-otp'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: formatted, otp: otpCode }),

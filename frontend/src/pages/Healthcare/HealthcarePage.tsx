@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { HeartPulse, Search, Phone, Navigation, MapPin, CheckCircle, ShieldAlert, Filter, Activity } from 'lucide-react';
 import { useLocation, haversineDistance } from '../../contexts/LocationContext.tsx';
+import { getApiUrl } from '../../config/api.config.ts';
 
 interface Hospital {
   id: string;
@@ -29,7 +30,7 @@ const HealthcarePage: React.FC = () => {
     const fetchHospitals = async () => {
       let raw: Hospital[] = [];
       try {
-        const response = await fetch(`/api/emergency/hospitals?lat=${userLat}&lng=${userLng}`);
+        const response = await fetch(getApiUrl(`/api/emergency/hospitals?lat=${userLat}&lng=${userLng}`));
         if (response.ok) {
           raw = await response.json();
         } else {

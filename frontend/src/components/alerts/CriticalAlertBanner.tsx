@@ -3,6 +3,7 @@ import { db } from '../../lib/firebase.ts';
 import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
 import { AlertTriangle, Bell, X, ShieldAlert, ChevronRight } from 'lucide-react';
 import { AlertItem } from '../../types/user.ts';
+import { getApiUrl } from '../../config/api.config.ts';
 
 export const CriticalAlertBanner: React.FC = () => {
   const [criticalAlerts, setCriticalAlerts] = useState<AlertItem[]>([]);
@@ -40,7 +41,7 @@ export const CriticalAlertBanner: React.FC = () => {
       },
       (error) => {
         // Fallback fetch from REST endpoint
-        fetch('/api/admin/alerts')
+        fetch(getApiUrl('/api/admin/alerts'))
           .then((res) => (res.ok ? res.json() : null))
           .then((data) => {
             if (data?.alerts) {

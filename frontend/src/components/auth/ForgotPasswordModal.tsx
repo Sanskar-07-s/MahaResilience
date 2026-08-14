@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { sendPasswordResetLink } from '../../services/firebase/auth.service.ts';
+import { getApiUrl } from '../../config/api.config.ts';
 import { X, Mail, CheckCircle, AlertCircle } from 'lucide-react';
 
 interface ForgotPasswordModalProps {
@@ -23,7 +24,7 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({ isOpen
 
     try {
       // 1. Try Brevo REST API via backend endpoint POST /api/auth/forgot-password
-      const response = await fetch('/api/auth/forgot-password', {
+      const response = await fetch(getApiUrl('/api/auth/forgot-password'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim() }),

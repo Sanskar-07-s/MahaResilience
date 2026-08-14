@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Award, FileText, CheckCircle, Info, ChevronDown, ChevronUp, MapPin, Building2, Landmark, Clock, ExternalLink } from 'lucide-react';
 import { useLocation } from '../../contexts/LocationContext.tsx';
+import { getApiUrl } from '../../config/api.config.ts';
 
 interface Scheme {
   id: string;
@@ -63,7 +64,7 @@ const GovernmentPage: React.FC = () => {
 
     setChecking(true);
     try {
-      const response = await fetch('/api/schemes/check-eligibility', {
+      const response = await fetch(getApiUrl('/api/schemes/check-eligibility'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
