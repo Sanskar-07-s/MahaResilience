@@ -16,8 +16,12 @@ import { errorHandler } from './middleware/error.js';
 
 const app = express();
 
-// Security headers
-app.use(helmet());
+// Security headers (allow Google Auth & reCAPTCHA popups)
+app.use(
+  helmet({
+    crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
+  })
+);
 
 // CORS configuration
 app.use(
