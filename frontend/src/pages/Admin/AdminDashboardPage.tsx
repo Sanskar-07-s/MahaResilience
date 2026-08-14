@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext.tsx';
 import { useEmergencyMode } from '../../contexts/EmergencyModeContext.tsx';
 import { AdminGuard } from '../../components/auth/AdminGuard.tsx';
@@ -25,7 +26,7 @@ import {
   Search, Filter, Download, Upload, Eye, Edit, XCircle, Clock,
   Building, HeartPulse, Truck, Volume2, ChevronDown, ChevronRight,
   Flame, Waves, Wind, Thermometer, Bug, Droplets, Power, Radio,
-  Globe, ShieldAlert
+  Globe, ShieldAlert, Compass
 } from 'lucide-react';
 
 const SUPER_ADMIN_UID = 'gfhWRztes9dYzGzHBu9MjZH5Uuo2';
@@ -76,6 +77,7 @@ const AdminDashboardPage: React.FC = () => {
 
 const AdminDashboardInner: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { isEmergencyMode, activateEmergencyMode, deactivateEmergencyMode } = useEmergencyMode();
   const [activeTab, setActiveTab] = useState<TabId>('OVERVIEW');
 
@@ -283,6 +285,26 @@ const AdminDashboardInner: React.FC = () => {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* ── Tourism Moderation Quick Link ───────────────────────────────────── */}
+      <div className="bg-teal-50 border border-teal-200 p-4 rounded-md3 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-teal-600 text-white rounded-md3">
+            <Compass className="w-5 h-5" />
+          </div>
+          <div>
+            <h4 className="font-extrabold text-slate-800 text-sm">Community Tourism & Places Moderation Queue</h4>
+            <p className="text-xs text-teal-700">Review user-submitted attractions, coordinates, and photos before public listing.</p>
+          </div>
+        </div>
+
+        <button
+          onClick={() => navigate('/admin/tourism-moderation')}
+          className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-md3 text-xs flex items-center gap-1 shadow-xs transition-all shrink-0"
+        >
+          Open Moderation Queue ➔
+        </button>
       </div>
 
       {/* ── Tab Navigation ─────────────────────────────────────────────────── */}

@@ -31,6 +31,8 @@ export const AIAssistantDrawer: React.FC<AIAssistantDrawerProps> = ({ isOpen, on
   if (!isOpen) return null;
 
   const quickPrompts = [
+    `Top historic forts and tourist places near ${district}?`,
+    `Suggest a 1-day travel itinerary for ${district}`,
     'What government services are available near me?',
     'Where is the nearest government hospital?',
     'What should I do during a flood in my area?',

@@ -23,6 +23,7 @@ import HealthcarePage from '../pages/Healthcare/HealthcarePage.tsx';
 import AlertsPage from '../pages/Alerts/AlertsPage.tsx';
 import ComplaintsPage from '../pages/Complaints/ComplaintsPage.tsx';
 import TourismPage from '../pages/Tourism/TourismPage.tsx';
+import { PlaceDetailsPage } from '../pages/Tourism/PlaceDetailsPage.tsx';
 import TransportPage from '../pages/Transport/TransportPage.tsx';
 import CommunityPage from '../pages/Community/CommunityPage.tsx';
 import MapPage from '../pages/Map/MapPage.tsx';
@@ -32,6 +33,7 @@ import WastePage from '../pages/Waste/WastePage.tsx';
 import AgriculturePage from '../pages/Agriculture/AgriculturePage.tsx';
 import EducationPage from '../pages/Education/EducationPage.tsx';
 import AdminDashboardPage from '../pages/Admin/AdminDashboardPage.tsx';
+import { AdminPlacesModerationPage } from '../pages/Admin/AdminPlacesModerationPage.tsx';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -124,6 +126,7 @@ const App: React.FC = () => {
                     <Route path="/agriculture" element={<MainLayout><AgriculturePage /></MainLayout>} />
                     <Route path="/education" element={<MainLayout><EducationPage /></MainLayout>} />
                     <Route path="/tourism" element={<MainLayout><TourismPage /></MainLayout>} />
+                    <Route path="/tourism/place/:id" element={<MainLayout><PlaceDetailsPage /></MainLayout>} />
                     <Route path="/transport" element={<MainLayout><TransportPage /></MainLayout>} />
                     <Route path="/community" element={<MainLayout><CommunityPage /></MainLayout>} />
                     <Route path="/map" element={<MainLayout><MapPage /></MainLayout>} />
@@ -142,6 +145,14 @@ const App: React.FC = () => {
                       element={
                         <AdminRoute>
                           <MainLayout><AdminDashboardPage /></MainLayout>
+                        </AdminRoute>
+                      }
+                    />
+                    <Route
+                      path="/admin/tourism-moderation"
+                      element={
+                        <AdminRoute>
+                          <MainLayout><AdminPlacesModerationPage /></MainLayout>
                         </AdminRoute>
                       }
                     />
