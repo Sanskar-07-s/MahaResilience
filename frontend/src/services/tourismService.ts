@@ -79,6 +79,19 @@ export interface DirectionResult {
   externalGoogleMapsUrl: string;
 }
 
+/**
+ * Utility to strip undefined properties from an object so Firestore addDoc/updateDoc never fails
+ */
+const sanitizeFirestoreData = <T extends Record<string, any>>(obj: T): T => {
+  const sanitized: any = {};
+  Object.keys(obj).forEach((key) => {
+    if (obj[key] !== undefined) {
+      sanitized[key] = obj[key];
+    }
+  });
+  return sanitized as T;
+};
+
 const SEED_PLACES: TouristPlace[] = [
   {
     id: 'p-pune-1',
@@ -192,7 +205,7 @@ const SEED_PLACES: TouristPlace[] = [
 export const fetchNearbyPlaces = async (
   lat: number,
   lng: number,
-  radiusMeters = 200000, // 200km default radius to return all locations
+  radiusMeters = 200000,
   category = 'ALL',
   limit = 100
 ): Promise<TouristPlace[]> => {
@@ -285,14 +298,12 @@ export const searchPlaces = async (
 export const fetchPlaceDetails = async (
   id: string
 ): Promise<{ place: TouristPlace; reviews: PlaceReview[]; ratingBreakdown: Record<number, number> } | null> => {
-  // Try reading from Firestore first
   try {
     const docRef = doc(db, 'places', id);
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
       const p = { id: docSnap.id, ...docSnap.data() } as TouristPlace;
 
-      // Fetch reviews for this place
       const revSnap = await getDocs(collection(db, 'placeReviews'));
       const revs = revSnap.docs
         .map((d) => ({ id: d.id, ...d.data() } as PlaceReview))
@@ -306,7 +317,6 @@ export const fetchPlaceDetails = async (
     }
   } catch (e) {}
 
-  // Fallback API details
   try {
     const url = getApiUrl(`/api/tourism/place/${id}`);
     const res = await fetch(url);
@@ -354,8 +364,7 @@ export const submitCommunityPlace = async (
   placeData: Partial<TouristPlace> & { bypassDuplicateCheck?: boolean }
 ): Promise<{ success: boolean; message: string; place?: TouristPlace; similarExists?: boolean; existingPlace?: TouristPlace }> => {
   try {
-    const newPlaceObj: TouristPlace = {
-      id: `place-${Date.now()}`,
+    const rawPlaceObj = {
       name: placeData.name?.trim() || 'Community Attraction',
       description: placeData.description?.trim() || '',
       category: placeData.category || 'Tourist Spots',
@@ -371,13 +380,13 @@ export const submitCommunityPlace = async (
       ratingAvg: 5.0,
       ratingCount: 1,
       reviewCount: 1,
-      openingHours: placeData.openingHours || undefined,
-      entryFee: placeData.entryFee || undefined,
-      contactNumber: placeData.contactNumber || undefined,
-      website: placeData.website || undefined,
-      bestTimeToVisit: placeData.bestTimeToVisit || undefined,
+      openingHours: placeData.openingHours || '',
+      entryFee: placeData.entryFee || '',
+      contactNumber: placeData.contactNumber || '',
+      website: placeData.website || '',
+      bestTimeToVisit: placeData.bestTimeToVisit || '',
       facilities: placeData.facilities || [],
-      safetyInfo: placeData.safetyInfo || undefined,
+      safetyInfo: placeData.safetyInfo || '',
       source: 'COMMUNITY',
       status: 'APPROVED', // Immediately active and visible on map and list
       verified: true,
@@ -387,9 +396,12 @@ export const submitCommunityPlace = async (
       updatedAt: new Date().toISOString(),
     };
 
+    // Sanitize object so no undefined values are passed to Firestore
+    const cleanData = sanitizeFirestoreData(rawPlaceObj);
+
     // Save directly to Firebase Firestore collection 'places'
-    const docRef = await addDoc(collection(db, 'places'), newPlaceObj);
-    newPlaceObj.id = docRef.id;
+    const docRef = await addDoc(collection(db, 'places'), cleanData);
+    const createdPlace: TouristPlace = { id: docRef.id, ...cleanData } as TouristPlace;
 
     // Async notify Render backend proxy
     try {
@@ -403,7 +415,7 @@ export const submitCommunityPlace = async (
     return {
       success: true,
       message: 'Place saved to Firebase Firestore and displayed on your map!',
-      place: newPlaceObj,
+      place: createdPlace,
     };
   } catch (err: any) {
     console.error('[tourismService] Firestore submit error:', err);
@@ -426,13 +438,12 @@ export const submitPlaceReview = async (
       userName: reviewData.userName || 'Local Explorer',
       rating: reviewData.rating,
       comment: reviewData.comment,
-      images: reviewData.images,
+      images: reviewData.images || [],
       createdAt: new Date().toISOString(),
     };
 
-    await addDoc(collection(db, 'placeReviews'), revObj);
+    await addDoc(collection(db, 'placeReviews'), sanitizeFirestoreData(revObj));
 
-    // Fetch updated reviews
     const snap = await getDocs(collection(db, 'placeReviews'));
     const updatedRevs = snap.docs
       .map((d) => ({ id: d.id, ...d.data() } as PlaceReview))
@@ -452,13 +463,13 @@ export const submitPlaceReport = async (
   reportData: { reason: string; description: string; userId?: string }
 ): Promise<{ success: boolean; message?: string }> => {
   try {
-    await addDoc(collection(db, 'placeReports'), {
+    await addDoc(collection(db, 'placeReports'), sanitizeFirestoreData({
       placeId,
       reason: reportData.reason,
-      description: reportData.description,
+      description: reportData.description || '',
       userId: reportData.userId || 'anonymous',
       createdAt: new Date().toISOString(),
-    });
+    }));
     return { success: true, message: 'Report saved to Firestore.' };
   } catch (err) {
     return { success: false };

@@ -395,7 +395,10 @@ export const TourismPage: React.FC = () => {
       <AddPlaceModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
-        onSuccess={() => {
+        onSuccess={(newPlace) => {
+          if (newPlace) {
+            setPlaces((prev) => [newPlace, ...prev]);
+          }
           loadPlaces();
         }}
       />

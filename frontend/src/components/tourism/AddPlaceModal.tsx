@@ -11,7 +11,7 @@ import { RecaptchaWidget } from '../security/RecaptchaWidget.tsx';
 interface AddPlaceModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (newPlace?: TouristPlace) => void;
 }
 
 const customPickerIcon = L.divIcon({
@@ -167,7 +167,7 @@ export const AddPlaceModal: React.FC<AddPlaceModalProps> = ({ isOpen, onClose, o
       }
 
       if (res.success) {
-        onSuccess();
+        onSuccess(res.place);
         onClose();
       } else {
         setError(res.message || 'Submission failed.');
