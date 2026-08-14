@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from '../contexts/AuthContext.tsx';
+import { LocationProvider } from '../contexts/LocationContext.tsx';
 import { AlertProvider } from '../contexts/AlertContext.tsx';
 import { NotificationProvider } from '../contexts/NotificationContext.tsx';
 import { EmergencyModeProvider } from '../contexts/EmergencyModeContext.tsx';
@@ -25,6 +26,11 @@ import TourismPage from '../pages/Tourism/TourismPage.tsx';
 import TransportPage from '../pages/Transport/TransportPage.tsx';
 import CommunityPage from '../pages/Community/CommunityPage.tsx';
 import MapPage from '../pages/Map/MapPage.tsx';
+import WaterPage from '../pages/Water/WaterPage.tsx';
+import ElectricityPage from '../pages/Electricity/ElectricityPage.tsx';
+import WastePage from '../pages/Waste/WastePage.tsx';
+import AgriculturePage from '../pages/Agriculture/AgriculturePage.tsx';
+import EducationPage from '../pages/Education/EducationPage.tsx';
 import AdminDashboardPage from '../pages/Admin/AdminDashboardPage.tsx';
 
 const queryClient = new QueryClient({
@@ -87,60 +93,67 @@ const App: React.FC = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <EmergencyModeProvider>
-          <AlertProvider>
-            <NotificationProvider>
-              <Router>
-                <Routes>
-                  {/* Auth routes */}
-                  <Route path="/login" element={<LoginPage />} />
-                  <Route path="/register" element={<RegisterPage />} />
+        <LocationProvider>
+          <EmergencyModeProvider>
+            <AlertProvider>
+              <NotificationProvider>
+                <Router>
+                  <Routes>
+                    {/* Auth routes */}
+                    <Route path="/login" element={<LoginPage />} />
+                    <Route path="/register" element={<RegisterPage />} />
 
-                  {/* Standard and Civic routes wrapped in MainLayout */}
-                  <Route path="/" element={<MainLayout><LandingPage /></MainLayout>} />
-                  <Route
-                    path="/dashboard"
-                    element={
-                      <ProtectedRoute>
-                        <MainLayout><DashboardPage /></MainLayout>
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route path="/emergency" element={<MainLayout><EmergencyPage /></MainLayout>} />
-                  <Route path="/government" element={<MainLayout><GovernmentPage /></MainLayout>} />
-                  <Route path="/healthcare" element={<MainLayout><HealthcarePage /></MainLayout>} />
-                  <Route path="/alerts" element={<MainLayout><AlertsPage /></MainLayout>} />
-                  <Route path="/complaints" element={<MainLayout><ComplaintsPage /></MainLayout>} />
-                  <Route path="/tourism" element={<MainLayout><TourismPage /></MainLayout>} />
-                  <Route path="/transport" element={<MainLayout><TransportPage /></MainLayout>} />
-                  <Route path="/community" element={<MainLayout><CommunityPage /></MainLayout>} />
-                  <Route path="/map" element={<MainLayout><MapPage /></MainLayout>} />
+                    {/* Standard and Civic routes wrapped in MainLayout */}
+                    <Route path="/" element={<MainLayout><LandingPage /></MainLayout>} />
+                    <Route
+                      path="/dashboard"
+                      element={
+                        <ProtectedRoute>
+                          <MainLayout><DashboardPage /></MainLayout>
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route path="/emergency" element={<MainLayout><EmergencyPage /></MainLayout>} />
+                    <Route path="/government" element={<MainLayout><GovernmentPage /></MainLayout>} />
+                    <Route path="/healthcare" element={<MainLayout><HealthcarePage /></MainLayout>} />
+                    <Route path="/alerts" element={<MainLayout><AlertsPage /></MainLayout>} />
+                    <Route path="/complaints" element={<MainLayout><ComplaintsPage /></MainLayout>} />
+                    <Route path="/water" element={<MainLayout><WaterPage /></MainLayout>} />
+                    <Route path="/electricity" element={<MainLayout><ElectricityPage /></MainLayout>} />
+                    <Route path="/waste" element={<MainLayout><WastePage /></MainLayout>} />
+                    <Route path="/agriculture" element={<MainLayout><AgriculturePage /></MainLayout>} />
+                    <Route path="/education" element={<MainLayout><EducationPage /></MainLayout>} />
+                    <Route path="/tourism" element={<MainLayout><TourismPage /></MainLayout>} />
+                    <Route path="/transport" element={<MainLayout><TransportPage /></MainLayout>} />
+                    <Route path="/community" element={<MainLayout><CommunityPage /></MainLayout>} />
+                    <Route path="/map" element={<MainLayout><MapPage /></MainLayout>} />
 
-                  {/* Admin Command Center — protected with AdminGuard inside the page */}
-                  <Route
-                    path="/admin"
-                    element={
-                      <AdminRoute>
-                        <MainLayout><AdminDashboardPage /></MainLayout>
-                      </AdminRoute>
-                    }
-                  />
-                  <Route
-                    path="/admin/dashboard"
-                    element={
-                      <AdminRoute>
-                        <MainLayout><AdminDashboardPage /></MainLayout>
-                      </AdminRoute>
-                    }
-                  />
+                    {/* Admin Command Center — protected with AdminGuard inside the page */}
+                    <Route
+                      path="/admin"
+                      element={
+                        <AdminRoute>
+                          <MainLayout><AdminDashboardPage /></MainLayout>
+                        </AdminRoute>
+                      }
+                    />
+                    <Route
+                      path="/admin/dashboard"
+                      element={
+                        <AdminRoute>
+                          <MainLayout><AdminDashboardPage /></MainLayout>
+                        </AdminRoute>
+                      }
+                    />
 
-                  {/* Fallback route */}
-                  <Route path="*" element={<Navigate to="/" replace />} />
-                </Routes>
-              </Router>
-            </NotificationProvider>
-          </AlertProvider>
-        </EmergencyModeProvider>
+                    {/* Fallback route */}
+                    <Route path="*" element={<Navigate to="/" replace />} />
+                  </Routes>
+                </Router>
+              </NotificationProvider>
+            </AlertProvider>
+          </EmergencyModeProvider>
+        </LocationProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

@@ -99,13 +99,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
 
   useEffect(() => {
+    // Safety fallback: Never allow auth loading state to stick for > 3.5s
+    const safetyTimer = setTimeout(() => {
+      setIsLoading(false);
+    }, 3500);
+
     const unsubscribe = onAuthStateChanged(
       auth,
       async (firebaseUser: FirebaseUser | null) => {
-        setIsLoading(true);
-
-        if (firebaseUser) {
-          try {
+        try {
+          if (firebaseUser) {
             // Get fresh token
             let userToken: string;
             try {
@@ -126,49 +129,56 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               bootstrapSuperAdmin().catch(() => {});
             }
 
-            // Try to get Firestore profile (falls back to localStorage on failure)
-            let profile = await getUserProfile(firebaseUser.uid);
+            // Try to get Firestore profile with 2.5s Promise race
+            let profile: UserProfile | null = null;
+            try {
+              const timeoutPromise = new Promise<null>((res) => setTimeout(() => res(null), 2500));
+              profile = await Promise.race([getUserProfile(firebaseUser.uid), timeoutPromise]);
+            } catch (_) {}
 
             if (!profile) {
-              // No profile in Firestore and no cache — create new
-              const email = firebaseUser.email || 'citizen@maharesilience.org';
-              const name = firebaseUser.displayName || email.split('@')[0];
+              // Try cached user
+              const cached = getCachedUser();
+              if (cached && cached.uid === firebaseUser.uid) {
+                profile = cached;
+              } else {
+                // Create new basic profile
+                const email = firebaseUser.email || 'citizen@maharesilience.org';
+                const name = firebaseUser.displayName || email.split('@')[0];
 
-              let role: UserRole = firebaseUser.isAnonymous ? 'TOURIST' : 'CITIZEN';
-              if (isSuperAdminLogin) role = 'SUPER_ADMIN';
-              else if (isDefaultAdmin) role = 'ADMIN';
+                let role: UserRole = firebaseUser.isAnonymous ? 'TOURIST' : 'CITIZEN';
+                if (isSuperAdminLogin) role = 'SUPER_ADMIN';
+                else if (isDefaultAdmin) role = 'ADMIN';
 
-              const newProfile: Partial<UserProfile> = {
-                uid: firebaseUser.uid,
-                email,
-                name,
-                photoURL: firebaseUser.photoURL || '',
-                phone: firebaseUser.phoneNumber || '',
-                role,
-                isAdmin: isSuperAdminLogin || isDefaultAdmin,
-                permissions: isSuperAdminLogin ? ['*'] : [],
-                accountStatus: 'ACTIVE',
-                isEmailVerified: firebaseUser.emailVerified,
-                isPhoneVerified: !!firebaseUser.phoneNumber,
-                state: 'Maharashtra',
-                language: 'en',
-                theme: 'light',
-                notificationsEnabled: true,
-                locationPermission: false,
-                accessibilityMode: false,
-                isProfileComplete: false,
-                emergencyContactsConfigured: false,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-                lastLogin: new Date().toISOString(),
-              };
+                profile = {
+                  uid: firebaseUser.uid,
+                  id: firebaseUser.uid,
+                  email,
+                  name,
+                  photoURL: firebaseUser.photoURL || '',
+                  phone: firebaseUser.phoneNumber || '',
+                  role,
+                  isAdmin: isSuperAdminLogin || isDefaultAdmin,
+                  permissions: isSuperAdminLogin ? ['*'] : [],
+                  accountStatus: 'ACTIVE',
+                  isEmailVerified: firebaseUser.emailVerified,
+                  isPhoneVerified: !!firebaseUser.phoneNumber,
+                  state: 'Maharashtra',
+                  language: 'en',
+                  theme: 'light',
+                  notificationsEnabled: true,
+                  locationPermission: false,
+                  accessibilityMode: false,
+                  isProfileComplete: false,
+                  emergencyContactsConfigured: false,
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString(),
+                  lastLogin: new Date().toISOString(),
+                };
 
-              // Fire-and-forget Firestore write — don't block login
-              createOrUpdateUserProfile(firebaseUser.uid, newProfile).catch(() => {});
-
-              profile = newProfile as UserProfile;
+                createOrUpdateUserProfile(firebaseUser.uid, profile).catch(() => {});
+              }
             } else {
-              // Ensure role is correct for special accounts
               if (isSuperAdminLogin && profile.role !== 'SUPER_ADMIN') {
                 profile.role = 'SUPER_ADMIN';
                 profile.isAdmin = true;
@@ -191,7 +201,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               }
             }
 
-            // Always update lastLogin (non-blocking)
             createOrUpdateUserProfile(firebaseUser.uid, {
               lastLogin: new Date().toISOString(),
               isEmailVerified: firebaseUser.emailVerified,
@@ -199,36 +208,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             setUser(profile);
             setCachedUser(profile);
-
-            // Non-critical fire-and-forget writes
             createOrUpdateUserSession(firebaseUser.uid).catch(() => {});
-          } catch (error: any) {
-            console.error('[Auth Context] Profile sync error:', error?.code || error?.message);
-            // Recover from cache — auth state is still valid even if Firestore fails
-            const cached = getCachedUser();
-            if (cached && cached.uid === firebaseUser.uid) {
-              console.info('[Auth Context] Recovered from localStorage cache.');
-              setUser(cached);
-            }
+          } else {
+            // Signed out
+            setUser(null);
+            setToken(null);
+            setCachedToken(null);
+            setCachedUser(null);
           }
-        } else {
-          // Signed out
-          setUser(null);
-          setToken(null);
-          setCachedToken(null);
-          setCachedUser(null);
+        } catch (error: any) {
+          console.error('[Auth Context] Observer handler error:', error?.code || error?.message);
+        } finally {
+          clearTimeout(safetyTimer);
+          setIsLoading(false);
         }
-
-        setIsLoading(false);
       },
       (error: any) => {
-        // onAuthStateChanged observer error (rare — network issues)
         console.error('[Auth Context] Auth state observer error:', error?.code);
+        clearTimeout(safetyTimer);
         setIsLoading(false);
       }
     );
 
-    return () => unsubscribe();
+    return () => {
+      clearTimeout(safetyTimer);
+      unsubscribe();
+    };
   }, []);
 
   const login = useCallback(

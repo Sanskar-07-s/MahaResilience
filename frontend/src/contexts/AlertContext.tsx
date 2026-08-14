@@ -107,12 +107,29 @@ export const AlertProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [isLoading, setIsLoading] = useState(true);
   const hasFirestoreData = useRef(false);
 
-  // ─── Play synthesized siren ────────────────────────────────────────────────
+  // ─── Play synthesized siren safely (Lazy audio initialization) ──────────────────────────
+  const audioContextRef = useRef<AudioContext | null>(null);
+
   const triggerAlarmSound = () => {
     try {
       const AudioContextClass =
         window.AudioContext || (window as any).webkitAudioContext;
-      const ctx = new AudioContextClass();
+      if (!AudioContextClass) return;
+
+      // Only reuse or create if context is running or can resume
+      if (!audioContextRef.current) {
+        audioContextRef.current = new AudioContextClass();
+      }
+
+      const ctx = audioContextRef.current;
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
+
+      if (ctx.state !== 'running') {
+        return; // Prevent console warnings when browser blocks autoplay
+      }
+
       const playTone = (freq: number, start: number, duration: number) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
@@ -128,9 +145,7 @@ export const AlertProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       playTone(523.25, ctx.currentTime, 0.4);
       playTone(659.25, ctx.currentTime + 0.2, 0.4);
       playTone(783.99, ctx.currentTime + 0.4, 0.6);
-    } catch (e) {
-      console.warn('[Alert Engine] Audio playback blocked:', e);
-    }
+    } catch (_) {}
   };
 
   // ─── Process and set alerts ───────────────────────────────────────────────

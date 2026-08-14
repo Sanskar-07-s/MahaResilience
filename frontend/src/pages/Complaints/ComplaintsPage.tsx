@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext.tsx';
+import { useLocation } from '../../contexts/LocationContext.tsx';
 import { ThumbsUp, MapPin, FileText, AlertCircle, Plus, CheckCircle, Clock, Upload } from 'lucide-react';
 import { db, storage } from '../../lib/firebase.ts';
 import { 
@@ -37,31 +38,28 @@ interface Complaint {
 
 const ComplaintsPage: React.FC = () => {
   const { isAuthenticated, user } = useAuth();
+  const { latitude, longitude, ward, city, district, state } = useLocation();
   const navigate = useNavigate();
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [loading, setLoading] = useState(true);
   const [categoryFilter, setCategoryFilter] = useState('');
-  const [sortBy, setSortBy] = useState('date'); // date or priority
+  const [sortBy, setSortBy] = useState('date');
 
   // Form states
   const [showForm, setShowForm] = useState(false);
   const [title, setTitle] = useState('');
   const [desc, setDesc] = useState('');
   const [category, setCategory] = useState('POTHOLE');
-  const [address, setAddress] = useState('');
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [address, setAddress] = useState(`${ward || city}, ${district}, ${state}`);
   const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
 
   useEffect(() => {
-    // Fetch user location for complaint
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition((pos) => {
-        setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-      });
+    if (ward || district) {
+      setAddress(`${ward || city}, ${district}, ${state}`);
     }
-  }, [showForm]);
+  }, [ward, city, district, state]);
 
   useEffect(() => {
     setLoading(true);
@@ -172,13 +170,15 @@ const ComplaintsPage: React.FC = () => {
         title,
         description: desc,
         category,
-        latitude: coords?.lat || 18.5204,
-        longitude: coords?.lng || 73.8567,
-        address,
+        latitude: latitude || 18.5204,
+        longitude: longitude || 73.8567,
+        address: address || `${ward || city}, ${district}, ${state}`,
+        district: district || 'Pune',
+        ward: ward || city,
         photoUrl: downloadUrl || null,
         citizenId: user?.id || 'anonymous',
         citizenName: user?.name || 'Anonymous Citizen',
-        status: 'PENDING',
+        status: 'SUBMITTED',
         priority: 'MEDIUM',
         managerNotes: '',
         upvotes: 0,
@@ -306,9 +306,9 @@ const ComplaintsPage: React.FC = () => {
                     placeholder="e.g. SVM Road, Opp GPO, Bandra West"
                     required
                   />
-                  {coords && (
+                  {latitude && longitude && (
                     <span className="text-xs text-green-600 font-semibold block pt-1">
-                      ✓ GPS coordinates locked: {coords.lat.toFixed(4)}, {coords.lng.toFixed(4)}
+                      ✓ GPS coordinates locked: {latitude.toFixed(4)}, {longitude.toFixed(4)} ({ward}, {district})
                     </span>
                   )}
                 </div>

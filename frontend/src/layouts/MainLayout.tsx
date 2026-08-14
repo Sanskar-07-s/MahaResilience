@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext.tsx';
 import { isSuperAdmin, canAccessAdmin } from '../utils/permissions.ts';
 import { AlertOverlay } from '../components/alerts/AlertOverlay.tsx';
 import { OfflineBanner } from '../components/common/OfflineBanner.tsx';
+import { LocationBar } from '../components/location/LocationBar.tsx';
 import {
   Menu,
   X,
@@ -20,7 +21,12 @@ import {
   Map,
   Compass,
   Bus,
-  Users
+  Users,
+  Droplets,
+  Zap,
+  Trash2,
+  Wheat,
+  GraduationCap
 } from 'lucide-react';
 
 import { CriticalAlertBanner } from '../components/alerts/CriticalAlertBanner.tsx';
@@ -39,7 +45,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const activeLink = (path: string) => location.pathname === path;
 
   const handleSOS = async () => {
-    // Direct link to emergency page or trigger API call if coordinates exist
     navigate('/emergency');
   };
 
@@ -49,11 +54,16 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     { name: 'Emergency SOS', path: '/emergency', icon: Flame, highlight: true },
     { name: 'Alerts', path: '/alerts', icon: Bell },
     { name: 'Complaints', path: '/complaints', icon: FileText },
-    { name: 'Map Info', path: '/map', icon: Map },
-    { name: 'Maha Schemes', path: '/government', icon: Building },
+    { name: 'Map View', path: '/map', icon: Map },
+    { name: 'Water', path: '/water', icon: Droplets },
+    { name: 'Electricity', path: '/electricity', icon: Zap },
+    { name: 'Waste', path: '/waste', icon: Trash2 },
     { name: 'Healthcare', path: '/healthcare', icon: HeartPulse },
-    { name: 'Tourism', path: '/tourism', icon: Compass },
     { name: 'Transport', path: '/transport', icon: Bus },
+    { name: 'Agriculture', path: '/agriculture', icon: Wheat },
+    { name: 'Education', path: '/education', icon: GraduationCap },
+    { name: 'Government', path: '/government', icon: Building },
+    { name: 'Tourism', path: '/tourism', icon: Compass },
     { name: 'Community', path: '/community', icon: Users },
   ];
 
@@ -62,6 +72,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       <AlertOverlay />
       <OfflineBanner />
       <CriticalAlertBanner />
+      <LocationBar />
       {/* Top Navbar */}
       <nav className="sticky top-0 z-50 glass shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

@@ -1,17 +1,20 @@
 import React, { useState } from 'react';
-import { Award, FileText, CheckCircle, Info, ChevronDown, ChevronUp } from 'lucide-react';
+import { Award, FileText, CheckCircle, Info, ChevronDown, ChevronUp, MapPin, Building2, Landmark, Clock, ExternalLink } from 'lucide-react';
+import { useLocation } from '../../contexts/LocationContext.tsx';
 
 interface Scheme {
   id: string;
   title: string;
   description: string;
   category: string;
+  level: 'WARD' | 'TALUKA' | 'DISTRICT' | 'STATE' | 'NATIONAL';
   documentRequirements: string[];
   applicationUrl?: string;
   eligibilityCriteria?: any;
 }
 
 const GovernmentPage: React.FC = () => {
+  const { ward, taluka, district, state } = useLocation();
   const [age, setAge] = useState<number | ''>('');
   const [income, setIncome] = useState<number | ''>('');
   const [occupation, setOccupation] = useState('STUDENT');
@@ -30,6 +33,7 @@ const GovernmentPage: React.FC = () => {
       title: 'Sanjay Gandhi Niradhar Pension Yojana',
       description: 'Financial assistance of ₹1,500/month to destitute persons, blind, disabled, orphans, and persons suffering from major illnesses.',
       category: 'Social Welfare',
+      level: 'STATE',
       documentRequirements: ['Age Proof', 'Income Certificate (< ₹50,000/yr)', 'Disability Certificate (if applicable)', 'Maharashtra Residence Proof'],
       applicationUrl: 'https://aaplesarkar.maharashtra.gov.in',
     },
@@ -38,6 +42,7 @@ const GovernmentPage: React.FC = () => {
       title: 'Rajarshi Chhatrapati Shahu Maharaj Fee Reimbursement',
       description: '50% tuition fee reimbursement for students of EBC category enrolled in professional courses.',
       category: 'Education',
+      level: 'STATE',
       documentRequirements: ['Income Certificate (< ₹8,00,000/yr)', 'Aadhaar Card', 'Domicile Certificate', 'College Fee Receipt'],
       applicationUrl: 'https://mahadbt.maharashtra.gov.in',
     },
@@ -46,6 +51,7 @@ const GovernmentPage: React.FC = () => {
       title: 'Maharashtra Bal Sangopan Yojana',
       description: 'Financial aid of ₹1,125 per month for foster parents to support education and nutrition of orphans and single-parent children.',
       category: 'Child Development',
+      level: 'STATE',
       documentRequirements: ['Birth Certificate', 'Income Certificate', 'Single Parent/Death Certificate'],
       applicationUrl: 'https://aaplesarkar.maharashtra.gov.in',
     },
@@ -105,12 +111,26 @@ const GovernmentPage: React.FC = () => {
 
   return (
     <div className="space-y-8">
-      {/* Title Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-slate-800">Maharashtra Welfare & Schemes Portal</h1>
-        <p className="text-slate-500 text-sm mt-1">
-          Input your demographic details below. The intelligent eligibility engine matches your parameters with central and state government schemes in real-time.
-        </p>
+      {/* Location-Aware Header Banner */}
+      <div className="bg-gradient-to-r from-teal-800 via-teal-700 to-slate-800 text-white p-6 md:p-8 rounded-2xl shadow-lg relative overflow-hidden">
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/15 backdrop-blur-md rounded-full text-xs font-semibold text-teal-100 mb-2 border border-white/20">
+              <MapPin className="w-3.5 h-3.5" /> Filtered for {ward || taluka}, {district} District
+            </div>
+            <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">Government Schemes & Citizen Services</h1>
+            <p className="text-teal-100 text-sm mt-1 max-w-2xl leading-relaxed">
+              Explore Maharashtra State & District schemes applicable to residents of <strong className="text-white font-bold">{district}</strong> (Taluka: {taluka}, Ward: {ward}).
+            </p>
+          </div>
+          <div className="bg-white/10 backdrop-blur-md p-4 rounded-xl border border-white/20 text-xs space-y-1">
+            <div className="font-bold flex items-center gap-1.5 text-white">
+              <Landmark className="w-4 h-4 text-teal-300" /> {district} Collectorate Seva Kendra
+            </div>
+            <div className="text-teal-100 text-[11px]">📍 Collector Office Campus, {district}</div>
+            <div className="text-teal-200 text-[11px] font-mono">📞 Helpline: 1800-120-8040</div>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
