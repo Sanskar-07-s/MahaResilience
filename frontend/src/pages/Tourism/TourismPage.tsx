@@ -22,6 +22,8 @@ import {
 import { fetchNearbyPlaces, TouristPlace } from '../../services/tourismService.ts';
 import { AddPlaceModal } from '../../components/tourism/AddPlaceModal.tsx';
 import { DirectionsModal } from '../../components/tourism/DirectionsModal.tsx';
+import { db } from '../../lib/firebase.ts';
+import { collection, onSnapshot } from 'firebase/firestore';
 
 const createCategoryIcon = (category: string) => {
   let emoji = '📍';
@@ -93,7 +95,7 @@ export const TourismPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('ALL');
-  const [radiusFilter, setRadiusFilter] = useState(50000); // 50km
+  const [radiusFilter, setRadiusFilter] = useState(200000); // 200km default for all nearby locations
   const [sortOption, setSortOption] = useState<'NEAREST' | 'RATING' | 'REVIEWS' | 'VERIFIED'>('NEAREST');
 
   // Modals
@@ -116,13 +118,20 @@ export const TourismPage: React.FC = () => {
 
   const loadPlaces = async () => {
     setLoading(true);
-    const data = await fetchNearbyPlaces(userLat, userLng, radiusFilter, activeCategory, 50);
+    const data = await fetchNearbyPlaces(userLat, userLng, radiusFilter, activeCategory, 100);
     setPlaces(data);
     setLoading(false);
   };
 
   useEffect(() => {
     loadPlaces();
+
+    // Real-time Firestore sync when new places are added by any citizen
+    const unsub = onSnapshot(collection(db, 'places'), () => {
+      loadPlaces();
+    });
+
+    return () => unsub();
   }, [userLat, userLng, activeCategory, radiusFilter]);
 
   // Filtered & Sorted Places
