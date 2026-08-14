@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext.tsx';
 import { useLocation } from '../../contexts/LocationContext.tsx';
+import { uploadImageToCloudinary } from '../../services/cloudinary.service.ts';
 import { ThumbsUp, MapPin, FileText, AlertCircle, Plus, CheckCircle, Clock, Upload } from 'lucide-react';
 import { db, storage } from '../../lib/firebase.ts';
 import { 
@@ -160,10 +161,17 @@ const ComplaintsPage: React.FC = () => {
     setSubmitting(true);
     try {
       let downloadUrl = '';
-      if (evidenceFile && user) {
-        const fileRef = ref(storage, `complaints/${user.id || 'anonymous'}/${Date.now()}_${evidenceFile.name}`);
-        const uploadResult = await uploadBytes(fileRef, evidenceFile);
-        downloadUrl = await getDownloadURL(uploadResult.ref);
+      if (evidenceFile) {
+        try {
+          downloadUrl = await uploadImageToCloudinary(evidenceFile, 'complaints');
+        } catch (err) {
+          console.warn('[Complaints] Cloudinary upload fallback to Firebase storage:', err);
+          if (user) {
+            const fileRef = ref(storage, `complaints/${user.id || 'anonymous'}/${Date.now()}_${evidenceFile.name}`);
+            const uploadResult = await uploadBytes(fileRef, evidenceFile);
+            downloadUrl = await getDownloadURL(uploadResult.ref);
+          }
+        }
       }
 
       await addDoc(collection(db, 'complaints'), {
