@@ -1,13 +1,5 @@
 import { genkit } from 'genkit';
 import { googleAI, gemini15Flash } from '@genkit-ai/googleai';
-import { enableFirebaseTelemetry } from '@genkit-ai/firebase';
-
-// Enable Genkit observability & telemetry safely (only inside Google Cloud / Firebase Functions)
-if (process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT) {
-  enableFirebaseTelemetry().catch((err) => {
-    console.warn('[Genkit] Telemetry fallback on external server:', err?.message || err);
-  });
-}
 
 // Configure Genkit instance with Google AI Gemini model
 export const ai = genkit({
