@@ -1,126 +1,179 @@
-import React, { useState, useEffect } from 'react';
-import { MapPin, Building, HeartPulse, ShieldAlert, Bus, HelpCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { MapPin, Building, HeartPulse, ShieldAlert, Bus, Search, Landmark, Droplets, Layers, ExternalLink } from 'lucide-react';
 import { MapProvider } from '../../components/maps/MapProvider.tsx';
-import { LiveMap } from '../../components/maps/Maps.tsx';
-
-interface AssetMarker {
-  id: string;
-  name: string;
-  category: 'SHELTER' | 'HOSPITAL' | 'COMPLAINT' | 'TRANSIT';
-  latitude: number;
-  longitude: number;
-  details: string;
-}
+import { LiveMap, MAHARASHTRA_DEFAULT_SERVICES, AssetPin } from '../../components/maps/Maps.tsx';
 
 const MapPage: React.FC = () => {
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
-  const [assets, setAssets] = useState<AssetMarker[]>([]);
-  const [selectedAsset, setSelectedAsset] = useState<AssetMarker | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
-  useEffect(() => {
-    // 1. Fetch user coordinates
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        () => setCoords({ lat: 18.5204, lng: 73.8567 }) // Pune default
-      );
-    } else {
-      setCoords({ lat: 18.5204, lng: 73.8567 });
-    }
-  }, []);
-
-  useEffect(() => {
-    // Seed mock visual markers around Pune/Mumbai bounds for maps display
-    const mockMarkers: AssetMarker[] = [
-      { id: '1', name: 'Pune General Civil Hospital', category: 'HOSPITAL', latitude: 18.5244, longitude: 73.8527, details: '50/120 ICU Beds Free. Open 24/7.' },
-      { id: '2', name: 'Pune West Flood Shelter', category: 'SHELTER', latitude: 18.5144, longitude: 73.8627, details: 'Capacity: 500. Food & blankets available.' },
-      { id: '3', name: 'Road Pothole hazard', category: 'COMPLAINT', latitude: 18.5304, longitude: 73.8597, details: 'Status: PENDING. Reported by Rahul P.' },
-      { id: '4', name: 'Shivaji Nagar Bus Terminal', category: 'TRANSIT', latitude: 18.5284, longitude: 73.8497, details: 'Connecting buses to Mumbai/Kolhapur.' },
-      { id: '5', name: 'E-Waste Smart Recycling', category: 'TRANSIT', latitude: 18.5184, longitude: 73.8447, details: 'EV Chargers & Waste pickup depot.' },
-    ];
-    setAssets(mockMarkers);
-  }, []);
-
-  const filteredAssets = categoryFilter === 'ALL'
-    ? assets
-    : assets.filter((asset) => asset.category === categoryFilter);
+  const filteredAssets = MAHARASHTRA_DEFAULT_SERVICES.filter((asset) => {
+    const matchesCategory = categoryFilter === 'ALL' || asset.category === categoryFilter;
+    const matchesSearch = searchQuery === '' ||
+      asset.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      asset.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (asset.details && asset.details.toLowerCase().includes(searchQuery.toLowerCase()));
+    return matchesCategory && matchesSearch;
+  });
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-slate-800">Maharashtra Civic Map View</h1>
-        <p className="text-slate-500 text-sm mt-1">
-          Explore public amenities, healthcare sites, transport hubs, and reported complaints. Select a pin to review details.
-        </p>
+      {/* Header Banner */}
+      <div className="bg-gradient-to-r from-primary-dark via-primary to-blue-700 text-white p-6 md:p-8 rounded-2xl shadow-lg relative overflow-hidden">
+        <div className="absolute right-0 top-0 translate-x-8 -translate-y-8 w-64 h-64 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/15 backdrop-blur-md rounded-full text-xs font-semibold text-blue-100 mb-2 border border-white/20">
+              <Layers className="w-3.5 h-3.5" /> Powered by MapTiler Vector Engine
+            </div>
+            <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">Maharashtra Civic & Resiliency Map</h1>
+            <p className="text-blue-100 text-sm mt-1 max-w-2xl leading-relaxed">
+              Real-time interactive spatial mapping of government hospitals, emergency shelters, transport interchanges, Aaple Sarkar citizen service centers, and reported civic hazards across Maharashtra districts.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md p-3 rounded-xl border border-white/20 text-xs">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span className="font-semibold text-white">Live MapTiler API Key Active</span>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-        {/* Sidebar Filters */}
-        <div className="bg-white p-6 rounded-md3 border border-slate-border shadow-sm space-y-6 h-fit">
-          <h3 className="font-bold text-slate-800 text-lg">Filter Map Pins</h3>
-          <div className="flex flex-col gap-2">
-            {[
-              { label: 'All Markers', value: 'ALL', color: 'bg-slate-100 text-slate-700' },
-              { label: 'Hospitals', value: 'HOSPITAL', color: 'bg-red-100 text-red-700' },
-              { label: 'Shelters', value: 'SHELTER', color: 'bg-green-100 text-green-700' },
-              { label: 'Grievance Hazards', value: 'COMPLAINT', color: 'bg-amber-100 text-amber-700' },
-              { label: 'Transit Hubs', value: 'TRANSIT', color: 'bg-blue-100 text-blue-700' },
-            ].map((filter) => (
-              <button
-                key={filter.value}
-                onClick={() => setCategoryFilter(filter.value)}
-                className={`w-full py-2.5 px-4 rounded-md3 text-sm font-semibold transition-all flex items-center justify-between ${
-                  categoryFilter === filter.value
-                    ? 'bg-primary text-white shadow-sm'
-                    : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
-                }`}
-              >
-                <span>{filter.label}</span>
-                {categoryFilter !== filter.value && (
-                  <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded ${filter.color}`}>
-                    {filter.value}
-                  </span>
-                )}
-              </button>
-            ))}
+        {/* Sidebar Controls */}
+        <div className="space-y-6">
+          {/* Search Box */}
+          <div className="bg-white p-4 rounded-xl border border-slate-border shadow-sm space-y-3">
+            <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">Search Services & Locations</label>
+            <div className="relative">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+              <input
+                type="text"
+                placeholder="Search Pune, Sassoon, Shelter, Metro..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+              />
+            </div>
           </div>
 
-          {selectedAsset && (
-            <div className="p-4 bg-slate-50 rounded-md3 border border-slate-border space-y-3">
-              <h4 className="font-bold text-slate-800 text-sm flex items-center gap-1.5">
-                {selectedAsset.category === 'HOSPITAL' && <HeartPulse className="w-4 h-4 text-red-500" />}
-                {selectedAsset.category === 'SHELTER' && <Building className="w-4 h-4 text-green-500" />}
-                {selectedAsset.category === 'COMPLAINT' && <ShieldAlert className="w-4 h-4 text-amber-500" />}
-                {selectedAsset.category === 'TRANSIT' && <Bus className="w-4 h-4 text-blue-500" />}
-                {selectedAsset.name}
-              </h4>
-              <p className="text-xs text-slate-500 leading-relaxed">{selectedAsset.details}</p>
-              <div className="flex gap-2">
-                <button className="flex-1 bg-primary text-white py-1.5 rounded-md3 text-xs font-semibold hover:bg-primary-hover shadow-sm">
-                  Get Directions
-                </button>
-              </div>
+          {/* Filter Categories */}
+          <div className="bg-white p-5 rounded-xl border border-slate-border shadow-sm space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wide">Highlight Service Type</h3>
+              <span className="text-[11px] font-semibold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">
+                {filteredAssets.length} Pins
+              </span>
             </div>
-          )}
+
+            <div className="flex flex-col gap-2">
+              {[
+                { label: 'All Services & Pins', value: 'ALL', icon: MapPin, badge: 'bg-slate-100 text-slate-700' },
+                { label: 'Govt Hospitals & Emergency Wards', value: 'HOSPITAL', icon: HeartPulse, badge: 'bg-red-100 text-red-700' },
+                { label: 'Disaster Relief Shelters', value: 'SHELTER', icon: Building, badge: 'bg-emerald-100 text-emerald-700' },
+                { label: 'Public Transit & Metro Hubs', value: 'TRANSIT', icon: Bus, badge: 'bg-sky-100 text-sky-700' },
+                { label: 'Aaple Sarkar Seva Kendra', value: 'SEVA_KENDRA', icon: Landmark, badge: 'bg-teal-100 text-teal-700' },
+                { label: 'Water & Ration Distribution', value: 'WATER_FOOD', icon: Droplets, badge: 'bg-cyan-100 text-cyan-700' },
+                { label: 'Civic Grievance Hazards', value: 'COMPLAINT', icon: ShieldAlert, badge: 'bg-amber-100 text-amber-700' },
+              ].map((filter) => {
+                const Icon = filter.icon;
+                const isSelected = categoryFilter === filter.value;
+                return (
+                  <button
+                    key={filter.value}
+                    onClick={() => setCategoryFilter(filter.value)}
+                    className={`w-full py-2.5 px-3 rounded-lg text-xs font-medium transition-all flex items-center justify-between ${
+                      isSelected
+                        ? 'bg-primary text-white shadow-sm font-semibold'
+                        : 'bg-slate-50 text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Icon className={`w-4 h-4 ${isSelected ? 'text-white' : 'text-slate-500'}`} />
+                      <span>{filter.label}</span>
+                    </div>
+                    {categoryFilter !== filter.value && (
+                      <span className={`text-[9px] uppercase font-bold px-1.5 py-0.5 rounded ${filter.badge}`}>
+                        {filter.value === 'ALL' ? 'ALL' : filter.value}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Map Legend */}
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-border text-xs space-y-2">
+            <span className="font-bold text-slate-700 block">Map Pin Color Key</span>
+            <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-600">
+              <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-red-500"></span> Hospitals</div>
+              <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Shelters</div>
+              <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-sky-500"></span> Transit</div>
+              <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-teal-500"></span> Seva Kendra</div>
+              <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Hazards</div>
+              <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-blue-600"></span> Your Location</div>
+            </div>
+          </div>
         </div>
 
-        {/* Map Grid */}
-        <div className="lg:col-span-3 h-[500px] relative overflow-hidden rounded-md3 border border-slate-border">
-          <MapProvider>
-            <LiveMap
-              assets={filteredAssets.map(a => ({
-                id: a.id,
-                name: a.name,
-                category: a.category,
-                latitude: a.latitude,
-                longitude: a.longitude,
-                address: a.details,
-                details: a.details
-              }))}
-              height="500px"
-            />
-          </MapProvider>
+        {/* Main Map View */}
+        <div className="lg:col-span-3 space-y-4">
+          <div className="h-[560px] relative overflow-hidden rounded-2xl border border-slate-border shadow-md">
+            <MapProvider>
+              <LiveMap assets={filteredAssets} height="560px" showStyleSelector={true} />
+            </MapProvider>
+          </div>
+
+          {/* Highlighted Services Cards Grid */}
+          <div>
+            <h3 className="font-bold text-slate-800 text-base mb-3 flex items-center justify-between">
+              <span>Highlighted Services ({filteredAssets.length})</span>
+              <span className="text-xs text-slate-500 font-normal">Click any pin or card to inspect details</span>
+            </h3>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {filteredAssets.map((asset: AssetPin) => (
+                <div
+                  key={asset.id}
+                  className="bg-white p-4 rounded-xl border border-slate-border shadow-xs hover:shadow-md transition-all flex flex-col justify-between space-y-2 group"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <h4 className="font-bold text-slate-800 text-xs leading-snug group-hover:text-primary transition-colors">
+                      {asset.name}
+                    </h4>
+                    {asset.badge && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-primary/10 text-primary shrink-0">
+                        {asset.badge}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-500 line-clamp-1">{asset.address}</p>
+                  {asset.details && (
+                    <p className="text-[11px] bg-slate-50 p-2 rounded text-slate-600 font-mono line-clamp-2">
+                      {asset.details}
+                    </p>
+                  )}
+                  <div className="pt-2 flex items-center justify-between border-t border-slate-100 text-xs">
+                    {asset.phone ? (
+                      <a href={`tel:${asset.phone}`} className="text-primary font-semibold hover:underline flex items-center gap-1 text-[11px]">
+                        📞 {asset.phone}
+                      </a>
+                    ) : (
+                      <span className="text-slate-400 text-[11px]">No direct line</span>
+                    )}
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(asset.name + ' ' + asset.address)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-slate-600 hover:text-primary flex items-center gap-1 text-[11px] font-medium"
+                    >
+                      Navigation <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -128,3 +181,4 @@ const MapPage: React.FC = () => {
 };
 
 export default MapPage;
+
