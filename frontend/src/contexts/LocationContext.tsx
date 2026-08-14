@@ -283,17 +283,16 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         });
       },
       (error) => {
-        console.warn('[Location Provider] Geolocation permission denied or unavailable:', error.message);
-        // Fallback to Pune default or cached location
+        // Quiet fallback to Pune default or cached location on timeout/permission denial
         setLocation((prev) => ({
           ...prev,
           source: 'manual',
           locationLoading: false,
-          locationError: 'Location permission denied. Showing default district.',
-          isPermissionDenied: true,
+          locationError: null,
+          isPermissionDenied: error.code === error.PERMISSION_DENIED,
         }));
       },
-      { enableHighAccuracy: true, timeout: 7000, maximumAge: 60000 }
+      { enableHighAccuracy: false, timeout: 4000, maximumAge: 300000 }
     );
   }, []);
 
