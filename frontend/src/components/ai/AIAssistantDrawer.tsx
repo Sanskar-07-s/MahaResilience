@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Bot, X, Send, MapPin, Sparkles, AlertTriangle, ShieldCheck, RefreshCw } from 'lucide-react';
 import { useLocation } from '../../contexts/LocationContext.tsx';
+import { getApiUrl } from '../../config/api.config.ts';
 
 interface AIAssistantDrawerProps {
   isOpen: boolean;
@@ -52,7 +53,7 @@ export const AIAssistantDrawer: React.FC<AIAssistantDrawerProps> = ({ isOpen, on
     setLoading(true);
 
     try {
-      const response = await fetch('/api/ai/assistant', {
+      const response = await fetch(getApiUrl('/api/ai/assistant'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
