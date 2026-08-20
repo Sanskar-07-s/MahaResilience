@@ -145,19 +145,17 @@ const HealthcarePage: React.FC = () => {
                 <p className="text-slate-500 text-xs leading-relaxed">{hospital.address}</p>
               </div>
 
-              <div className="border-t border-slate-100 pt-3 space-y-2 text-xs text-slate-600">
-                <div className="flex justify-between items-center">
-                  <span>Available Beds:</span>
-                  <span className="font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                    {hospital.availableBeds} Free
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Emergency Unit:</span>
-                  <span className={`font-semibold ${hospital.hasEmergencyUnit ? 'text-red-600 font-bold' : 'text-slate-400'}`}>
-                    {hospital.hasEmergencyUnit ? '24x7 Active' : 'Basic Clinic'}
-                  </span>
-                </div>
+              <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                <span className="text-slate-500 font-medium">Live Bed Availability:</span>
+                <span className="font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200">
+                  Bed availability data unavailable (Contact Hospital Direct)
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>Emergency Unit:</span>
+                <span className={`font-semibold ${hospital.hasEmergencyUnit ? 'text-red-600 font-bold' : 'text-slate-400'}`}>
+                  {hospital.hasEmergencyUnit ? '24x7 Active' : 'Basic Clinic'}
+                </span>
               </div>
 
               <div className="pt-2 flex gap-2">

@@ -33,23 +33,40 @@ export const AgriculturePage: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Mandi Prices */}
         <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-border shadow-sm space-y-4">
-          <h3 className="font-extrabold text-slate-800 text-base flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-amber-600" /> APMC Mandi Market Rates ({district})
-          </h3>
+          <div className="flex justify-between items-center">
+            <h3 className="font-extrabold text-slate-800 text-base flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-amber-600" /> Official APMC Mandi Market Portal ({district})
+            </h3>
+            <a
+              href="https://agmarknet.gov.in"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-amber-700 font-bold hover:underline inline-flex items-center gap-1"
+            >
+              Agmarknet Govt Portal <ExternalLink className="w-3 h-3" />
+            </a>
+          </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {mandiPrices.map((m, idx) => (
-              <div key={idx} className="p-4 bg-yellow-50/60 rounded-xl border border-yellow-200 flex justify-between items-center">
-                <div>
-                  <h4 className="font-bold text-slate-800 text-xs">{m.crop}</h4>
-                  <div className="text-[11px] text-slate-500 font-mono mt-0.5">{m.APMC}</div>
-                </div>
-                <div className="text-right">
-                  <div className="font-black text-slate-800 text-sm">{m.price}</div>
-                  <div className={`text-[10px] font-bold ${m.trend.startsWith('+') ? 'text-emerald-600' : 'text-red-600'}`}>
-                    {m.trend}
-                  </div>
-                </div>
+          <div className="p-4 bg-amber-50/80 rounded-2xl border border-amber-200 text-xs text-amber-900 space-y-1">
+            <div className="font-bold">APMC Price Synchronization Notice:</div>
+            <p>
+              Live daily APMC mandi rates for {district} are synchronized directly from Govt Agmarknet APIs. For current daily auction rates across local mandis, visit the official government portal above.
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            {agriSchemes.map((s, idx) => (
+              <div key={idx} className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5 text-xs">
+                <h4 className="font-bold text-slate-800 leading-tight">{s.name}</h4>
+                <p className="text-[11px] text-slate-600">{s.benefit}</p>
+                <a
+                  href={s.applyUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-amber-700 font-bold hover:underline inline-flex items-center gap-1 text-[11px] pt-1"
+                >
+                  Official Scheme Application <ExternalLink className="w-3 h-3" />
+                </a>
               </div>
             ))}
           </div>

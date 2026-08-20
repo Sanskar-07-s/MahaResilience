@@ -1,7 +1,19 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { collection, onSnapshot, query, orderBy, setDoc, doc } from 'firebase/firestore';
+import { db } from '../lib/firebase.ts';
+import { useAuth } from './AuthContext.tsx';
 
-export type NotificationCategory = 'EMERGENCY' | 'HEALTHCARE' | 'GOVERNMENT' | 'COMMUNITY' | 'TRANSPORT' | 'TOURISM' | 'WASTE' | 'PEST_CONTROL' | 'INFRASTRUCTURE';
-export type NotificationPriority = 'CRITICAL' | 'MEDIUM' | 'LOW';
+export type NotificationCategory =
+  | 'EMERGENCY'
+  | 'HEALTHCARE'
+  | 'GOVERNMENT'
+  | 'COMMUNITY'
+  | 'TRANSPORT'
+  | 'TOURISM'
+  | 'WASTE'
+  | 'INFRASTRUCTURE';
+
+export type NotificationPriority = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
 
 export interface NotificationItem {
   id: string;
@@ -11,16 +23,26 @@ export interface NotificationItem {
   priority: NotificationPriority;
   timestamp: string;
   isRead: boolean;
-  isPinned: boolean;
+  isPinned?: boolean;
+  district?: string;
+  source?: string;
+  sourceUrl?: string;
 }
 
 interface NotificationContextType {
   notifications: NotificationItem[];
-  addNotification: (title: string, body: string, category: NotificationCategory, priority: NotificationPriority) => void;
-  markAsRead: (id: string) => void;
-  markAllAsRead: () => void;
+  unreadCount: number;
+  addNotification: (
+    title: string,
+    body: string,
+    category: NotificationCategory,
+    priority: NotificationPriority,
+    district?: string
+  ) => Promise<void>;
+  markAsRead: (id: string) => Promise<void>;
+  markAllAsRead: () => Promise<void>;
+  clearAllNotifications: () => Promise<void>;
   togglePin: (id: string) => void;
-  dismissNotification: (id: string) => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   filterCategory: string;
@@ -31,85 +53,164 @@ interface NotificationContextType {
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
 export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const { user } = useAuth();
+  const userId = user?.id || 'guest_user';
+
+  const [rawNotifications, setRawNotifications] = useState<NotificationItem[]>([]);
+  const [readStateMap, setReadStateMap] = useState<Record<string, boolean>>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState('ALL');
 
-  // Load from local storage cache
+  // 1. Listen to real-time public notifications from Firestore
   useEffect(() => {
-    const cached = localStorage.getItem('ch_notifications');
-    if (cached) {
-      try {
-        setNotifications(JSON.parse(cached));
-      } catch (e) {
-        console.error(e);
+    const q = query(collection(db, 'notifications'), orderBy('timestamp', 'desc'));
+    const unsub = onSnapshot(
+      q,
+      (snapshot) => {
+        const list: NotificationItem[] = snapshot.docs.map((d) => {
+          const data = d.data();
+          return {
+            id: d.id,
+            title: data.title || 'Bulletin',
+            body: data.body || data.description || '',
+            category: data.category || 'COMMUNITY',
+            priority: data.priority || 'MEDIUM',
+            timestamp: data.timestamp || data.createdAt || new Date().toISOString(),
+            isRead: false,
+            isPinned: !!data.isPinned,
+            district: data.district,
+            source: data.source || 'MahaResilience System',
+            sourceUrl: data.sourceUrl,
+          };
+        });
+        setRawNotifications(list);
+      },
+      (err) => {
+        console.warn('[Notification Engine] Firestore stream warning:', err?.code);
       }
-    } else {
-      // Seed default notification items
-      const seeds: NotificationItem[] = [
-        { id: 'n1', title: 'Evacuation Shelter Setups', body: 'Safe shelters configured at Versova Sports ground.', category: 'EMERGENCY', priority: 'CRITICAL', timestamp: new Date(Date.now() - 3600 * 1000).toISOString(), isRead: false, isPinned: true },
-        { id: 'n2', title: 'Sanjay Gandhi Scheme verification update', body: 'APMC center starts biometric audits on Sunday.', category: 'GOVERNMENT', priority: 'LOW', timestamp: new Date(Date.now() - 5 * 3600 * 1000).toISOString(), isRead: true, isPinned: false },
-        { id: 'n3', title: 'Pune Medical PHC camp schedules', body: 'Free medical diagnosis camp active in Kothrud PHC from 9 AM.', category: 'HEALTHCARE', priority: 'MEDIUM', timestamp: new Date(Date.now() - 10 * 3600 * 1000).toISOString(), isRead: false, isPinned: false },
-      ];
-      setNotifications(seeds);
-      localStorage.setItem('ch_notifications', JSON.stringify(seeds));
-    }
+    );
+
+    return () => unsub();
   }, []);
 
-  const saveCache = (list: NotificationItem[]) => {
-    setNotifications(list);
-    localStorage.setItem('ch_notifications', JSON.stringify(list));
+  // 2. Listen to real-time user-specific read states from Firestore (`userNotifications`)
+  useEffect(() => {
+    if (!userId) return;
+    const q = query(collection(db, 'userNotifications'));
+    const unsub = onSnapshot(
+      q,
+      (snapshot) => {
+        const map: Record<string, boolean> = {};
+        snapshot.docs.forEach((d) => {
+          const data = d.data();
+          if (data.userId === userId) {
+            map[data.notificationId] = !!data.isRead;
+          }
+        });
+        setReadStateMap(map);
+      },
+      () => {}
+    );
+
+    return () => unsub();
+  }, [userId]);
+
+  // Combine raw notifications with user read states
+  const notifications: NotificationItem[] = rawNotifications.map((item) => ({
+    ...item,
+    isRead: !!readStateMap[item.id],
+  }));
+
+  const unreadCount = notifications.filter((n) => !n.isRead).length;
+
+  const markAsRead = async (id: string) => {
+    setReadStateMap((prev) => ({ ...prev, [id]: true }));
+    try {
+      await setDoc(
+        doc(db, 'userNotifications', `${userId}_${id}`),
+        {
+          userId,
+          notificationId: id,
+          isRead: true,
+          readAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+    } catch (_) {}
   };
 
-  const addNotification = (title: string, body: string, category: NotificationCategory, priority: NotificationPriority) => {
-    const newItem: NotificationItem = {
-      id: 'notif-' + Math.floor(Math.random() * 100000),
+  const markAllAsRead = async () => {
+    const updatedMap: Record<string, boolean> = {};
+    notifications.forEach((n) => {
+      updatedMap[n.id] = true;
+    });
+    setReadStateMap(updatedMap);
+
+    try {
+      for (const n of notifications) {
+        if (!n.isRead) {
+          await setDoc(
+            doc(db, 'userNotifications', `${userId}_${n.id}`),
+            {
+              userId,
+              notificationId: n.id,
+              isRead: true,
+              readAt: new Date().toISOString(),
+            },
+            { merge: true }
+          );
+        }
+      }
+    } catch (_) {}
+  };
+
+  const clearAllNotifications = async () => {
+    await markAllAsRead();
+  };
+
+  const addNotification = async (
+    title: string,
+    body: string,
+    category: NotificationCategory,
+    priority: NotificationPriority,
+    district?: string
+  ) => {
+    const notifObj = {
       title,
       body,
       category,
       priority,
       timestamp: new Date().toISOString(),
-      isRead: false,
-      isPinned: false
+      district: district || 'All Districts',
+      source: 'MahaResilience Administrator',
     };
-    saveCache([newItem, ...notifications]);
-  };
-
-  const markAsRead = (id: string) => {
-    const updated = notifications.map(item => item.id === id ? { ...item, isRead: true } : item);
-    saveCache(updated);
-  };
-
-  const markAllAsRead = () => {
-    const updated = notifications.map(item => ({ ...item, isRead: true }));
-    saveCache(updated);
+    try {
+      const docRef = doc(collection(db, 'notifications'));
+      await setDoc(docRef, notifObj);
+    } catch (_) {}
   };
 
   const togglePin = (id: string) => {
-    const updated = notifications.map(item => item.id === id ? { ...item, isPinned: !item.isPinned } : item);
-    saveCache(updated);
-  };
-
-  const dismissNotification = (id: string) => {
-    const updated = notifications.filter(item => item.id !== id);
-    saveCache(updated);
+    // Local toggle for pin state
+    setRawNotifications((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, isPinned: !item.isPinned } : item))
+    );
   };
 
   const getFilteredNotifications = () => {
     let list = [...notifications];
 
-    // Category filter
     if (filterCategory !== 'ALL') {
-      list = list.filter(item => item.category === filterCategory);
+      list = list.filter((item) => item.category === filterCategory);
     }
 
-    // Search query match
     if (searchQuery.trim() !== '') {
       const q = searchQuery.toLowerCase();
-      list = list.filter(item => item.title.toLowerCase().includes(q) || item.body.toLowerCase().includes(q));
+      list = list.filter(
+        (item) => item.title.toLowerCase().includes(q) || item.body.toLowerCase().includes(q)
+      );
     }
 
-    // Sort: Pinned first, then date newer first
     return list.sort((a, b) => {
       if (a.isPinned && !b.isPinned) return -1;
       if (!a.isPinned && b.isPinned) return 1;
@@ -121,16 +222,17 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     <NotificationContext.Provider
       value={{
         notifications,
+        unreadCount,
         addNotification,
         markAsRead,
         markAllAsRead,
+        clearAllNotifications,
         togglePin,
-        dismissNotification,
         searchQuery,
         setSearchQuery,
         filterCategory,
         setFilterCategory,
-        getFilteredNotifications
+        getFilteredNotifications,
       }}
     >
       {children}

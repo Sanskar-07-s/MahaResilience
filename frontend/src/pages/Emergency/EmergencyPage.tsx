@@ -5,6 +5,7 @@ import { Flame, ShieldAlert, HeartPulse, Building2, MapPin, PhoneCall, CheckCirc
 import { getAllData } from '../../utils/db.ts';
 import { MapProvider } from '../../components/maps/MapProvider.tsx';
 import { LiveMap } from '../../components/maps/Maps.tsx';
+import { triggerEmergencySOS } from '../../services/sosService.ts';
 
 const API_BASE = (import.meta as any).env.VITE_API_URL || '';
 
@@ -231,49 +232,34 @@ const EmergencyPage: React.FC = () => {
     loadEmergencyData();
   }, [userLat, userLng, district, city]);
 
+  const [sosStatusInfo, setSosStatusInfo] = useState<{ active: boolean; message: string; deliveryStatus: string } | null>(null);
+
   const handleSOSTrigger = async () => {
     setSosLoading(true);
+    setSosStatusInfo(null);
     try {
       const lat = userLat;
       const lng = userLng;
+      const addressName = `${ward || city}, ${district}, ${state}`;
+      const contactList = verifiedContacts.map((c) => c.phone);
 
-      // Translate coordinates to human-readable address via OSM reverse geocoding API
-      const addressName = await reverseGeocode(lat, lng);
+      const res = await triggerEmergencySOS(
+        lat,
+        lng,
+        district,
+        addressName,
+        user,
+        contactList
+      );
 
-      // 1. Trigger local system alert
-      const response = await fetch(`${API_BASE}/api/emergency/sos`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('ch_token') || ''}`,
-        },
-        body: JSON.stringify({
-          latitude: lat,
-          longitude: lng,
-          address: addressName,
-        }),
+      setSosSent(true);
+      setSosStatusInfo({
+        active: true,
+        message: res.message,
+        deliveryStatus: res.deliveryStatus,
       });
 
-      // 2. Broadcast SOS via Twilio SMS using user's verified contacts list
-      const contactList = verifiedContacts.map(c => c.phone);
-      if (contactList.length > 0) {
-        await fetch(`${API_BASE}/api/sms/sos`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            location: `${lat}, ${lng}`,
-            reporter: user?.name || 'Anonymous Citizen',
-            emergencyContacts: contactList
-          }),
-        });
-      }
-
-      if (response.ok) {
-        setSosSent(true);
-        setTimeout(() => setSosSent(false), 8000);
-      }
+      setTimeout(() => setSosSent(false), 10000);
     } catch (err) {
       console.error(err);
     } finally {
@@ -304,9 +290,23 @@ const EmergencyPage: React.FC = () => {
 
         <div>
           {sosSent ? (
-            <div className="bg-white text-danger px-6 py-4 rounded-md3 font-bold shadow-md flex items-center gap-2 animate-bounce">
-              <CheckCircle className="w-6 h-6 text-green-600" />
-              SOS Broadcast Active! Rescue dispatched.
+            <div className="space-y-2 text-center md:text-right">
+              <div className="bg-white text-danger px-6 py-3 rounded-2xl font-bold shadow-md flex items-center gap-2 text-xs">
+                <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
+                <span>{sosStatusInfo?.message || 'SOS event logged to Firestore!'}</span>
+              </div>
+
+              {sosStatusInfo?.deliveryStatus === 'SMS_SERVICE_NOT_CONFIGURED' && (
+                <div className="bg-amber-100 text-amber-900 border border-amber-300 p-2.5 rounded-xl text-[11px] font-semibold space-y-1">
+                  <p>SMS service is not configured.</p>
+                  <a
+                    href="tel:112"
+                    className="inline-flex items-center gap-1 text-white bg-red-700 hover:bg-red-800 px-3 py-1 rounded-lg text-xs font-bold shadow-xs"
+                  >
+                    <PhoneCall className="w-3.5 h-3.5" /> Call National Helpline 112
+                  </a>
+                </div>
+              )}
             </div>
           ) : (
             <button

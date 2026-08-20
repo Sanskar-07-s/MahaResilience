@@ -18,34 +18,26 @@ import {
   RefreshCw
 } from 'lucide-react';
 
+import { calculateLocationSafetyScore, SafetyScoreDetails } from '../../services/safetyScoreService.ts';
+
 const DashboardPage: React.FC = () => {
   const { user } = useAuth();
   const { latitude, longitude, ward, city, district, state, source, detectLocation, locationLoading } = useLocation();
   const navigate = useNavigate();
-  const [safetyScore, setSafetyScore] = useState<number | null>(null);
-  const [safetyMetrics, setSafetyMetrics] = useState<any>(null);
+  const [safetyDetails, setSafetyDetails] = useState<SafetyScoreDetails | null>(null);
   const [loadingScore, setLoadingScore] = useState(true);
 
   useEffect(() => {
     const fetchSafetyData = async () => {
-      try {
-        const lat = latitude || 18.5204;
-        const lng = longitude || 73.8567;
-        const response = await fetch(getApiUrl(`/api/complaints/safety-score?lat=${lat}&lng=${lng}`));
-        if (!response.ok) throw new Error('Response not ok');
-        const data = await response.json();
-        setSafetyScore(data.safetyScore);
-        setSafetyMetrics(data.metrics);
-      } catch (err) {
-        // Fallback default calculation based on location
-        setSafetyScore(88);
-        setSafetyMetrics({ streetlightRatio: 0.92, emergencyDistance: 1.4 });
-      } finally {
-        setLoadingScore(false);
-      }
+      setLoadingScore(true);
+      const lat = latitude || 18.5204;
+      const lng = longitude || 73.8567;
+      const details = await calculateLocationSafetyScore(lat, lng, district, city, ward);
+      setSafetyDetails(details);
+      setLoadingScore(false);
     };
     fetchSafetyData();
-  }, [latitude, longitude]);
+  }, [latitude, longitude, district, city, ward]);
 
   const stats = [
     { title: 'My Open Complaints', value: '1 Active', desc: `Assigned to ${district} Municipal Ward`, icon: FileSpreadsheet, color: 'text-secondary bg-secondary-light' },
@@ -103,27 +95,37 @@ const DashboardPage: React.FC = () => {
           <div className="flex flex-col items-center py-4">
             {loadingScore ? (
               <div className="w-24 h-24 rounded-full border-4 border-slate-100 border-t-primary animate-spin"></div>
+            ) : safetyDetails?.score === null ? (
+              <div className="text-center p-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs text-slate-500">
+                Safety score unavailable due to insufficient verified data.
+              </div>
             ) : (
               <div className="relative flex items-center justify-center">
                 {/* Score Circle */}
-                <div className="w-28 h-28 rounded-full border-8 border-green-100 flex items-center justify-center">
-                  <span className="text-3xl font-extrabold text-slate-800">{safetyScore || 90}</span>
+                <div className="w-28 h-28 rounded-full border-8 border-teal-100 flex items-center justify-center">
+                  <span className="text-3xl font-extrabold text-slate-800">
+                    {safetyDetails?.score}
+                  </span>
                 </div>
-                <div className="absolute -bottom-2 bg-primary text-white text-xs px-2.5 py-0.5 rounded-full font-bold">
-                  SAFE ZONE
+                <div className="absolute -bottom-2 bg-teal-700 text-white text-[10px] px-2.5 py-0.5 rounded-full font-bold">
+                  {safetyDetails?.zoneLabel}
                 </div>
               </div>
             )}
           </div>
 
-          <div className="space-y-2 border-t border-slate-100 pt-4 text-sm">
+          <div className="space-y-2 border-t border-slate-100 pt-4 text-xs">
             <div className="flex justify-between">
-              <span className="text-slate-500">Streetlight Functionality:</span>
-              <span className="font-semibold text-slate-700">{(safetyMetrics?.streetlightRatio * 100).toFixed(0) || '92'}%</span>
+              <span className="text-slate-500">Objective Risk Weight (70%):</span>
+              <span className="font-bold text-slate-700">
+                {safetyDetails?.metrics?.objectiveDisasterScore || 85}/100
+              </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-slate-500">Civic Grievance Resolution:</span>
-              <span className="font-semibold text-slate-700">{(safetyMetrics?.complaintResolutionRate * 100).toFixed(0) || '85'}%</span>
+              <span className="text-slate-500">Community Feedback (20%):</span>
+              <span className="font-bold text-slate-700">
+                {safetyDetails?.metrics?.communityValidatedScore || 90}/100
+              </span>
             </div>
           </div>
         </div>
