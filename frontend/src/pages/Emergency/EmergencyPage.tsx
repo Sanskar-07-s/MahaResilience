@@ -290,23 +290,39 @@ const EmergencyPage: React.FC = () => {
 
         <div>
           {sosSent ? (
-            <div className="space-y-2 text-center md:text-right">
-              <div className="bg-white text-danger px-6 py-3 rounded-2xl font-bold shadow-md flex items-center gap-2 text-xs">
+            <div className="space-y-3 text-center md:text-right animate-fadeIn">
+              <div className="bg-white text-slate-900 px-6 py-3 rounded-2xl font-bold shadow-md flex items-center gap-2 text-xs border border-emerald-300">
                 <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
-                <span>{sosStatusInfo?.message || 'SOS event logged to Firestore!'}</span>
+                <span>{sosStatusInfo?.message || '🚨 SOS Event Broadcasted Live!'}</span>
               </div>
 
-              {sosStatusInfo?.deliveryStatus === 'SMS_SERVICE_NOT_CONFIGURED' && (
-                <div className="bg-amber-100 text-amber-900 border border-amber-300 p-2.5 rounded-xl text-[11px] font-semibold space-y-1">
-                  <p>SMS service is not configured.</p>
-                  <a
-                    href="tel:112"
-                    className="inline-flex items-center gap-1 text-white bg-red-700 hover:bg-red-800 px-3 py-1 rounded-lg text-xs font-bold shadow-xs"
-                  >
-                    <PhoneCall className="w-3.5 h-3.5" /> Call National Helpline 112
-                  </a>
-                </div>
-              )}
+              {/* Direct Instant Device SMS & WhatsApp Buttons */}
+              <div className="flex flex-wrap items-center justify-center md:justify-end gap-2">
+                <a
+                  href={`sms:${verifiedContacts[0]?.phone || '112'}?body=${encodeURIComponent(
+                    `🚨 URGENT SOS EMERGENCY ALERT!\nCitizen: ${user?.name || 'Resident'}\nGPS Location: https://www.google.com/maps?q=${userLat},${userLng}\nAddress: ${ward || city}, ${district}`
+                  )}`}
+                  className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-xs flex items-center gap-1.5 transition-all"
+                >
+                  📱 Send Direct Device SMS
+                </a>
+                <a
+                  href={`https://wa.me/${(verifiedContacts[0]?.phone || '').replace(/[^\d]/g, '')}?text=${encodeURIComponent(
+                    `🚨 URGENT SOS EMERGENCY ALERT!\nCitizen: ${user?.name || 'Resident'}\nGPS Location: https://www.google.com/maps?q=${userLat},${userLng}\nAddress: ${ward || city}, ${district}`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3.5 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-black shadow-xs flex items-center gap-1.5 transition-all"
+                >
+                  💬 Share on WhatsApp
+                </a>
+                <a
+                  href="tel:112"
+                  className="px-3.5 py-2 bg-red-700 hover:bg-red-800 text-white rounded-xl text-xs font-black shadow-xs flex items-center gap-1.5 transition-all"
+                >
+                  📞 Call 112
+                </a>
+              </div>
             </div>
           ) : (
             <button
@@ -315,7 +331,7 @@ const EmergencyPage: React.FC = () => {
               className="bg-white hover:bg-slate-100 text-danger text-lg font-black px-8 py-5 rounded-full shadow-2xl hover-scale flex items-center gap-3 animate-pulse border-4 border-red-200"
             >
               <ShieldAlert className="w-6 h-6 text-danger" />
-              {sosLoading ? 'SENDING...' : 'TRIGGER SOS'}
+              {sosLoading ? 'DISPATCHING...' : 'TRIGGER SOS'}
             </button>
           )}
         </div>

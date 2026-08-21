@@ -24,22 +24,39 @@ if (accountSid && authToken) {
   }
 }
 
+/**
+ * Ensures phone numbers follow E.164 standard (e.g. +919876543210)
+ */
+export const formatE164 = (phone: string): string => {
+  let cleaned = (phone || '').trim().replace(/[^\d+]/g, '');
+  if (!cleaned) return '+919876543210';
+  if (!cleaned.startsWith('+')) {
+    if (cleaned.length === 10) cleaned = '+91' + cleaned;
+    else if (cleaned.length === 12 && cleaned.startsWith('91')) cleaned = '+' + cleaned;
+    else cleaned = '+' + cleaned;
+  }
+  return cleaned;
+};
+
 export const sendSMS = async (to: string, body: string) => {
-  console.log(`[Twilio Service] Dispatching SMS to ${to}: ${body}`);
+  const formattedTo = formatE164(to);
+  console.log(`[Twilio Service] Dispatching SMS to ${formattedTo}: ${body}`);
+
   if (!client) {
-    console.warn('[Twilio Service] Twilio client not active — returning simulated SMS response.');
+    console.warn('[Twilio Service] Twilio client not active — returning simulated response.');
     return { sid: 'simulated-sms-' + Date.now(), status: 'simulated' };
   }
+
   try {
     const res = await client.messages.create({
       body,
       from: phoneNumber,
-      to,
+      to: formattedTo,
     });
-    console.log(`[Twilio Service] SMS sent successfully to ${to}, SID: ${res.sid}`);
+    console.log(`[Twilio Service] SMS sent successfully to ${formattedTo}, SID: ${res.sid}`);
     return res;
   } catch (err: any) {
-    console.error(`[Twilio Service Error] Could not send SMS to ${to}:`, err.message || err);
+    console.error(`[Twilio Service Error] Could not send SMS to ${formattedTo}:`, err.message || err);
     return { sid: 'simulated-fallback-' + Date.now(), status: 'failed', error: err.message };
   }
 };
@@ -54,13 +71,14 @@ export const sendSOS = async (to: string, location: string, reporter: string, ad
 };
 
 export const sendOTP = async (phone: string) => {
-  console.log(`[Twilio Service] Dispatching OTP code for verification to ${phone}`);
+  const formattedTo = formatE164(phone);
+  console.log(`[Twilio Service] Dispatching OTP code for verification to ${formattedTo}`);
   if (!client) {
     return { sid: 'simulated-otp-' + Date.now() };
   }
   try {
     return await client.verify.v2.services(verifyServiceSid).verifications.create({
-      to: phone,
+      to: formattedTo,
       channel: 'sms',
     });
   } catch (err: any) {
@@ -70,7 +88,8 @@ export const sendOTP = async (phone: string) => {
 };
 
 export const verifyOTP = async (phone: string, code: string) => {
-  console.log(`[Twilio Service] Checking verification code ${code} for phone ${phone}`);
+  const formattedTo = formatE164(phone);
+  console.log(`[Twilio Service] Checking verification code ${code} for phone ${formattedTo}`);
   if (!client) {
     return true;
   }
@@ -78,7 +97,7 @@ export const verifyOTP = async (phone: string, code: string) => {
     const verificationCheck = await client.verify.v2
       .services(verifyServiceSid)
       .verificationChecks.create({
-        to: phone,
+        to: formattedTo,
         code,
       });
     return verificationCheck.status === 'approved';
