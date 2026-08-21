@@ -87,12 +87,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
   ];
 
-  if (canAccessAdmin()) {
-    navGroups.push({
-      title: 'COMMAND CENTER',
-      items: [{ label: 'Super Admin Portal', path: '/admin', icon: ShieldCheck, admin: true }],
-    });
-  }
+  navGroups.push({
+    title: 'COMMAND CENTER',
+    items: [{ label: 'Admin Command Center', path: '/admin', icon: ShieldCheck, admin: true }],
+  });
 
   const sidebarContent = (
     <div className="flex flex-col h-full bg-slate-900 text-slate-300 border-r border-slate-800 select-none">

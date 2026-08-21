@@ -130,8 +130,18 @@ export const SuperAdminPortal: React.FC = () => {
         updatedAt: new Date().toISOString(),
       };
 
-      if (newRole === 'MODULE_ADMIN') {
-        updateData.adminField = effectiveField;
+      const roleStr = String(newRole);
+      const isSpecificAdmin = roleStr.endsWith('_ADMIN') && roleStr !== 'SUPER_ADMIN' && roleStr !== 'DISTRICT_ADMIN';
+      const isModerator = roleStr.endsWith('_MODERATOR') || roleStr === 'MODERATOR';
+
+      if (newRole === 'MODULE_ADMIN' || isSpecificAdmin) {
+        let fieldToSet = newField || targetUser?.adminField;
+        if (!fieldToSet && isSpecificAdmin) {
+          fieldToSet = roleStr.replace('_ADMIN', '') as AdminField;
+        }
+        updateData.adminField = fieldToSet || 'TOURISM';
+      } else if (isModerator) {
+        updateData.adminField = 'COMMUNITY';
       } else {
         updateData.adminField = deleteField();
       }
@@ -475,6 +485,18 @@ export const SuperAdminPortal: React.FC = () => {
                               <option value="USER">USER (Citizen)</option>
                               <option value="MODULE_ADMIN">MODULE_ADMIN</option>
                               <option value="DISTRICT_ADMIN">DISTRICT_ADMIN</option>
+                              <option value="EDUCATION_ADMIN">EDUCATION_ADMIN</option>
+                              <option value="TRANSPORT_ADMIN">TRANSPORT_ADMIN</option>
+                              <option value="GOVERNMENT_ADMIN">GOVERNMENT_ADMIN</option>
+                              <option value="HEALTHCARE_ADMIN">HEALTHCARE_ADMIN</option>
+                              <option value="ELECTRICITY_ADMIN">ELECTRICITY_ADMIN</option>
+                              <option value="WATER_ADMIN">WATER_ADMIN</option>
+                              <option value="WASTE_ADMIN">WASTE_ADMIN</option>
+                              <option value="AGRICULTURE_ADMIN">AGRICULTURE_ADMIN</option>
+                              <option value="TOURISM_ADMIN">TOURISM_ADMIN</option>
+                              <option value="COMPLAINTS_ADMIN">COMPLAINTS_ADMIN</option>
+                              <option value="EMERGENCY_ADMIN">EMERGENCY_ADMIN</option>
+                              <option value="COMMUNITY_MODERATOR">COMMUNITY_MODERATOR</option>
                               <option value="MODERATOR">MODERATOR</option>
                               <option value="OFFICIAL">OFFICIAL</option>
                               <option value="VOLUNTEER">VOLUNTEER</option>

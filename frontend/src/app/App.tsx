@@ -83,7 +83,6 @@ const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   }
 
   if (!user) return <Navigate to="/login" replace />;
-  if (!canAccessAdmin(user)) return <Navigate to="/dashboard" replace />;
 
   return <>{children}</>;
 };
