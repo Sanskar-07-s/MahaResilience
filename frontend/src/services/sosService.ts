@@ -24,39 +24,66 @@ export interface SOSEvent {
   deliveryStatus: 'SENT' | 'SMS_SERVICE_NOT_CONFIGURED' | 'FAILED';
 }
 
+let sirenAudioCtx: AudioContext | null = null;
+let sirenIntervalId: any = null;
+
 /**
- * Synthesizes an emergency alarm sound using Web Audio API
- * Triggered strictly upon explicit user interaction (SOS button click)
+ * Synthesizes a continuous, repetitive emergency alarm siren sound using Web Audio API
+ * Repeatedly sweeps frequency between 600Hz and 1200Hz until stopped.
  */
 export const playEmergencySirenSound = (): void => {
   try {
+    stopEmergencySirenSound();
+
     const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioContextClass) return;
 
-    const ctx = new AudioContextClass();
-    if (ctx.state === 'suspended') {
-      ctx.resume().catch(() => {});
+    sirenAudioCtx = new AudioContextClass();
+    if (sirenAudioCtx.state === 'suspended') {
+      sirenAudioCtx.resume().catch(() => {});
     }
 
-    const now = ctx.currentTime;
+    const playTone = () => {
+      if (!sirenAudioCtx || sirenAudioCtx.state === 'closed') return;
+      const now = sirenAudioCtx.currentTime;
 
-    // Siren oscillator 1 (high pitch sweep)
-    const osc1 = ctx.createOscillator();
-    const gain1 = ctx.createGain();
-    osc1.type = 'sawtooth';
-    osc1.frequency.setValueAtTime(600, now);
-    osc1.frequency.linearRampToValueAtTime(900, now + 0.3);
-    osc1.frequency.linearRampToValueAtTime(600, now + 0.6);
+      const osc = sirenAudioCtx.createOscillator();
+      const gain = sirenAudioCtx.createGain();
+      osc.type = 'sawtooth';
 
-    gain1.gain.setValueAtTime(0.3, now);
-    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+      osc.frequency.setValueAtTime(600, now);
+      osc.frequency.linearRampToValueAtTime(1200, now + 0.3);
+      osc.frequency.linearRampToValueAtTime(600, now + 0.6);
 
-    osc1.connect(gain1);
-    gain1.connect(ctx.destination);
+      gain.gain.setValueAtTime(0.4, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.58);
 
-    osc1.start(now);
-    osc1.stop(now + 0.8);
+      osc.connect(gain);
+      gain.connect(sirenAudioCtx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.6);
+    };
+
+    playTone();
+    sirenIntervalId = setInterval(playTone, 600);
   } catch (_) {}
+};
+
+/**
+ * Stops repetitive emergency siren sound
+ */
+export const stopEmergencySirenSound = (): void => {
+  if (sirenIntervalId) {
+    clearInterval(sirenIntervalId);
+    sirenIntervalId = null;
+  }
+  if (sirenAudioCtx) {
+    try {
+      sirenAudioCtx.close().catch(() => {});
+    } catch (_) {}
+    sirenAudioCtx = null;
+  }
 };
 
 /**

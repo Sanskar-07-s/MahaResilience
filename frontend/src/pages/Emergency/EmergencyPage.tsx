@@ -5,7 +5,7 @@ import { Flame, ShieldAlert, HeartPulse, Building2, MapPin, PhoneCall, CheckCirc
 import { getAllData } from '../../utils/db.ts';
 import { MapProvider } from '../../components/maps/MapProvider.tsx';
 import { LiveMap } from '../../components/maps/Maps.tsx';
-import { triggerEmergencySOS } from '../../services/sosService.ts';
+import { triggerEmergencySOS, stopEmergencySirenSound } from '../../services/sosService.ts';
 
 const API_BASE = (import.meta as any).env.VITE_API_URL || '';
 
@@ -302,7 +302,10 @@ const EmergencyPage: React.FC = () => {
         deliveryStatus: res.deliveryStatus,
       });
 
-      setTimeout(() => setSosSent(false), 15000);
+      setTimeout(() => {
+        setSosSent(false);
+        stopEmergencySirenSound();
+      }, 20000);
     } catch (err) {
       console.error(err);
     } finally {

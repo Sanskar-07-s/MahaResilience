@@ -1,8 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext.tsx';
 import { db } from '../lib/firebase.ts';
-import { collection, addDoc } from 'firebase/firestore';
-import { isSuperAdmin, canAccessAdmin } from '../utils/permissions.ts';
+import { collection, addDoc, doc, onSnapshot, setDoc } from 'firebase/firestore';
 
 interface EmergencyModeContextType {
   isEmergencyMode: boolean;
@@ -14,16 +13,28 @@ const EmergencyModeContext = createContext<EmergencyModeContextType | undefined>
 
 export const EmergencyModeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
-  const [isEmergencyMode, setIsEmergencyMode] = useState(false);
+  const [isEmergencyMode, setIsEmergencyMode] = useState<boolean>(() => {
+    return localStorage.getItem('mr_emergency_mode') === 'true';
+  });
 
-  // Persist emergency mode in sessionStorage
+  // 1. Real-time Firestore synchronization for platform-wide Emergency Mode
   useEffect(() => {
-    const stored = sessionStorage.getItem('mr_emergency_mode');
-    if (stored === 'true') setIsEmergencyMode(true);
+    const modeDocRef = doc(db, 'systemSettings', 'emergencyMode');
+    const unsub = onSnapshot(modeDocRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const active = snapshot.data().active === true;
+        setIsEmergencyMode(active);
+        localStorage.setItem('mr_emergency_mode', active ? 'true' : 'false');
+      }
+    }, (err) => {
+      console.warn('[Emergency Mode Sync Warning]:', err);
+    });
+
+    return () => unsub();
   }, []);
 
+  // 2. Apply/remove emergency CSS class on root DOM body
   useEffect(() => {
-    // Apply/remove emergency CSS class on root body
     if (isEmergencyMode) {
       document.documentElement.classList.add('emergency-mode');
       document.body.style.setProperty('--emergency-active', '1');
@@ -34,46 +45,51 @@ export const EmergencyModeProvider: React.FC<{ children: React.ReactNode }> = ({
   }, [isEmergencyMode]);
 
   const activateEmergencyMode = async () => {
-    if (!user || !canAccessAdmin(user)) return;
-
     setIsEmergencyMode(true);
-    sessionStorage.setItem('mr_emergency_mode', 'true');
+    localStorage.setItem('mr_emergency_mode', 'true');
 
-    // Log audit entry
     try {
+      // Sync to Firestore so all connected citizens & admins see it live
+      await setDoc(doc(db, 'systemSettings', 'emergencyMode'), {
+        active: true,
+        activatedBy: user?.email || user?.name || 'Super Admin',
+        updatedAt: new Date().toISOString(),
+      }, { merge: true });
+
+      // Audit Log
       await addDoc(collection(db, 'auditLogs'), {
-        adminId: user.id || (user as any).uid || 'admin',
+        adminId: user?.id || (user as any)?.uid || 'super-admin',
         action: 'ACTIVATE_EMERGENCY_MODE',
         target: 'SYSTEM',
-        details: 'Emergency Mode activated — all critical systems prioritized.',
+        details: 'Emergency Mode activated — platform-wide high priority emergency state.',
         timestamp: new Date().toISOString(),
       });
     } catch (err) {
-      console.warn('[Emergency Mode] Audit log failed:', err);
+      console.warn('[Emergency Mode Activation Sync Notice]:', err);
     }
-
-    console.log('[Emergency Mode] ACTIVATED by', user.name);
   };
 
   const deactivateEmergencyMode = async () => {
-    if (!user || !canAccessAdmin(user)) return;
-
     setIsEmergencyMode(false);
-    sessionStorage.removeItem('mr_emergency_mode');
+    localStorage.setItem('mr_emergency_mode', 'false');
 
     try {
+      await setDoc(doc(db, 'systemSettings', 'emergencyMode'), {
+        active: false,
+        deactivatedBy: user?.email || user?.name || 'Super Admin',
+        updatedAt: new Date().toISOString(),
+      }, { merge: true });
+
       await addDoc(collection(db, 'auditLogs'), {
-        adminId: user.id || (user as any).uid || 'admin',
+        adminId: user?.id || (user as any)?.uid || 'super-admin',
         action: 'DEACTIVATE_EMERGENCY_MODE',
         target: 'SYSTEM',
-        details: 'Emergency Mode deactivated — platform returned to normal operations.',
+        details: 'Emergency Mode deactivated — platform returned to normal state.',
         timestamp: new Date().toISOString(),
       });
     } catch (err) {
-      console.warn('[Emergency Mode] Audit log failed:', err);
+      console.warn('[Emergency Mode Deactivation Sync Notice]:', err);
     }
-
-    console.log('[Emergency Mode] DEACTIVATED by', user.name);
   };
 
   return (
