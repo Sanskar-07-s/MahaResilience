@@ -30,7 +30,7 @@ if (accountSid && authToken) {
  */
 export const formatE164 = (phone: string): string => {
   let cleaned = (phone || '').trim().replace(/[^\d+]/g, '');
-  if (!cleaned) return '+919876543210';
+  if (!cleaned) return '+919209966816';
   if (!cleaned.startsWith('+')) {
     if (cleaned.length === 10) cleaned = '+91' + cleaned;
     else if (cleaned.length === 12 && cleaned.startsWith('91')) cleaned = '+' + cleaned;

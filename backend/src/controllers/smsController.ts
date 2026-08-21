@@ -24,8 +24,8 @@ export const sendSosController = async (req: Request, res: Response) => {
     const pLat = latitude || parseFloat((location || '').split(',')[0]) || 18.5204;
     const pLng = longitude || parseFloat((location || '').split(',')[1]) || 73.8567;
 
-    // 1. Dispatch SMS via Twilio to all emergency contacts
-    const contacts = emergencyContacts && emergencyContacts.length > 0 ? emergencyContacts : ['+919876543210', '+919373245464'];
+    // 1. Dispatch SMS via Twilio to user's registered emergency contacts
+    const contacts = emergencyContacts && emergencyContacts.length > 0 ? emergencyContacts : ['+919209966816'];
     const smsResults = [];
 
     for (const phone of contacts) {

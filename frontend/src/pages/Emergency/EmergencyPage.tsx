@@ -72,9 +72,11 @@ const EmergencyPage: React.FC = () => {
   const [verificationError, setVerificationError] = useState<string | null>(null);
   const [verificationLoading, setVerificationLoading] = useState(false);
 
-  // Load verified contacts from local cache or set active defaults
+  // Load verified contacts scoped per user account
+  const userStorageKey = `ch_contacts_${user?.uid || user?.id || 'guest'}`;
+
   useEffect(() => {
-    const saved = localStorage.getItem('ch_verified_contacts');
+    const saved = localStorage.getItem(userStorageKey);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -86,17 +88,20 @@ const EmergencyPage: React.FC = () => {
         console.error(e);
       }
     }
-    const defaults: VerifiedContact[] = [
-      { name: 'Sanskar Dhat (Primary Emergency)', phone: '+919373245464', verified: true },
-      { name: 'MahaResilience Control Room', phone: '+919876543210', verified: true },
-    ];
-    setVerifiedContacts(defaults);
-    localStorage.setItem('ch_verified_contacts', JSON.stringify(defaults));
-  }, []);
+    // Account-specific initial contacts
+    const accountContacts: VerifiedContact[] = [];
+    if (user?.phone) {
+      accountContacts.push({ name: `${user.name || 'My'} Registered Phone`, phone: user.phone, verified: true });
+    }
+    accountContacts.push({ name: 'MahaResilience Control Room', phone: '+919209966816', verified: true });
+
+    setVerifiedContacts(accountContacts);
+    localStorage.setItem(userStorageKey, JSON.stringify(accountContacts));
+  }, [user]);
 
   const saveVerifiedContactsList = (list: VerifiedContact[]) => {
     setVerifiedContacts(list);
-    localStorage.setItem('ch_verified_contacts', JSON.stringify(list));
+    localStorage.setItem(userStorageKey, JSON.stringify(list));
   };
 
   const handleRequestVerification = async (e: React.FormEvent) => {
