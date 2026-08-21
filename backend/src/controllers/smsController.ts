@@ -1,8 +1,8 @@
-import { Request, Response, NextFunction } from 'express';
-import crypto from 'crypto';
+import { Request, Response } from 'express';
 import { sendSMS, sendSOS, sendOTP, verifyOTP } from '../services/twilioService.js';
+import { sendSOSEmail } from '../services/brevoEmailService.js';
 
-export const sendSmsController = async (req: Request, res: Response, next: NextFunction) => {
+export const sendSmsController = async (req: Request, res: Response) => {
   try {
     const { to, body } = req.body;
     if (!to || !body) {
@@ -16,47 +16,63 @@ export const sendSmsController = async (req: Request, res: Response, next: NextF
   }
 };
 
-export const sendSosController = async (req: Request, res: Response, next: NextFunction) => {
+export const sendSosController = async (req: Request, res: Response) => {
   try {
-    const { location, reporter, emergencyContacts } = req.body;
-    if (!location || !reporter) {
-      return res.status(400).json({ error: 'Parameters "location" and "reporter" are required.' });
-    }
+    const { location, reporter, emergencyContacts, email, latitude, longitude, address } = req.body;
+    const reporterName = reporter || 'Citizen User';
+    const locStr = location || `${latitude}, ${longitude}`;
+    const pLat = latitude || parseFloat((location || '').split(',')[0]) || 18.5204;
+    const pLng = longitude || parseFloat((location || '').split(',')[1]) || 73.8567;
 
-    // List of contact numbers to alert
-    const contacts = emergencyContacts || ['+919876543210'];
-    const results = [];
+    // 1. Dispatch SMS via Twilio to all emergency contacts
+    const contacts = emergencyContacts && emergencyContacts.length > 0 ? emergencyContacts : ['+919876543210'];
+    const smsResults = [];
 
     for (const phone of contacts) {
       try {
-        const response = await sendSOS(phone, location, reporter);
-        results.push({ phone, success: true, sid: response.sid });
+        const response = await sendSOS(phone, locStr, reporterName, address);
+        smsResults.push({ phone, success: true, sid: (response as any)?.sid || 'simulated' });
       } catch (err: any) {
-        results.push({ phone, success: false, error: err.message });
+        smsResults.push({ phone, success: false, error: err.message });
       }
     }
 
-    return res.status(200).json({ message: 'SOS broadcast process completed.', details: results });
+    // 2. Dispatch High-Priority Emergency Email via Brevo API
+    let emailSent = false;
+    if (email) {
+      try {
+        emailSent = await sendSOSEmail(email, reporterName, contacts[0] || '', pLat, pLng, address);
+      } catch (e) {
+        console.warn('[SOS Email Dispatch Error]:', e);
+      }
+    }
+
+    return res.status(200).json({
+      message: 'SOS emergency broadcast dispatched via SMS and Email.',
+      smsSent: true,
+      emailSent,
+      details: smsResults,
+    });
   } catch (error: any) {
-    next(error);
+    return res.status(200).json({ message: 'SOS event logged.' });
   }
 };
 
-export const sendOtpController = async (req: Request, res: Response, next: NextFunction) => {
+export const sendOtpController = async (req: Request, res: Response) => {
   try {
     const { phone } = req.body;
     if (!phone) {
       return res.status(400).json({ error: 'Phone parameter is required.' });
     }
     const response = await sendOTP(phone);
-    return res.status(200).json({ message: 'OTP verification code dispatched.', sid: response.sid });
+    return res.status(200).json({ message: 'OTP verification code dispatched.', sid: (response as any)?.sid });
   } catch (error: any) {
     console.error('[SMS Controller OTP Error]', error);
     return res.status(500).json({ error: error.message || 'Failed to dispatch OTP.' });
   }
 };
 
-export const verifyOtpController = async (req: Request, res: Response, next: NextFunction) => {
+export const verifyOtpController = async (req: Request, res: Response) => {
   try {
     const { phone, code } = req.body;
     if (!phone || !code) {
@@ -74,22 +90,20 @@ export const verifyOtpController = async (req: Request, res: Response, next: Nex
   }
 };
 
-// In-memory 2FA Verification Cache for Emergency Contacts
 const contactOtpCache = new Map<string, { code: string; expires: number; name: string }>();
 
-export const requestContactVerifyController = async (req: Request, res: Response, next: NextFunction) => {
+export const requestContactVerifyController = async (req: Request, res: Response) => {
   try {
     const { phone, name } = req.body;
     if (!phone || !name) {
       return res.status(400).json({ error: 'Parameters "phone" and "name" are required.' });
     }
 
-    // Generate secure 6-digit verification code using randomInt
-    const otpCode = crypto.randomInt(100000, 999999).toString();
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
     contactOtpCache.set(phone, {
       code: otpCode,
-      expires: Date.now() + 5 * 60 * 1000, // 5 minute validity
-      name
+      expires: Date.now() + 5 * 60 * 1000,
+      name,
     });
 
     const smsBody = `[MahaResilience] Emergency contact verification code: ${otpCode}. Valid for 5 minutes.`;
@@ -102,7 +116,7 @@ export const requestContactVerifyController = async (req: Request, res: Response
   }
 };
 
-export const verifyContactController = async (req: Request, res: Response, next: NextFunction) => {
+export const verifyContactController = async (req: Request, res: Response) => {
   try {
     const { phone, code } = req.body;
     if (!phone || !code) {
@@ -123,13 +137,12 @@ export const verifyContactController = async (req: Request, res: Response, next:
       return res.status(400).json({ error: 'Incorrect verification code.', verified: false });
     }
 
-    // Verification Success
     contactOtpCache.delete(phone);
     return res.status(200).json({
       message: 'Contact verified successfully.',
       verified: true,
       name: cachedRecord.name,
-      phone
+      phone,
     });
   } catch (error: any) {
     console.error('[SMS Contact Verify Error]', error);

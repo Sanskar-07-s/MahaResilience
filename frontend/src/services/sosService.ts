@@ -79,18 +79,20 @@ export const triggerEmergencySOS = async (
   let deliveryStatus: 'SENT' | 'SMS_SERVICE_NOT_CONFIGURED' | 'FAILED' = 'SMS_SERVICE_NOT_CONFIGURED';
   let statusMessage = 'SOS broadcast logged to Firestore.';
 
-  // 1. Try SMS backend endpoint
+  // 1. Try SMS & Email backend endpoint
   try {
-    const url = getApiUrl('/api/sos/send');
+    const url = getApiUrl('/api/sms/sos');
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         latitude: lat,
         longitude: lng,
+        location: `${lat}, ${lng}`,
         district,
         address,
         reporter: user?.name || 'Citizen User',
+        email: user?.email || '',
         emergencyContacts: contacts,
       }),
     });

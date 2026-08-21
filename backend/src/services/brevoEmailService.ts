@@ -154,3 +154,62 @@ export const sendPasswordResetEmail = async (email: string, resetLink: string): 
     htmlContent,
   });
 };
+
+/**
+ * Send High-Priority SOS Emergency Alert Email via Brevo API
+ */
+export const sendSOSEmail = async (
+  email: string,
+  citizenName: string,
+  citizenPhone: string,
+  lat: number,
+  lng: number,
+  address?: string
+): Promise<boolean> => {
+  const mapUrl = `https://www.google.com/maps?q=${lat},${lng}`;
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #fef2f2; color: #1e293b; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; padding: 32px; border: 2px solid #ef4444; }
+        .header { text-align: center; border-bottom: 2px solid #dc2626; padding-bottom: 16px; margin-bottom: 24px; }
+        .badge { display: inline-block; background-color: #dc2626; color: #ffffff; font-weight: 900; padding: 6px 16px; border-radius: 9999px; font-size: 14px; text-transform: uppercase; }
+        .btn { display: inline-block; background-color: #dc2626; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 12px; font-weight: bold; margin-top: 20px; font-size: 16px; }
+        .info-box { background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 12px; padding: 16px; margin: 16px 0; font-size: 14px; }
+        .footer { font-size: 12px; color: #94a3b8; text-align: center; margin-top: 32px; border-top: 1px solid #e2e8f0; padding-top: 16px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <span class="badge">🚨 URGENT SOS EMERGENCY ALERT</span>
+          <h2 style="color: #dc2626; margin-top: 12px;">Immediate Rescue / Support Requested</h2>
+        </div>
+        <p>This is an automated <strong>MahaResilience SOS Emergency Alert</strong> broadcast for citizen <strong>${citizenName}</strong>.</p>
+        <div class="info-box">
+          <p style="margin: 4px 0;"><strong>Citizen Name:</strong> ${citizenName}</p>
+          <p style="margin: 4px 0;"><strong>Contact Phone:</strong> ${citizenPhone || 'N/A'}</p>
+          <p style="margin: 4px 0;"><strong>GPS Coordinates:</strong> ${lat.toFixed(5)}, ${lng.toFixed(5)}</p>
+          <p style="margin: 4px 0;"><strong>Address / Locality:</strong> ${address || 'Location Coordinates Transmitted'}</p>
+          <p style="margin: 4px 0;"><strong>Timestamp:</strong> ${new Date().toLocaleString()}</p>
+        </div>
+        <div style="text-align: center;">
+          <a href="${mapUrl}" class="btn" target="_blank">📍 Open Live GPS Google Maps Location</a>
+        </div>
+        <div class="footer">
+          © 2026 MahaResilience Disaster Management System. National Helpline: 112 / Ambulance: 108.
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  return sendBrevoEmail({
+    toEmail: email,
+    toName: citizenName,
+    subject: `🚨 URGENT SOS EMERGENCY ALERT: ${citizenName} needs help!`,
+    htmlContent,
+  });
+};
