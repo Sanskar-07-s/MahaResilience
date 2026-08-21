@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Crown, Users, Shield, Server, FileText, Activity, AlertTriangle, CheckCircle,
   XCircle, RefreshCw, Lock, UserPlus, Eye, Edit3, Trash2, Zap, Settings, Search, MapPin,
-  Radio, Compass, HeartPulse, Droplet, Sprout, Landmark, GraduationCap, Bus, FileSpreadsheet, MessageSquare
+  Radio, Compass, HeartPulse, Droplet, Sprout, Landmark, GraduationCap, Bus, FileSpreadsheet, MessageSquare, Check, ChevronDown
 } from 'lucide-react';
 import { collection, onSnapshot, query, orderBy, setDoc, doc, updateDoc, addDoc } from 'firebase/firestore';
 import { db } from '../../../lib/firebase.ts';
@@ -46,7 +46,7 @@ export const SuperAdminPortal: React.FC = () => {
     | 'AUDIT_LOGS'
   >('OVERVIEW');
 
-  // Real-time metrics
+  // Real-time collections
   const [usersList, setUsersList] = useState<UserProfile[]>([]);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [complaintsCount, setComplaintsCount] = useState(0);
@@ -63,6 +63,14 @@ export const SuperAdminPortal: React.FC = () => {
   const [submittingAdmin, setSubmittingAdmin] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Selected User Modal for B8 "Assign Admin Field"
+  const [selectedUserForAssign, setSelectedUserForAssign] = useState<UserProfile | null>(null);
+  const [assignRole, setAssignRole] = useState<UserRole>('MODULE_ADMIN');
+  const [assignField, setAssignField] = useState<AdminField>('TOURISM');
+  const [assignDistrict, setAssignDistrict] = useState('Kolhapur');
+  const [savingAssign, setSavingAssign] = useState(false);
+  const [assignToastMsg, setAssignToastMsg] = useState<string | null>(null);
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'users'), (snap) => {
@@ -90,11 +98,67 @@ export const SuperAdminPortal: React.FC = () => {
     };
   }, []);
 
+  const showToast = (msg: string) => {
+    setAssignToastMsg(msg);
+    setTimeout(() => setAssignToastMsg(null), 4000);
+  };
+
+  // B6 — Admin Field Save Flow directly to Firestore users/{uid}
+  const handleUpdateUserAdminField = async (
+    targetUid: string,
+    newRole: UserRole,
+    newField: AdminField | undefined,
+    newDistrict?: string
+  ) => {
+    if (targetUid === 'gfhWRztes9dYzGzHBu9MjZH5Uuo2') {
+      alert('Security Protection: The Master Super Admin account cannot be modified.');
+      return;
+    }
+
+    if (newRole === 'SUPER_ADMIN') {
+      alert('Security Protection: Cannot grant SUPER_ADMIN role. Only UID gfhWRztes9dYzGzHBu9MjZH5Uuo2 is Super Admin.');
+      return;
+    }
+
+    const targetUser = usersList.find((u) => u.uid === targetUid);
+    const prevRole = targetUser?.role;
+    const prevField = targetUser?.adminField;
+
+    try {
+      const updateData: any = {
+        role: newRole,
+        adminField: newRole === 'MODULE_ADMIN' ? newField : undefined,
+        updatedAt: new Date().toISOString(),
+      };
+      if (newDistrict) updateData.district = newDistrict;
+
+      await updateDoc(doc(db, 'users', targetUid), updateData);
+
+      // Audit Log B15
+      await addDoc(collection(db, 'auditLogs'), {
+        adminId: user?.uid || 'SUPER_ADMIN',
+        adminRole: 'SUPER_ADMIN',
+        action: 'ASSIGN_ADMIN_FIELD',
+        targetUserId: targetUid,
+        previousRole: prevRole || 'USER',
+        newRole,
+        previousAdminField: prevField || 'NONE',
+        newAdminField: newField || 'NONE',
+        timestamp: new Date().toISOString(),
+        details: `Assigned role ${newRole} (${newField || 'NONE'}) to user ${targetUser?.email || targetUid}`,
+      });
+
+      showToast(`Admin field updated successfully to ${newField || 'NONE'} for ${targetUser?.name || 'User'}!`);
+      setSelectedUserForAssign(null);
+    } catch (err: any) {
+      alert('Failed to update admin field in Firestore: ' + err.message);
+    }
+  };
+
   const handleCreateModuleAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!adminEmail.trim() || !adminName.trim()) return;
 
-    // Safety guard: Super Admin UID is fixed to gfhWRztes9dYzGzHBu9MjZH5Uuo2
     if (adminRole === 'SUPER_ADMIN') {
       alert('Security Protection: Only the existing permanent Super Admin (gfhWRztes9dYzGzHBu9MjZH5Uuo2) can possess SUPER_ADMIN role.');
       return;
@@ -174,6 +238,14 @@ export const SuperAdminPortal: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 p-4 sm:p-6 lg:p-8 font-sans">
+      {/* Toast Banner */}
+      {assignToastMsg && (
+        <div className="fixed top-20 right-6 z-50 bg-emerald-600 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2 border border-emerald-400 font-bold text-xs animate-bounce">
+          <Check className="w-4 h-4" />
+          {assignToastMsg}
+        </div>
+      )}
+
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="bg-gradient-to-r from-amber-600 via-yellow-600 to-amber-700 rounded-2xl p-6 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border border-amber-500/30">
@@ -219,6 +291,8 @@ export const SuperAdminPortal: React.FC = () => {
         <div className="flex gap-2 overflow-x-auto border-b border-slate-800 pb-2 text-xs no-scrollbar">
           {[
             { id: 'OVERVIEW', label: 'Master Overview', icon: Activity },
+            { id: 'USERS', label: 'User Directory', icon: Users },
+            { id: 'ADMINS', label: 'Admin Assignment', icon: UserPlus },
             { id: 'EMERGENCY', label: 'Disaster EOC', icon: Radio },
             { id: 'TOURISM', label: 'Tourism', icon: Compass },
             { id: 'COMPLAINTS', label: 'Grievances', icon: FileSpreadsheet },
@@ -229,8 +303,6 @@ export const SuperAdminPortal: React.FC = () => {
             { id: 'AGRICULTURE', label: 'Agriculture', icon: Sprout },
             { id: 'GOVERNMENT', label: 'Schemes', icon: Landmark },
             { id: 'COMMUNITY', label: 'Moderation', icon: MessageSquare },
-            { id: 'USERS', label: 'User Directory', icon: Users },
-            { id: 'ADMINS', label: 'Admin Assignment', icon: UserPlus },
             { id: 'AUDIT_LOGS', label: 'Audit Logs', icon: FileText },
           ].map((tab) => {
             const Icon = tab.icon;
@@ -320,20 +392,26 @@ export const SuperAdminPortal: React.FC = () => {
         {activeTab === 'COMPLAINTS' && <ComplaintsAdminPortal />}
         {activeTab === 'COMMUNITY' && <CommunityModeratorPortal />}
 
-        {/* TAB: USER DIRECTORY */}
+        {/* TAB 2: USER DIRECTORY (WITH LIVE FIRESTORE ADMIN FIELD SAVE) */}
         {activeTab === 'USERS' && (
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
-            <div className="flex items-center justify-between gap-4">
-              <h3 className="text-base font-extrabold text-white">Registered Platform Users</h3>
-              <div className="relative w-64">
-                <Search className="w-4 h-4 absolute left-3 top-3 text-slate-500" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search user, email, role..."
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
-                />
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <h3 className="text-base font-extrabold text-white">Registered Platform Users & Admin Field Management</h3>
+                <p className="text-xs text-slate-400">Directly assign roles and specialized operational admin fields in real-time Firestore.</p>
+              </div>
+
+              <div className="flex items-center gap-3 w-full sm:w-auto">
+                <div className="relative flex-1 sm:w-64">
+                  <Search className="w-4 h-4 absolute left-3 top-3 text-slate-500" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search user, email, role..."
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
+                  />
+                </div>
               </div>
             </div>
 
@@ -343,50 +421,132 @@ export const SuperAdminPortal: React.FC = () => {
                   <tr className="border-b border-slate-800 text-slate-400 uppercase text-[10px]">
                     <th className="p-3">User</th>
                     <th className="p-3">Role</th>
-                    <th className="p-3">Admin Field</th>
+                    <th className="p-3">Admin Field (Operational Portal)</th>
                     <th className="p-3">District</th>
                     <th className="p-3">Status</th>
                     <th className="p-3">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/50">
-                  {filteredUsers.map((u) => (
-                    <tr key={u.uid} className="hover:bg-slate-850/50">
-                      <td className="p-3">
-                        <div className="font-bold text-white">{u.name || 'Citizen'}</div>
-                        <div className="text-[10px] text-slate-400">{u.email}</div>
-                      </td>
-                      <td className="p-3 font-semibold text-yellow-400">{u.role || 'USER'}</td>
-                      <td className="p-3 font-mono text-teal-300">{u.adminField || '—'}</td>
-                      <td className="p-3 text-slate-300">{u.district || 'All'}</td>
-                      <td className="p-3">
-                        <span
-                          className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                            u.status === 'SUSPENDED' ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'
-                          }`}
-                        >
-                          {u.status || 'ACTIVE'}
-                        </span>
-                      </td>
-                      <td className="p-3">
-                        {u.uid !== 'gfhWRztes9dYzGzHBu9MjZH5Uuo2' && (
-                          <button
-                            onClick={() => toggleUserStatus(u)}
-                            className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-[11px]"
+                  {filteredUsers.map((u) => {
+                    const isMasterSuper = u.uid === 'gfhWRztes9dYzGzHBu9MjZH5Uuo2';
+                    return (
+                      <tr key={u.uid} className="hover:bg-slate-850/50">
+                        <td className="p-3">
+                          <div className="font-bold text-white flex items-center gap-1.5">
+                            {u.name || 'Citizen User'}
+                            {isMasterSuper && (
+                              <Crown className="w-3.5 h-3.5 text-yellow-400 inline" />
+                            )}
+                          </div>
+                          <div className="text-[10px] text-slate-400">{u.email}</div>
+                        </td>
+
+                        {/* Editable Role Dropdown */}
+                        <td className="p-3 font-semibold">
+                          {isMasterSuper ? (
+                            <span className="bg-yellow-500/20 text-yellow-300 px-2 py-1 rounded text-[10px] font-black border border-yellow-400/30">
+                              SUPER_ADMIN
+                            </span>
+                          ) : (
+                            <select
+                              value={u.role || 'USER'}
+                              onChange={(e) =>
+                                handleUpdateUserAdminField(
+                                  u.uid,
+                                  e.target.value as UserRole,
+                                  u.adminField,
+                                  u.district
+                                )
+                              }
+                              className="bg-slate-950 border border-slate-800 text-yellow-400 rounded-lg px-2 py-1 text-xs font-bold focus:outline-none focus:border-amber-500"
+                            >
+                              <option value="USER">USER (Citizen)</option>
+                              <option value="MODULE_ADMIN">MODULE_ADMIN</option>
+                              <option value="DISTRICT_ADMIN">DISTRICT_ADMIN</option>
+                              <option value="MODERATOR">MODERATOR</option>
+                              <option value="OFFICIAL">OFFICIAL</option>
+                              <option value="VOLUNTEER">VOLUNTEER</option>
+                            </select>
+                          )}
+                        </td>
+
+                        {/* Editable Admin Field Dropdown (B4 / B6 Flow) */}
+                        <td className="p-3 font-mono">
+                          {isMasterSuper ? (
+                            <span className="text-amber-300 font-bold text-[10px]">ALL MODULES</span>
+                          ) : u.role === 'MODULE_ADMIN' ? (
+                            <select
+                              value={u.adminField || 'TOURISM'}
+                              onChange={(e) =>
+                                handleUpdateUserAdminField(
+                                  u.uid,
+                                  u.role || 'MODULE_ADMIN',
+                                  e.target.value as AdminField,
+                                  u.district
+                                )
+                              }
+                              className="bg-slate-950 border border-teal-500/40 text-teal-300 rounded-lg px-2 py-1 text-xs font-bold focus:outline-none focus:border-teal-400"
+                            >
+                              <option value="EMERGENCY">Emergency & Disaster</option>
+                              <option value="HEALTHCARE">Healthcare Services</option>
+                              <option value="GOVERNMENT">Government Services</option>
+                              <option value="WATER">Water Supply & Tankers</option>
+                              <option value="ELECTRICITY">Electricity Grid</option>
+                              <option value="WASTE">Sanitation & Waste</option>
+                              <option value="AGRICULTURE">APMC Agriculture</option>
+                              <option value="EDUCATION">Education Services</option>
+                              <option value="TRANSPORT">Transit & Charging</option>
+                              <option value="TOURISM">Tourism & Places</option>
+                              <option value="COMPLAINTS">Civic Complaints</option>
+                              <option value="COMMUNITY">Community Moderation</option>
+                            </select>
+                          ) : (
+                            <span className="text-slate-500 text-[11px]">—</span>
+                          )}
+                        </td>
+
+                        <td className="p-3 text-slate-300">{u.district || 'All'}</td>
+
+                        <td className="p-3">
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                              u.status === 'SUSPENDED' ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'
+                            }`}
                           >
-                            {u.status === 'SUSPENDED' ? 'Reactivate' : 'Suspend'}
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                            {u.status || 'ACTIVE'}
+                          </span>
+                        </td>
+
+                        <td className="p-3 flex items-center gap-2">
+                          {!isMasterSuper && (
+                            <>
+                              <button
+                                onClick={() => setSelectedUserForAssign(u)}
+                                className="px-2.5 py-1 rounded bg-teal-900/60 hover:bg-teal-800 text-teal-200 border border-teal-700/50 font-bold text-[11px]"
+                                title="Assign Admin Field Modal"
+                              >
+                                Assign Field
+                              </button>
+                              <button
+                                onClick={() => toggleUserStatus(u)}
+                                className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-[11px]"
+                              >
+                                {u.status === 'SUSPENDED' ? 'Reactivate' : 'Suspend'}
+                              </button>
+                            </>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           </div>
         )}
 
-        {/* TAB: ADMIN CREATION */}
+        {/* TAB 3: ADMIN CREATION */}
         {activeTab === 'ADMINS' && (
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-2xl space-y-6">
             <div>
@@ -521,6 +681,94 @@ export const SuperAdminPortal: React.FC = () => {
                   <span className="text-[10px] text-slate-500">{new Date(log.timestamp).toLocaleString()}</span>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* B8 MODAL — ASSIGN ADMIN FIELD */}
+        {selectedUserForAssign && (
+          <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-md w-full space-y-4">
+              <div className="flex justify-between items-center">
+                <h3 className="text-base font-extrabold text-white">Assign Admin Field & Role</h3>
+                <button onClick={() => setSelectedUserForAssign(null)} className="text-slate-400 hover:text-white">
+                  ✕
+                </button>
+              </div>
+
+              <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-xs">
+                <div className="font-bold text-white">{selectedUserForAssign.name || 'Citizen'}</div>
+                <div className="text-slate-400 text-[11px]">{selectedUserForAssign.email}</div>
+              </div>
+
+              <div className="space-y-3 text-xs">
+                <div>
+                  <label className="block text-slate-300 font-bold mb-1">Target Role</label>
+                  <select
+                    value={assignRole}
+                    onChange={(e) => setAssignRole(e.target.value as UserRole)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:outline-none focus:border-amber-500"
+                  >
+                    <option value="MODULE_ADMIN">MODULE_ADMIN</option>
+                    <option value="DISTRICT_ADMIN">DISTRICT_ADMIN</option>
+                    <option value="MODERATOR">MODERATOR</option>
+                    <option value="USER">USER (Citizen)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 font-bold mb-1">Specialized Admin Field</label>
+                  <select
+                    value={assignField}
+                    onChange={(e) => setAssignField(e.target.value as AdminField)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:outline-none focus:border-amber-500"
+                  >
+                    <option value="EMERGENCY">Emergency & Disaster</option>
+                    <option value="HEALTHCARE">Healthcare Services</option>
+                    <option value="GOVERNMENT">Government Services</option>
+                    <option value="WATER">Water Supply & Tankers</option>
+                    <option value="ELECTRICITY">Electricity Grid</option>
+                    <option value="WASTE">Sanitation & Waste</option>
+                    <option value="AGRICULTURE">APMC Agriculture</option>
+                    <option value="EDUCATION">Education Services</option>
+                    <option value="TRANSPORT">Transit & Charging</option>
+                    <option value="TOURISM">Tourism & Places</option>
+                    <option value="COMPLAINTS">Civic Complaints</option>
+                    <option value="COMMUNITY">Community Moderation</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 font-bold mb-1">District Boundary</label>
+                  <select
+                    value={assignDistrict}
+                    onChange={(e) => setAssignDistrict(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:outline-none focus:border-amber-500"
+                  >
+                    {['Kolhapur', 'Pune', 'Mumbai', 'Satara', 'Solapur', 'Sangli', 'Nashik', 'Nagpur', 'All Districts'].map(
+                      (d) => (
+                        <option key={d} value={d}>
+                          {d}
+                        </option>
+                      )
+                    )}
+                  </select>
+                </div>
+
+                <button
+                  onClick={() =>
+                    handleUpdateUserAdminField(
+                      selectedUserForAssign.uid,
+                      assignRole,
+                      assignField,
+                      assignDistrict
+                    )
+                  }
+                  className="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold py-3 rounded-xl transition-all shadow-lg hover-scale mt-2"
+                >
+                  Save Admin Assignment to Firestore
+                </button>
+              </div>
             </div>
           </div>
         )}
