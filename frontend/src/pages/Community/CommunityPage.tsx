@@ -349,8 +349,28 @@ export const CommunityPage: React.FC = () => {
                   {post.content}
                 </p>
 
+                {/* Multi-Parameter Community Rating Card */}
+                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200/80 grid grid-cols-2 sm:grid-cols-4 gap-2 text-[10px]">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-amber-500 font-extrabold text-xs">★ 4.8</span>
+                    <span className="text-slate-500 font-semibold">Overall Rating</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-teal-700 font-bold">🛡️ 5.0</span>
+                    <span className="text-slate-500">Safety</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-emerald-700 font-bold">🧹 4.6</span>
+                    <span className="text-slate-500">Cleanliness</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-blue-700 font-bold">🌊 4.9</span>
+                    <span className="text-slate-500">Disaster Prep</span>
+                  </div>
+                </div>
+
                 {/* Post Footer / Actions */}
-                <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 font-semibold">
+                <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500 font-semibold">
                   <div className="flex items-center gap-2">
                     <span className="text-[11px] text-slate-400">
                       By <strong className="text-slate-700">{post.creatorName}</strong> •{' '}
@@ -361,16 +381,18 @@ export const CommunityPage: React.FC = () => {
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-4">
-                    {/* Like Button */}
+                  <div className="flex items-center gap-3">
+                    {/* Like / Single Support Button */}
                     <button
                       onClick={() => handleLikeToggle(post.id)}
-                      className={`flex items-center gap-1.5 transition-colors ${
-                        isLiked ? 'text-red-600 font-bold' : 'hover:text-red-600'
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all ${
+                        isLiked
+                          ? 'bg-red-50 border-red-200 text-red-700 shadow-2xs'
+                          : 'bg-white border-slate-200 text-slate-600 hover:border-red-300 hover:text-red-600'
                       }`}
                     >
-                      <Heart className={`w-4 h-4 ${isLiked ? 'fill-red-600 text-red-600' : ''}`} />
-                      <span>{post.likeCount || 0}</span>
+                      <Heart className={`w-3.5 h-3.5 ${isLiked ? 'fill-red-600 text-red-600' : ''}`} />
+                      <span>{isLiked ? 'Supported ✓' : 'Support'} ({post.likeCount || 0})</span>
                     </button>
 
                     {/* Comment Drawer Toggle */}
@@ -378,17 +400,28 @@ export const CommunityPage: React.FC = () => {
                       onClick={() =>
                         setActiveCommentPostId(activeCommentPostId === post.id ? null : post.id)
                       }
-                      className="flex items-center gap-1.5 hover:text-teal-700 transition-colors"
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 rounded-xl hover:bg-teal-50 hover:text-teal-700 transition-colors text-xs font-bold"
                     >
-                      <MessageSquare className="w-4 h-4" />
+                      <MessageSquare className="w-3.5 h-3.5" />
                       <span>{post.commentCount || 0} Comments</span>
                     </button>
+
+                    {/* Explicit Delete Event / Post Button */}
+                    {isMyPost && (
+                      <button
+                        onClick={() => handleDeletePost(post.id)}
+                        className="flex items-center gap-1 px-2.5 py-1.5 bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 rounded-xl text-xs font-extrabold transition-colors"
+                        title="Delete this event / post"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" /> Delete Event
+                      </button>
+                    )}
 
                     {/* Report Button */}
                     <button
                       onClick={() => setReportPostId(post.id)}
-                      className="text-slate-400 hover:text-amber-600 transition-colors"
-                      title="Report Post"
+                      className="text-slate-400 hover:text-amber-600 p-1.5 transition-colors"
+                      title="Report Post / File"
                     >
                       <Flag className="w-3.5 h-3.5" />
                     </button>
@@ -620,20 +653,32 @@ export const CommunityPage: React.FC = () => {
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium"
                   />
                 </div>
-                <div className="flex justify-end gap-2 pt-2">
+                <div className="flex justify-between items-center pt-2">
                   <button
                     type="button"
-                    onClick={() => setReportPostId(null)}
-                    className="px-4 py-2 text-slate-600 font-semibold hover:bg-slate-100 rounded-xl"
+                    onClick={() => {
+                      if (reportPostId) handleDeletePost(reportPostId);
+                      setReportPostId(null);
+                    }}
+                    className="px-3 py-2 text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded-xl font-bold text-xs flex items-center gap-1"
                   >
-                    Cancel
+                    <Trash2 className="w-3.5 h-3.5" /> Delete File / Post
                   </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl shadow-xs"
-                  >
-                    Submit Report
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setReportPostId(null)}
+                      className="px-4 py-2 text-slate-600 font-semibold hover:bg-slate-100 rounded-xl"
+                    >
+                      Dismiss
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl shadow-xs"
+                    >
+                      Submit Report
+                    </button>
+                  </div>
                 </div>
               </form>
             )}
