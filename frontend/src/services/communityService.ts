@@ -121,6 +121,42 @@ export const subscribeCommunityPosts = (
     },
     (err) => {
       console.warn('[Community Engine] Post listener notice:', err?.code);
+      // Fallback fallback plain query without complex composite index
+      if (err?.code === 'failed-precondition' || err?.code === 'permission-denied') {
+        const plainUnsub = onSnapshot(
+          collection(db, 'communityPosts'),
+          (snap) => {
+            const fallbackPosts: CommunityPost[] = snap.docs.map((d) => {
+              const data = d.data();
+              return {
+                id: d.id,
+                title: data.title || 'Community Post',
+                content: data.content || '',
+                category: data.category || 'GENERAL',
+                images: data.images || [],
+                latitude: data.latitude || 18.5204,
+                longitude: data.longitude || 73.8567,
+                state: data.state || 'Maharashtra',
+                district: data.district || 'Pune',
+                city: data.city || 'Pune',
+                taluka: data.taluka || '',
+                ward: data.ward || '',
+                village: data.village || '',
+                locality: data.locality || '',
+                createdBy: data.createdBy || 'anonymous',
+                creatorName: data.creatorName || 'Resident Citizen',
+                createdAt: data.createdAt || new Date().toISOString(),
+                status: data.status || 'ACTIVE',
+                visibility: data.visibility || 'PUBLIC',
+                likeCount: data.likeCount || 0,
+                commentCount: data.commentCount || 0,
+              };
+            });
+            onUpdate(fallbackPosts);
+          },
+          () => {}
+        );
+      }
       if (onError) onError(err);
     }
   );

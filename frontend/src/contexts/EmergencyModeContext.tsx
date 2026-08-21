@@ -42,7 +42,7 @@ export const EmergencyModeProvider: React.FC<{ children: React.ReactNode }> = ({
     // Log audit entry
     try {
       await addDoc(collection(db, 'auditLogs'), {
-        adminId: user.uid,
+        adminId: user.id || (user as any).uid || 'admin',
         action: 'ACTIVATE_EMERGENCY_MODE',
         target: 'SYSTEM',
         details: 'Emergency Mode activated — all critical systems prioritized.',
@@ -63,7 +63,7 @@ export const EmergencyModeProvider: React.FC<{ children: React.ReactNode }> = ({
 
     try {
       await addDoc(collection(db, 'auditLogs'), {
-        adminId: user.uid,
+        adminId: user.id || (user as any).uid || 'admin',
         action: 'DEACTIVATE_EMERGENCY_MODE',
         target: 'SYSTEM',
         details: 'Emergency Mode deactivated — platform returned to normal operations.',

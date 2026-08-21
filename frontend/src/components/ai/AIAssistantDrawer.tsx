@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Bot, X, Send, MapPin, Sparkles, AlertTriangle, ShieldCheck, RefreshCw } from 'lucide-react';
 import { useLocation } from '../../contexts/LocationContext.tsx';
-import { getApiUrl } from '../../config/api.config.ts';
+import { fetchAIAssistantResponse } from '../../services/aiService.ts';
 
 interface AIAssistantDrawerProps {
   isOpen: boolean;
@@ -55,45 +55,24 @@ export const AIAssistantDrawer: React.FC<AIAssistantDrawerProps> = ({ isOpen, on
     setLoading(true);
 
     try {
-      const response = await fetch(getApiUrl('/api/ai/assistant'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          question: textToSend,
-          district: district || 'Pune',
-          city: ward || city || 'Pune',
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const aiMsg: ChatMessage = {
-          id: 'ai-' + Date.now(),
-          sender: 'AI',
-          text: data.answer || 'I am ready to assist you with verified local information.',
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        };
-        setMessages((prev) => [...prev, aiMsg]);
-      } else {
-        throw new Error('AI Response Error');
-      }
-    } catch (err) {
-      // Local fallback assistant grounded response
-      let fallbackText = `Here is grounded assistance for **${ward || city}, ${district}**:\n\n`;
-      if (textToSend.toLowerCase().includes('hospital')) {
-        fallbackText += `• **${district} General Civil Hospital**: Call 020-26120120 (54 ICU Beds Available)\n• **Primary Health Center (${ward || city})**: Emergency 108\n• **Blood Bank**: Station Road (${district})`;
-      } else if (textToSend.toLowerCase().includes('flood') || textToSend.toLowerCase().includes('rain')) {
-        fallbackText += `• Move to elevated ground immediately.\n• Local Disaster Relief Shelter: Erandwane Complex, ${district} (Call 108/1916).\n• Emergency Helpline: 112 / 101`;
-      } else if (textToSend.toLowerCase().includes('document') || textToSend.toLowerCase().includes('scheme')) {
-        fallbackText += `• **Sanjay Gandhi Niradhar Yojana**: Requires Income Cert (< ₹50,000/yr), Age Proof, Domicile.\n• Apply via Aaple Sarkar Portal: https://aaplesarkar.maharashtra.gov.in`;
-      } else {
-        fallbackText += `For official services in ${district}:\n• **Aaple Sarkar Seva Kendra**: Collectorate Campus (${district})\n• **Emergency**: 112 / 108\n• **Disaster Helpline**: 1916`;
-      }
+      const answer = await fetchAIAssistantResponse(
+        textToSend,
+        district || 'Pune',
+        ward || city || 'Pune'
+      );
 
       const aiMsg: ChatMessage = {
         id: 'ai-' + Date.now(),
         sender: 'AI',
-        text: fallbackText,
+        text: answer,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      };
+      setMessages((prev) => [...prev, aiMsg]);
+    } catch (err) {
+      const aiMsg: ChatMessage = {
+        id: 'ai-' + Date.now(),
+        sender: 'AI',
+        text: `### Grounded Emergency Assistance (${ward || city}, ${district})\n\n• **National Emergency Helpline**: Dial **112**\n• **Ambulance**: Dial **108**\n• **Municipal Water/Waste**: Dial **1916**\n• **Aaple Sarkar Portal**: [https://aaplesarkar.maharashtra.gov.in](https://aaplesarkar.maharashtra.gov.in)`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
       setMessages((prev) => [...prev, aiMsg]);
