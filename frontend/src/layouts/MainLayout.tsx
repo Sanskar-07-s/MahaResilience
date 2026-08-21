@@ -22,12 +22,15 @@ import {
 import { useAlert } from '../contexts/AlertContext.tsx';
 import { useSmartNotifications } from '../contexts/NotificationContext.tsx';
 
+import { useEmergencyMode } from '../contexts/EmergencyModeContext.tsx';
+
 interface MainLayoutProps {
   children: React.ReactNode;
 }
 
 const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const { user, logout, isAuthenticated } = useAuth();
+  const { isEmergencyMode, deactivateEmergencyMode } = useEmergencyMode();
   const { soundEnabled, toggleAlertSounds } = useAlert();
   const { notifications, unreadCount, markAsRead, clearAllNotifications } = useSmartNotifications();
   const navigate = useNavigate();
@@ -61,6 +64,36 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
       {/* Main Content Viewport */}
       <div className="flex-1 flex flex-col md:pl-64 min-w-0 transition-all duration-300">
+        {/* Statewide Emergency Mode Global Banner */}
+        {isEmergencyMode && (
+          <div className="bg-red-700 text-white px-4 py-3 shadow-lg flex items-center justify-between gap-4 border-b-2 border-red-900 animate-pulse">
+            <div className="flex items-center gap-3">
+              <div className="p-1.5 bg-yellow-400 text-red-900 rounded-full font-black text-xs">
+                ⚡
+              </div>
+              <p className="text-xs sm:text-sm font-black tracking-wide">
+                STATEWIDE EMERGENCY MODE ACTIVATED — All disaster management services, emergency SOS, and civil defense assets prioritized.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => navigate('/emergency')}
+                className="bg-yellow-400 text-red-950 hover:bg-yellow-300 text-xs font-extrabold px-3 py-1.5 rounded-lg shadow-xs transition-all"
+              >
+                🚨 SOS Center
+              </button>
+              {(user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN' || canAccessAdmin(user)) && (
+                <button
+                  onClick={deactivateEmergencyMode}
+                  className="bg-red-900/80 hover:bg-red-950 text-red-100 text-[11px] font-bold px-2.5 py-1.5 rounded-lg border border-red-500"
+                >
+                  Turn Off Mode
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         <CriticalAlertBanner />
         <LocationBar />
 
