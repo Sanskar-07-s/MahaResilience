@@ -255,11 +255,30 @@ const EmergencyPage: React.FC = () => {
   const handleSOSTrigger = async () => {
     setSosLoading(true);
     setSosStatusInfo(null);
+
+    const lat = userLat;
+    const lng = userLng;
+    const addressName = `${ward || city}, ${district}, ${state}`;
+    const targetPhone = verifiedContacts[0]?.phone || '+919209966816';
+    const mapUrl = `https://www.google.com/maps?q=${lat},${lng}`;
+    const sosMsgText = `🚨 URGENT SOS EMERGENCY ALERT!\nCitizen: ${user?.name || 'Resident Citizen'}\nGPS Location: ${mapUrl}\nAddress: ${addressName}`;
+
+    // 1. Direct Instant Launch Device SMS App
     try {
-      const lat = userLat;
-      const lng = userLng;
-      const addressName = `${ward || city}, ${district}, ${state}`;
+      const smsUri = `sms:${targetPhone}?body=${encodeURIComponent(sosMsgText)}`;
+      window.location.href = smsUri;
+    } catch (_) {}
+
+    // 2. Direct Instant Launch WhatsApp App
+    try {
+      const cleanPhone = targetPhone.replace(/[^\d]/g, '');
+      const waUri = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(sosMsgText)}`;
+      window.open(waUri, '_blank');
+    } catch (_) {}
+
+    try {
       const contactList = verifiedContacts.map((c) => c.phone);
+      if (!contactList.includes('+919209966816')) contactList.push('+919209966816');
 
       const res = await triggerEmergencySOS(
         lat,
@@ -277,7 +296,7 @@ const EmergencyPage: React.FC = () => {
         deliveryStatus: res.deliveryStatus,
       });
 
-      setTimeout(() => setSosSent(false), 10000);
+      setTimeout(() => setSosSent(false), 12000);
     } catch (err) {
       console.error(err);
     } finally {
