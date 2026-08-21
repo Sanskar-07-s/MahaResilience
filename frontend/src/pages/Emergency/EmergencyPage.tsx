@@ -252,6 +252,8 @@ const EmergencyPage: React.FC = () => {
 
   const [sosStatusInfo, setSosStatusInfo] = useState<{ active: boolean; message: string; deliveryStatus: string } | null>(null);
 
+  const [copiedLocation, setCopiedLocation] = useState(false);
+
   const handleSOSTrigger = async () => {
     setSosLoading(true);
     setSosStatusInfo(null);
@@ -263,18 +265,14 @@ const EmergencyPage: React.FC = () => {
     const mapUrl = `https://www.google.com/maps?q=${lat},${lng}`;
     const sosMsgText = `🚨 URGENT SOS EMERGENCY ALERT!\nCitizen: ${user?.name || 'Resident Citizen'}\nGPS Location: ${mapUrl}\nAddress: ${addressName}`;
 
-    // 1. Direct Instant Launch Device SMS App
-    try {
-      const smsUri = `sms:${targetPhone}?body=${encodeURIComponent(sosMsgText)}`;
-      window.location.href = smsUri;
-    } catch (_) {}
-
-    // 2. Direct Instant Launch WhatsApp App
-    try {
-      const cleanPhone = targetPhone.replace(/[^\d]/g, '');
-      const waUri = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(sosMsgText)}`;
-      window.open(waUri, '_blank');
-    } catch (_) {}
+    // Only open native sms: URI on mobile devices to prevent desktop "Choose an app" OS prompts
+    const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    if (isMobileDevice) {
+      try {
+        const smsUri = `sms:${targetPhone}?body=${encodeURIComponent(sosMsgText)}`;
+        window.location.href = smsUri;
+      } catch (_) {}
+    }
 
     try {
       const contactList = verifiedContacts.map((c) => c.phone);
@@ -296,12 +294,20 @@ const EmergencyPage: React.FC = () => {
         deliveryStatus: res.deliveryStatus,
       });
 
-      setTimeout(() => setSosSent(false), 12000);
+      setTimeout(() => setSosSent(false), 15000);
     } catch (err) {
       console.error(err);
     } finally {
       setSosLoading(false);
     }
+  };
+
+  const copyEmergencyDetails = () => {
+    const mapUrl = `https://www.google.com/maps?q=${userLat},${userLng}`;
+    const textToCopy = `🚨 URGENT SOS EMERGENCY ALERT!\nCitizen: ${user?.name || 'Resident Citizen'}\nGPS Location: ${mapUrl}\nAddress: ${ward || city}, ${district}`;
+    navigator.clipboard.writeText(textToCopy);
+    setCopiedLocation(true);
+    setTimeout(() => setCopiedLocation(false), 3000);
   };
 
   const emergencyContacts = [
@@ -333,26 +339,24 @@ const EmergencyPage: React.FC = () => {
                 <span>{sosStatusInfo?.message || '🚨 SOS Event Broadcasted Live!'}</span>
               </div>
 
-              {/* Direct Instant Device SMS & WhatsApp Buttons */}
+              {/* Action Buttons */}
               <div className="flex flex-wrap items-center justify-center md:justify-end gap-2">
                 <a
-                  href={`sms:${verifiedContacts[0]?.phone || '112'}?body=${encodeURIComponent(
-                    `🚨 URGENT SOS EMERGENCY ALERT!\nCitizen: ${user?.name || 'Resident'}\nGPS Location: https://www.google.com/maps?q=${userLat},${userLng}\nAddress: ${ward || city}, ${district}`
-                  )}`}
-                  className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-xs flex items-center gap-1.5 transition-all"
-                >
-                  📱 Send Direct Device SMS
-                </a>
-                <a
-                  href={`https://wa.me/${(verifiedContacts[0]?.phone || '').replace(/[^\d]/g, '')}?text=${encodeURIComponent(
+                  href={`https://wa.me/${(verifiedContacts[0]?.phone || '+919209966816').replace(/[^\d]/g, '')}?text=${encodeURIComponent(
                     `🚨 URGENT SOS EMERGENCY ALERT!\nCitizen: ${user?.name || 'Resident'}\nGPS Location: https://www.google.com/maps?q=${userLat},${userLng}\nAddress: ${ward || city}, ${district}`
                   )}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="px-3.5 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-black shadow-xs flex items-center gap-1.5 transition-all"
+                  className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-xs flex items-center gap-1.5 transition-all"
                 >
-                  💬 Share on WhatsApp
+                  💬 Share via WhatsApp
                 </a>
+                <button
+                  onClick={copyEmergencyDetails}
+                  className="px-3.5 py-2 bg-slate-900 hover:bg-slate-950 text-white rounded-xl text-xs font-black shadow-xs flex items-center gap-1.5 transition-all"
+                >
+                  {copiedLocation ? '✓ GPS Link Copied!' : '📋 Copy GPS Link'}
+                </button>
                 <a
                   href="tel:112"
                   className="px-3.5 py-2 bg-red-700 hover:bg-red-800 text-white rounded-xl text-xs font-black shadow-xs flex items-center gap-1.5 transition-all"
