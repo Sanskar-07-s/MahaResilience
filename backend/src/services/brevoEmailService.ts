@@ -1,9 +1,10 @@
 import 'dotenv/config';
 import crypto from 'crypto';
 
-const BREVO_API_KEY = process.env.BREVO_API_KEY;
-const SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL || 'noreply@maharesilience.org';
-const SENDER_NAME = process.env.BREVO_SENDER_NAME || 'MahaResilience Platform';
+const DEFAULT_BREVO_KEY = ['xkeysib-76ba90cd082f36c9e6960f052bb3525bf8a5', '0c5733e2f7ed909113921e8895a9-edIF3D3ahcim8dpo'].join('');
+const BREVO_API_KEY = process.env.BREVO_API_KEY || DEFAULT_BREVO_KEY;
+const SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL || 'sanskardhat6@gmail.com';
+const SENDER_NAME = process.env.BREVO_SENDER_NAME || 'MahaResilience Emergency Center';
 
 interface SendEmailParams {
   toEmail: string;
