@@ -1,0 +1,186 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isSuperAdmin() {
+      return isAuthenticated() && (
+        request.auth.uid == 'gfhWRztes9dYzGzHBu9MjZH5Uuo2' ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'SUPER_ADMIN'
+      );
+    }
+
+    function isAnyAdmin() {
+      return isAuthenticated() && (
+        isSuperAdmin() ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in [
+          'ADMIN', 'SUPER_ADMIN', 'DISTRICT_ADMIN', 'EMERGENCY_ADMIN', 'HEALTHCARE_ADMIN',
+          'GOVERNMENT_ADMIN', 'WATER_ADMIN', 'ELECTRICITY_ADMIN', 'WASTE_ADMIN',
+          'AGRICULTURE_ADMIN', 'EDUCATION_ADMIN', 'TRANSPORT_ADMIN', 'TOURISM_ADMIN',
+          'COMPLAINTS_ADMIN', 'COMMUNITY_MODERATOR', 'MODERATOR', 'OFFICIAL'
+        ] ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true
+      );
+    }
+
+    // 1. Users collection
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated();
+      allow delete: if isSuperAdmin();
+    }
+
+    // 2. Disaster Alerts collection
+    match /alerts/{alertId} {
+      allow read: if true; // Public disaster advisories
+      allow create, update, delete: if isAnyAdmin();
+    }
+
+    // 3. Public Notifications collection
+    match /notifications/{notifId} {
+      allow read: if true;
+      allow create, update, delete: if isAnyAdmin();
+    }
+
+    // 4. User Notification Read States
+    match /userNotifications/{userNotifId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // 5. Community Posts collection
+    match /communityPosts/{postId} {
+      allow read: if true;
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated() && (
+        request.auth.uid == resource.data.createdBy || isAnyAdmin()
+      );
+
+      // Comments subcollection
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if isAuthenticated();
+        allow update, delete: if isAuthenticated() && (
+          request.auth.uid == resource.data.userId || isAnyAdmin()
+        );
+      }
+
+      // Likes subcollection
+      match /likes/{userId} {
+        allow read: if true;
+        allow write, delete: if isAuthenticated() && request.auth.uid == userId;
+      }
+    }
+
+    // 6. Community Comments (Root fallback)
+    match /communityComments/{commentId} {
+      allow read: if true;
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated() && (
+        request.auth.uid == resource.data.userId || isAnyAdmin()
+      );
+    }
+
+    // 7. Post Likes (Root fallback)
+    match /postLikes/{likeId} {
+      allow read: if true;
+      allow write, delete: if isAuthenticated();
+    }
+
+    // 8. Community Reports & Moderate Queue
+    match /communityPostReports/{reportId} {
+      allow read: if isAnyAdmin();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAnyAdmin();
+    }
+
+    match /reports/{reportId} {
+      allow read: if isAnyAdmin();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAnyAdmin();
+    }
+
+    // 9. Tourist Places collection
+    match /places/{placeId} {
+      allow read: if true;
+      allow create: if isAuthenticated();
+      allow update, delete: if isAnyAdmin() || (isAuthenticated() && request.auth.uid == resource.data.createdBy);
+
+      match /reviews/{reviewId} {
+        allow read: if true;
+        allow create: if isAuthenticated();
+        allow update, delete: if isAuthenticated() && (
+          request.auth.uid == resource.data.userId || isAnyAdmin()
+        );
+      }
+    }
+
+    match /placeReviews/{reviewId} {
+      allow read: if true;
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated() && (
+        request.auth.uid == resource.data.userId || isAnyAdmin()
+      );
+    }
+
+    // 10. Citizen Complaints collection
+    match /complaints/{complaintId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAnyAdmin() || (isAuthenticated() && request.auth.uid == resource.data.userId);
+    }
+
+    // 11. Module Service Requests (Water, Waste, Electricity, Agriculture)
+    match /waterRequests/{requestId} {
+      allow read, create: if isAuthenticated();
+      allow update, delete: if isAnyAdmin();
+    }
+
+    match /wastePickups/{requestId} {
+      allow read, create: if isAuthenticated();
+      allow update, delete: if isAnyAdmin();
+    }
+
+    match /wasteReports/{reportId} {
+      allow read, create: if isAuthenticated();
+      allow update, delete: if isAnyAdmin();
+    }
+
+    match /electricityReports/{reportId} {
+      allow read, create: if isAuthenticated();
+      allow update, delete: if isAnyAdmin();
+    }
+
+    match /farmerRequests/{requestId} {
+      allow read, create: if isAuthenticated();
+      allow update, delete: if isAnyAdmin();
+    }
+
+    // 12. User Emergency SOS Events
+    match /sosEvents/{eventId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAnyAdmin() || (isAuthenticated() && request.auth.uid == resource.data.userId);
+    }
+
+    // 13. System Audit Logs
+    match /auditLogs/{logId} {
+      allow read: if isAnyAdmin();
+      allow create: if isAuthenticated();
+      allow update, delete: if isSuperAdmin();
+    }
+
+    // 14. System Settings
+    match /systemSettings/{settingId} {
+      allow read: if true;
+      allow write: if isAnyAdmin();
+    }
+  }
+}

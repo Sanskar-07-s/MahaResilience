@@ -1,6 +1,27 @@
 import { Timestamp } from 'firebase/firestore';
 
-export type UserRole = 'CITIZEN' | 'VOLUNTEER' | 'OFFICIAL' | 'ADMIN' | 'SUPER_ADMIN' | 'TOURIST';
+export type UserRole =
+  | 'CITIZEN'
+  | 'VOLUNTEER'
+  | 'OFFICIAL'
+  | 'ADMIN'
+  | 'SUPER_ADMIN'
+  | 'DISTRICT_ADMIN'
+  | 'EMERGENCY_ADMIN'
+  | 'HEALTHCARE_ADMIN'
+  | 'GOVERNMENT_ADMIN'
+  | 'WATER_ADMIN'
+  | 'ELECTRICITY_ADMIN'
+  | 'WASTE_ADMIN'
+  | 'AGRICULTURE_ADMIN'
+  | 'EDUCATION_ADMIN'
+  | 'TRANSPORT_ADMIN'
+  | 'TOURISM_ADMIN'
+  | 'COMPLAINTS_ADMIN'
+  | 'COMMUNITY_MODERATOR'
+  | 'MODERATOR'
+  | 'TOURIST'
+  | 'USER';
 
 export interface UserPreferences {
   theme: 'light' | 'dark' | 'system';

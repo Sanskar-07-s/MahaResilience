@@ -1,13 +1,19 @@
 /**
- * AlertContext.tsx — Resilient Location-Aware Geographic Alert Engine
+ * AlertContext.tsx — Resilient Location-Aware Geographic Alert Engine for MahaResilience
  *
- * Key fixes:
- * 1. Consumes LocationContext (`district`, `latitude`, `longitude`) for real-time geographic filtering.
- * 2. `localAlerts`: Contains ONLY alerts matching active user location (District, City, Haversine radius, or Statewide).
- * 3. `broaderAlerts`: Notifications for other districts (moved to Notifications drawer).
- * 4. `activeCriticalAlert`: Populated ONLY if a critical alert affects the active user location.
- *    (e.g., Kolhapur user never sees Pune flood alert on main banner).
- * 5. Real-time Firestore stream + API + IDB + Seed fallback.
+ * Geographic Filtering Rules:
+ * 1. Consumes global LocationContext (`district`, `city`, `ward`, `latitude`, `longitude`).
+ * 2. `isAlertRelevantToLocation`: Strict geographic evaluator. An alert is local ONLY IF:
+ *    - `scope === 'STATEWIDE'` or `scope === 'NATIONAL'` or `district === 'All Districts'`, OR
+ *    - `alert.district` matches user's active `district` (e.g. Kolhapur vs Pune), OR
+ *    - `alert.city`/`ward` matches active city/ward, OR
+ *    - Haversine distance from user coordinates is <= `alert.radiusKm`.
+ * 3. `localAlerts`: Alerts affecting the active user location ONLY.
+ * 4. `broaderAlerts`: Alerts from other areas (routed to notifications drawer).
+ * 5. `activeCriticalAlert`: Populated ONLY if a valid critical alert affects active location.
+ *    (e.g., Kolhapur user NEVER sees Pune flood alert on main banner/overlay).
+ * 6. Dismissed alerts (`dismissedAlertIds`) persist in localStorage to prevent repeat overlays.
+ * 7. Sound repeat control (`soundRepeat`, default OFF). Alarm sound plays ONCE per new alert ID.
  */
 
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
@@ -26,9 +32,14 @@ export interface DisasterAlert {
   state: string;
   district?: string;
   city?: string;
+  ward?: string;
   latitude?: number;
   longitude?: number;
   radiusKm?: number;
+  scope?: 'LOCALITY' | 'WARD' | 'VILLAGE' | 'CITY' | 'TALUKA' | 'DISTRICT' | 'RADIUS' | 'STATE' | 'STATEWIDE' | 'NATIONAL';
+  status?: 'ACTIVE' | 'EXPIRED' | 'CANCELLED';
+  expiresAt?: string;
+  createdBy?: string;
   officialLink: string;
 }
 
@@ -37,32 +48,19 @@ interface AlertContextType {
   localAlerts: DisasterAlert[];
   broaderAlerts: DisasterAlert[];
   activeCriticalAlert: DisasterAlert | null;
-  dismissCriticalAlert: () => void;
+  dismissCriticalAlert: (alertId?: string) => void;
   isLoading: boolean;
   soundEnabled: boolean;
+  soundRepeat: boolean;
   toggleAlertSounds: () => void;
+  toggleSoundRepeat: () => void;
   triggerAlarmSound: () => void;
 }
 
 const AlertContext = createContext<AlertContextType | undefined>(undefined);
 
-// ─── Hardcoded seed alerts ────────────────────────────────────────────────────
+// ─── Seed Alerts with Exact Geographic Tagging ────────────────────────────────
 const SEED_ALERTS: DisasterAlert[] = [
-  {
-    id: 'seed-pune-1',
-    title: 'RED ALERT: Severe Flooding Warning for Pune-East',
-    description:
-      'Mutha river discharge exceeded critical limits. Heavy rainfall expected in next 6 hours. Residents near river beds must evacuate immediately to safe shelters.',
-    publishedDate: new Date().toISOString(),
-    severity: 'CRITICAL',
-    category: 'FLOOD',
-    state: 'MAHARASHTRA',
-    district: 'Pune',
-    latitude: 18.5204,
-    longitude: 73.8567,
-    radiusKm: 40,
-    officialLink: 'https://sachet.ndma.gov.in',
-  },
   {
     id: 'seed-kolhapur-1',
     title: 'MONSOON ADVISORY: Kolhapur Panchganga River Level Warning',
@@ -73,9 +71,30 @@ const SEED_ALERTS: DisasterAlert[] = [
     category: 'FLOOD',
     state: 'MAHARASHTRA',
     district: 'Kolhapur',
+    city: 'Kolhapur',
     latitude: 16.705,
     longitude: 74.2433,
     radiusKm: 35,
+    scope: 'DISTRICT',
+    status: 'ACTIVE',
+    officialLink: 'https://sachet.ndma.gov.in',
+  },
+  {
+    id: 'seed-pune-1',
+    title: 'RED ALERT: Severe Flooding Warning for Pune-East',
+    description:
+      'Mutha river discharge exceeded critical limits. Heavy rainfall expected in next 6 hours. Residents near river beds must evacuate immediately to safe shelters.',
+    publishedDate: new Date().toISOString(),
+    severity: 'CRITICAL',
+    category: 'FLOOD',
+    state: 'MAHARASHTRA',
+    district: 'Pune',
+    city: 'Pune',
+    latitude: 18.5204,
+    longitude: 73.8567,
+    radiusKm: 40,
+    scope: 'DISTRICT',
+    status: 'ACTIVE',
     officialLink: 'https://sachet.ndma.gov.in',
   },
   {
@@ -88,14 +107,17 @@ const SEED_ALERTS: DisasterAlert[] = [
     category: 'HEATWAVE',
     state: 'MAHARASHTRA',
     district: 'Nagpur',
+    city: 'Nagpur',
     latitude: 21.1458,
     longitude: 79.0882,
     radiusKm: 50,
+    scope: 'DISTRICT',
+    status: 'ACTIVE',
     officialLink: 'https://sachet.ndma.gov.in',
   },
   {
     id: 'seed-mumbai-1',
-    title: 'WEATHER ADVISORY: Mumbai Suburban Rainfall',
+    title: 'WEATHER ADVISORY: Mumbai Suburban Heavy Rainfall',
     description:
       'Moderate to heavy rain showers predicted over next 24 hours. Traffic diversions active on Eastern Express Highway.',
     publishedDate: new Date(Date.now() - 10 * 3600 * 1000).toISOString(),
@@ -103,30 +125,75 @@ const SEED_ALERTS: DisasterAlert[] = [
     category: 'WEATHER',
     state: 'MAHARASHTRA',
     district: 'Mumbai Suburban',
+    city: 'Mumbai',
     latitude: 19.076,
     longitude: 72.8777,
     radiusKm: 30,
+    scope: 'DISTRICT',
+    status: 'ACTIVE',
     officialLink: 'https://sachet.ndma.gov.in',
   },
 ];
 
-// ─── Fetch with timeout ───────────────────────────────────────────────────────
-async function fetchWithTimeout(url: string, timeoutMs = 8000): Promise<Response> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const res = await fetch(url, { signal: controller.signal });
-    return res;
-  } finally {
-    clearTimeout(timeoutId);
+/**
+ * Single Reusable Geographic Alert Relevance Evaluator
+ */
+export const isAlertRelevantToLocation = (
+  alert: DisasterAlert,
+  loc: { district?: string; city?: string; ward?: string; latitude?: number | null; longitude?: number | null }
+): boolean => {
+  if (!loc.district || !loc.district.trim()) {
+    // If user's location is not determined, match ONLY genuine statewide/national alerts
+    const scope = (alert.scope || '').toUpperCase();
+    return scope === 'STATE' || scope === 'STATEWIDE' || scope === 'NATIONAL' || alert.district === 'All Districts';
   }
-}
 
-// ─── Cache helpers ────────────────────────────────────────────────────────────
-const cacheAlertsToIDB = async (alerts: DisasterAlert[]) => {
+  const uDist = loc.district.toLowerCase().trim();
+  const uCity = (loc.city || '').toLowerCase().trim();
+  const uWard = (loc.ward || '').toLowerCase().trim();
+
+  const alertDist = (alert.district || '').toLowerCase().trim();
+  const alertCity = (alert.city || '').toLowerCase().trim();
+  const alertWard = (alert.ward || '').toLowerCase().trim();
+  const alertScope = (alert.scope || '').toUpperCase().trim();
+
+  // 1. Statewide / National alerts
+  if (
+    alertScope === 'STATE' ||
+    alertScope === 'STATEWIDE' ||
+    alertScope === 'NATIONAL' ||
+    alertDist === 'all districts' ||
+    alertDist === 'maharashtra'
+  ) {
+    return true;
+  }
+
+  // 2. Haversine Distance Check if coordinates exist on both
+  if (loc.latitude != null && loc.longitude != null && alert.latitude != null && alert.longitude != null) {
+    const distKm = haversineDistance(loc.latitude, loc.longitude, alert.latitude, alert.longitude);
+    const maxRadius = alert.radiusKm || 35;
+    if (distKm <= maxRadius) return true;
+  }
+
+  // 3. Exact Ward match
+  if (uWard && alertWard && uWard === alertWard) return true;
+
+  // 4. Exact City match
+  if (uCity && alertCity && uCity === alertCity) return true;
+
+  // 5. District match
+  if (alertDist && (alertDist === uDist || alertDist.includes(uDist) || uDist.includes(alertDist))) {
+    return true;
+  }
+
+  return false;
+};
+
+// Cache helpers
+const cacheAlertsToIDB = async (alertsList: DisasterAlert[]) => {
   try {
-    for (let i = 0; i < alerts.length; i++) {
-      await putData('alerts', { id: String(i), ...alerts[i] });
+    for (let i = 0; i < alertsList.length; i++) {
+      await putData('alerts', { id: String(i), ...alertsList[i] });
     }
   } catch (_) {}
 };
@@ -141,33 +208,60 @@ const getAlertsFromIDB = async (): Promise<DisasterAlert[]> => {
 };
 
 export const AlertProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { latitude, longitude, district, city } = useLocation();
+  const { latitude, longitude, district, city, ward } = useLocation();
 
   const [alerts, setAlerts] = useState<DisasterAlert[]>([]);
   const [activeCriticalAlert, setActiveCriticalAlert] = useState<DisasterAlert | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [soundEnabled, setSoundEnabled] = useState(false);
-  const hasFirestoreData = useRef(false);
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(() => {
+    return localStorage.getItem('mr_sound_enabled') === 'true';
+  });
+  const [soundRepeat, setSoundRepeat] = useState<boolean>(() => {
+    return localStorage.getItem('mr_sound_repeat') === 'true';
+  });
 
-  // ─── Audio Context for Sirens ─────────────────────────────────────────────
+  const hasFirestoreData = useRef(false);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const playedAlertIdsRef = useRef<Set<string>>(new Set());
+
+  // Track dismissed alert IDs in localStorage to prevent repeat popups
+  const [dismissedIds, setDismissedIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('mr_dismissed_alerts');
+      return saved ? JSON.parse(saved) : [];
+    } catch (_) {
+      return [];
+    }
+  });
+
+  const saveDismissedIds = (ids: string[]) => {
+    setDismissedIds(ids);
+    try {
+      localStorage.setItem('mr_dismissed_alerts', JSON.stringify(ids));
+    } catch (_) {}
+  };
 
   const toggleAlertSounds = () => {
     setSoundEnabled((prev) => {
       const next = !prev;
+      localStorage.setItem('mr_sound_enabled', next ? 'true' : 'false');
       if (next) {
         try {
           const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
           if (AudioContextClass) {
-            if (!audioContextRef.current) {
-              audioContextRef.current = new AudioContextClass();
-            }
-            if (audioContextRef.current.state === 'suspended') {
-              audioContextRef.current.resume().catch(() => {});
-            }
+            if (!audioContextRef.current) audioContextRef.current = new AudioContextClass();
+            if (audioContextRef.current.state === 'suspended') audioContextRef.current.resume().catch(() => {});
           }
         } catch (_) {}
       }
+      return next;
+    });
+  };
+
+  const toggleSoundRepeat = () => {
+    setSoundRepeat((prev) => {
+      const next = !prev;
+      localStorage.setItem('mr_sound_repeat', next ? 'true' : 'false');
       return next;
     });
   };
@@ -191,7 +285,7 @@ export const AlertProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const gain = ctx.createGain();
         osc.type = 'sawtooth';
         osc.frequency.value = freq;
-        gain.gain.setValueAtTime(0.2, start);
+        gain.gain.setValueAtTime(0.25, start);
         gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
         osc.connect(gain);
         gain.connect(ctx.destination);
@@ -204,100 +298,51 @@ export const AlertProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } catch (_) {}
   };
 
-  // ─── Geographic Relevance Checker ─────────────────────────────────────────
-  const isAlertRelevant = useCallback(
-    (alert: DisasterAlert): boolean => {
-      if (!district) return true;
-      const uDist = district.toLowerCase().trim();
-      const alertDist = (alert.district || alert.state || '').toLowerCase().trim();
-      const alertTitle = (alert.title || '').toLowerCase();
-      const alertDesc = (alert.description || '').toLowerCase();
-
-      // 1. Statewide / All Districts
-      if (
-        alertDist === 'all districts' ||
-        alertDist === 'maharashtra' ||
-        alertDist === 'statewide' ||
-        alertDist === 'all'
-      ) {
-        return true;
-      }
-
-      // 2. District Match
-      if (alertDist.includes(uDist) || uDist.includes(alertDist)) {
-        return true;
-      }
-
-      // 3. Title / Description mentions active district or city
-      if (
-        alertTitle.includes(uDist) ||
-        alertDesc.includes(uDist) ||
-        (city && alertTitle.includes(city.toLowerCase()))
-      ) {
-        return true;
-      }
-
-      // 4. Coordinates Haversine Distance Check
-      if (latitude !== null && longitude !== null && alert.latitude && alert.longitude) {
-        const distKm = haversineDistance(latitude, longitude, alert.latitude, alert.longitude);
-        const radKm = alert.radiusKm || 50;
-        if (distKm <= radKm) return true;
-      }
-
-      return false;
-    },
-    [district, city, latitude, longitude]
+  // ─── Filter local vs broader alerts using strict algorithm ─────────────────
+  const localAlerts = alerts.filter((a) =>
+    isAlertRelevantToLocation(a, { district, city, ward, latitude, longitude })
   );
 
-  const localAlerts = alerts.filter(isAlertRelevant);
-  const broaderAlerts = alerts.filter((a) => !isAlertRelevant(a));
+  const broaderAlerts = alerts.filter(
+    (a) => !isAlertRelevantToLocation(a, { district, city, ward, latitude, longitude })
+  );
 
-  // ─── Update activeCriticalAlert dynamically when location or localAlerts change
+  // ─── Evaluate activeCriticalAlert strictly for active location ──────────────
   useEffect(() => {
-    const critical = localAlerts.find(
-      (a) => a.severity === 'CRITICAL' || a.severity === 'HIGH'
-    );
-    if (critical) {
-      setActiveCriticalAlert((prev) => {
-        if (prev?.title !== critical.title) {
-          triggerAlarmSound();
-          return critical;
-        }
-        return prev;
-      });
+    const activeLoc = { district, city, ward, latitude, longitude };
+    const criticalCandidate = localAlerts.find((a) => {
+      if (a.status === 'EXPIRED' || a.status === 'CANCELLED') return false;
+      const isCrit = a.severity === 'CRITICAL' || a.severity === 'HIGH';
+      const isNotDismissed = a.id ? !dismissedIds.includes(a.id) : true;
+      return isCrit && isNotDismissed && isAlertRelevantToLocation(a, activeLoc);
+    });
+
+    if (criticalCandidate) {
+      const alertId = criticalCandidate.id || criticalCandidate.title;
+      setActiveCriticalAlert(criticalCandidate);
+
+      // Play alert sound ONCE per alert ID unless repeat is ON
+      if (!playedAlertIdsRef.current.has(alertId) || soundRepeat) {
+        triggerAlarmSound();
+        playedAlertIdsRef.current.add(alertId);
+      }
     } else {
       setActiveCriticalAlert(null);
     }
-  }, [district, latitude, longitude, alerts]);
+  }, [district, city, ward, latitude, longitude, alerts, dismissedIds, soundRepeat]);
 
-  // ─── Process and set raw alerts ───────────────────────────────────────────
-  const applyAlerts = (data: DisasterAlert[], source: string) => {
-    if (!data || data.length === 0) return;
-    console.info(`[Alert Engine] Loaded ${data.length} alerts from ${source}`);
-    setAlerts(data);
-  };
-
-  // ─── Backend API fetch ───────────────────────────────────────────────────
-  const fetchFromAPI = async (): Promise<DisasterAlert[] | null> => {
-    const baseUrl = (import.meta as any).env?.VITE_API_URL ?? '';
-    const url = `${baseUrl}/api/alerts?state=maharashtra`;
-    try {
-      const response = await fetchWithTimeout(url);
-      if (!response.ok) return null;
-      const text = await response.text();
-      if (!text) return null;
-      const data = JSON.parse(text) as DisasterAlert[];
-      await cacheAlertsToIDB(data);
-      return data;
-    } catch (_) {
-      return null;
+  const dismissCriticalAlert = (targetId?: string) => {
+    const idToDismiss = targetId || activeCriticalAlert?.id || activeCriticalAlert?.title;
+    if (idToDismiss) {
+      saveDismissedIds([...dismissedIds.filter((id) => id !== idToDismiss), idToDismiss]);
     }
+    setActiveCriticalAlert(null);
   };
 
+  // ─── Firestore Stream & Fallback Listeners ─────────────────────────────────
   useEffect(() => {
     let isMounted = true;
 
-    // ─── 1. Firestore Stream
     const unsubscribe = onSnapshot(
       query(collection(db, 'alerts'), orderBy('createdAt', 'desc')),
       (snapshot) => {
@@ -308,55 +353,54 @@ export const AlertProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             const data = d.data();
             return {
               id: d.id,
-              title: data.title || 'Alert',
+              title: data.title || 'Disaster Alert',
               description: data.description || '',
-              publishedDate:
-                typeof data.createdAt === 'string' ? data.createdAt : new Date().toISOString(),
+              publishedDate: typeof data.createdAt === 'string' ? data.createdAt : new Date().toISOString(),
               severity:
-                data.priority === 'Critical'
+                data.priority === 'Critical' || data.severity === 'CRITICAL'
                   ? 'CRITICAL'
-                  : data.priority === 'High'
+                  : data.priority === 'High' || data.severity === 'HIGH'
                   ? 'HIGH'
-                  : data.priority === 'Low'
+                  : data.priority === 'Low' || data.severity === 'LOW'
                   ? 'LOW'
                   : 'MEDIUM',
               category: data.category || 'GENERAL',
               state: data.state || 'MAHARASHTRA',
-              district: data.district || data.state || 'Pune',
+              district: data.district || undefined,
+              city: data.city || undefined,
+              ward: data.ward || undefined,
               latitude: data.latitude || undefined,
               longitude: data.longitude || undefined,
-              radiusKm: data.radiusKm || 50,
-              officialLink: 'https://sachet.ndma.gov.in',
+              radiusKm: data.radiusKm || 35,
+              scope: data.scope || 'DISTRICT',
+              status: data.status || 'ACTIVE',
+              expiresAt: data.expiresAt || undefined,
+              createdBy: data.createdBy || undefined,
+              officialLink: data.officialLink || 'https://sachet.ndma.gov.in',
             };
           });
-          applyAlerts(firestoreAlerts, 'Firestore');
+          setAlerts(firestoreAlerts);
           setIsLoading(false);
         }
       },
-      () => {}
+      (err) => {
+        console.warn('[Alert Engine] Firestore stream notice:', err);
+      }
     );
 
-    // ─── 2. Fallbacks
     const loadFallback = async () => {
-      await new Promise<void>((r) => setTimeout(r, 1500));
+      await new Promise<void>((r) => setTimeout(r, 1200));
       if (!isMounted || hasFirestoreData.current) return;
-
-      const apiData = await fetchFromAPI();
-      if (isMounted && apiData && apiData.length > 0) {
-        applyAlerts(apiData, 'API');
-        setIsLoading(false);
-        return;
-      }
 
       const cachedData = await getAlertsFromIDB();
       if (isMounted && cachedData.length > 0) {
-        applyAlerts(cachedData, 'IndexedDB cache');
+        setAlerts(cachedData);
         setIsLoading(false);
         return;
       }
 
       if (isMounted) {
-        applyAlerts(SEED_ALERTS, 'seed');
+        setAlerts(SEED_ALERTS);
         setIsLoading(false);
       }
     };
@@ -369,8 +413,6 @@ export const AlertProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   }, []);
 
-  const dismissCriticalAlert = () => setActiveCriticalAlert(null);
-
   return (
     <AlertContext.Provider
       value={{
@@ -381,7 +423,9 @@ export const AlertProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         dismissCriticalAlert,
         isLoading,
         soundEnabled,
+        soundRepeat,
         toggleAlertSounds,
+        toggleSoundRepeat,
         triggerAlarmSound,
       }}
     >

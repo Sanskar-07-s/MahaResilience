@@ -51,7 +51,7 @@ export const AlertOverlay: React.FC = () => {
 
         {/* Close trigger */}
         <button
-          onClick={dismissCriticalAlert}
+          onClick={() => dismissCriticalAlert()}
           className="absolute top-6 right-6 p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-full transition-colors"
         >
           <X className="w-6 h-6" />
