@@ -1,22 +1,17 @@
 /**
- * aiService.ts — Google Gemini AI Engine for MahaResilience
+ * aiService.ts — Pure Google Gemini AI Engine for MahaResilience
  *
- * Provides real-time, dynamic Google Gemini AI generation:
- * - Reads API key from environment or localStorage ('mr_gemini_api_key' / 'gemini_api_key')
- * - Direct REST API integration with fallback model support (gemini-1.5-flash -> gemini-2.0-flash -> gemini-1.5-pro)
- * - Multi-turn conversational context support
- * - Dynamic pest & crop agronomy solutions
+ * Direct integration with Google Gemini:
+ * - 100% reliant on Google Gemini API (no controller or canned replies)
+ * - Transmits full User Profile & Real-Time Situational JSON context to Gemini
+ * - Multi-turn conversational memory with live token optimization
+ * - Model auto-fallback across gemini-1.5-flash, gemini-2.0-flash, and gemini-1.5-pro
  */
-
-import { getApiUrl } from '../config/api.config.ts';
 
 /**
- * Get currently active Gemini API Key
+ * Retrieve the active Gemini API Key from localStorage or environment
  */
 export const getGeminiApiKey = (): string => {
-  const envKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || '';
-  if (envKey && envKey.trim().length > 10) return envKey.trim();
-
   try {
     const local1 = localStorage.getItem('mr_gemini_api_key');
     if (local1 && local1.trim()) return local1.trim();
@@ -26,11 +21,14 @@ export const getGeminiApiKey = (): string => {
     if (local3 && local3.trim()) return local3.trim();
   } catch (_) {}
 
+  const envKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || '';
+  if (envKey && envKey.trim().length > 10) return envKey.trim();
+
   return '';
 };
 
 /**
- * Save custom Gemini API Key to local storage
+ * Save custom Gemini API Key
  */
 export const setGeminiApiKey = (key: string): void => {
   try {
@@ -45,26 +43,27 @@ export const setGeminiApiKey = (key: string): void => {
 };
 
 /**
- * Call Google Gemini REST API with model fallback
+ * Call Google Gemini REST API directly without any controlled / scripted interception
  */
 export const queryGeminiAI = async (
   promptText: string,
-  history: Array<{ sender: 'USER' | 'AI'; text: string }> = []
+  history: Array<{ sender: 'USER' | 'AI'; text: string }> = [],
+  systemInstructionText?: string
 ): Promise<string> => {
   const apiKey = getGeminiApiKey();
 
   if (!apiKey) {
     throw new Error(
-      'MISSING_API_KEY: Please provide your Google Gemini API Key in the chat settings above to activate live AI answers.'
+      'MISSING_API_KEY: Please provide your Google Gemini API Key in the settings (⚙️ Key icon) above to activate live Gemini AI answers.'
     );
   }
 
   const models = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-pro'];
 
-  // Format contents array including previous history
+  // Format contents array including previous history turns
   const contents: any[] = [];
 
-  // Add previous conversational turns (up to last 6)
+  // Add recent conversation history
   const recentHistory = history.slice(-6);
   for (const h of recentHistory) {
     contents.push({
@@ -73,7 +72,7 @@ export const queryGeminiAI = async (
     });
   }
 
-  // Add the current prompt
+  // Add current prompt
   contents.push({
     role: 'user',
     parts: [{ text: promptText }],
@@ -84,18 +83,27 @@ export const queryGeminiAI = async (
   for (const model of models) {
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+      const requestBody: any = {
+        contents,
+        generationConfig: {
+          temperature: 0.7,
+          topK: 40,
+          topP: 0.95,
+          maxOutputTokens: 2048,
+        },
+      };
+
+      if (systemInstructionText) {
+        requestBody.systemInstruction = {
+          parts: [{ text: systemInstructionText }],
+        };
+      }
+
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents,
-          generationConfig: {
-            temperature: 0.7,
-            topK: 40,
-            topP: 0.95,
-            maxOutputTokens: 1500,
-          },
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (res.ok) {
@@ -109,7 +117,7 @@ export const queryGeminiAI = async (
         const errMsg = errJson?.error?.message || `HTTP ${res.status} ${res.statusText}`;
         lastErrorMsg = errMsg;
         console.warn(`[Gemini AI] Model ${model} returned error:`, errMsg);
-        // If API key is invalid, fail early
+
         if (res.status === 400 || res.status === 403) {
           if (errMsg.includes('API_KEY_INVALID') || errMsg.includes('key not valid')) {
             throw new Error(`Invalid Gemini API Key: ${errMsg}. Please update your API key in the top settings.`);
@@ -117,51 +125,45 @@ export const queryGeminiAI = async (
         }
       }
     } catch (err: any) {
-      if (err.message?.includes('Invalid Gemini API Key')) {
+      if (err.message?.includes('Invalid Gemini API Key') || err.message?.includes('MISSING_API_KEY')) {
         throw err;
       }
       lastErrorMsg = err.message || 'Network error';
     }
   }
 
-  // Try backend proxy if direct fetch failed
-  try {
-    const backendRes = await fetch(getApiUrl('/api/ai/assistant'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question: promptText, apiKey }),
-    });
-    if (backendRes.ok) {
-      const data = await backendRes.json();
-      if (data.answer) return data.answer;
-    }
-  } catch (_) {}
-
-  throw new Error(`Google Gemini API call failed: ${lastErrorMsg || 'Please verify your internet connection and API key.'}`);
+  throw new Error(`Google Gemini API call failed: ${lastErrorMsg || 'Please verify your API key and network connection.'}`);
 };
 
 /**
- * Main conversational assistant query
+ * Main conversational assistant query with deep User JSON Context
  */
 export const fetchAIAssistantResponse = async (
   question: string,
-  district: string = 'Pune',
-  city: string = 'Pune',
+  userSituationalContext: Record<string, any>,
   history: Array<{ sender: 'USER' | 'AI'; text: string }> = []
 ): Promise<string> => {
-  const systemContext = `You are the official MahaResilience AI Assistant serving citizens, travelers, and farmers across Maharashtra, India.
-Current User Location: ${city}, ${district} District, Maharashtra.
+  const systemInstruction = `You are the official MahaResilience AI Assistant powered directly by Google Gemini for Maharashtra, India.
+You assist citizens, farmers, travelers, and district administrators.
 
-Instructions:
-1. Provide accurate, helpful, non-robotic, natural answers with rich Markdown formatting (bullet points, bold text, headers).
-2. For government schemes (e.g. Majhi Ladki Bahin, PM-Kisan, Namo Shetkari, Sanjay Gandhi Niradhar), provide genuine eligibility and documentation steps.
-3. For emergency or safety queries, mention official helplines (112 for All Emergencies, 108 for Ambulance, 1916 for Civic Water/Waste).
-4. For agriculture/farming, give scientific dosage & CIBRC approved recommendations.
-5. For tourism/forts in Maharashtra, give authentic travel tips and historical context.`;
+You are provided with the live JSON context of the user, their real-time location, active local alerts, and profile attributes.
+Always utilize this JSON data to deliver hyper-relevant, contextual, and grounded answers.
 
-  const fullPrompt = `${systemContext}\n\nUser Question: ${question}`;
+Format your responses with clean, readable Markdown (bullet points, bold highlights, section headers).
+If the user asks about emergency situations, provide immediate life-saving steps and official helplines (112, 108, 1916).
+If the user asks about welfare schemes, provide exact criteria and steps for Maharashtra portals.
+Support queries in English, Marathi (मराठी), and Hindi.`;
 
-  return await queryGeminiAI(fullPrompt, history);
+  // Attach User JSON Situational Payload
+  const contextualPrompt = `[REAL-TIME USER & SITUATION JSON CONTEXT]:
+\`\`\`json
+${JSON.stringify(userSituationalContext, null, 2)}
+\`\`\`
+
+[USER MESSAGE]:
+${question}`;
+
+  return await queryGeminiAI(contextualPrompt, history, systemInstruction);
 };
 
 /**
@@ -172,16 +174,16 @@ export const fetchAIAgronomistAdvisory = async (
   problem: string,
   district: string = 'Maharashtra'
 ): Promise<string> => {
-  const prompt = `You are an expert Senior Agricultural Scientist & Agronomist for the Government of Maharashtra and Dr. Balasaheb Sawant Konkan Krishi Vidyapeeth / MPKV Rahuri.
+  const prompt = `You are an expert Senior Agricultural Scientist & Agronomist for Maharashtra.
 Farmer Location: ${district}, Maharashtra.
 Crop: ${crop}
-Reported Disease / Pest Issue: ${problem}
+Reported Issue: ${problem}
 
-Provide an authentic, highly practical agronomy recommendation in clear bullet points:
-1. **Pest / Pathogen Identification**: What causes this problem on ${crop}.
-2. **Immediate Chemical Control**: Exact CIBRC-registered active ingredient name, brand reference, formulation percentage (e.g. EC/SC/WP), and precise dosage per Litre of water and per Acre.
-3. **Biological / Organic Alternative**: Bio-pesticides or Neem extract dosage.
-4. **Agronomic Best Practices**: Preventive irrigation, canopy management, and soil health measures.
+Provide an authentic agronomic recommendation:
+1. **Pest / Pathogen Identification**
+2. **Chemical Control**: CIBRC-approved active ingredient, brand reference, formulation, and precise dosage per Litre and per Acre.
+3. **Organic / Biological Alternative**: Neem oil or bio-agent dosage.
+4. **Agronomic Best Practices**: Preventive irrigation, soil and canopy care.
 
 Format with clean Markdown.`;
 

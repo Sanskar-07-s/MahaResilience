@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Bot, X, Send, MapPin, Sparkles, AlertTriangle, ShieldCheck,
-  RefreshCw, Mic, MicOff, Volume2, VolumeX, Copy, Check, Key, Settings
+  RefreshCw, Mic, MicOff, Volume2, VolumeX, Copy, Check, Key, Settings, User
 } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext.tsx';
 import { useLocation } from '../../contexts/LocationContext.tsx';
+import { useDisasterAlerts } from '../../contexts/AlertContext.tsx';
 import {
   fetchAIAssistantResponse,
   getGeminiApiKey,
@@ -24,7 +26,14 @@ interface ChatMessage {
 }
 
 export const AIAssistantDrawer: React.FC<AIAssistantDrawerProps> = ({ isOpen, onClose }) => {
-  const { ward, city, district } = useLocation();
+  const { user } = useAuth();
+  const locationCtx = useLocation();
+  const { localAlerts } = useDisasterAlerts();
+
+  const district = locationCtx.district || user?.district || 'Pune';
+  const ward = locationCtx.ward || '';
+  const city = locationCtx.city || locationCtx.district || 'Pune';
+
   const [apiKey, setApiKey] = useState<string>(() => getGeminiApiKey());
   const [showKeyConfig, setShowKeyConfig] = useState(false);
   const [keyInput, setKeyInput] = useState('');
@@ -34,7 +43,7 @@ export const AIAssistantDrawer: React.FC<AIAssistantDrawerProps> = ({ isOpen, on
     {
       id: 'm-1',
       sender: 'AI',
-      text: `Namaskar! I am your live **Google Gemini AI Assistant** for **${ward || city || 'Maharashtra'}, ${district}**.\n\nAsk me anything in English, Marathi, or Hindi about **Welfare Schemes**, **Emergency Rescue**, **Tourist Forts**, **Hospitals**, or **APMC Mandi Rates**!`,
+      text: `Namaskar ${user?.name ? `**${user.name}**` : ''}! I am your **Google Gemini AI Assistant** connected to Maharashtra's state data network for **${ward || city}, ${district}**.\n\nAsk me anything in English, Marathi, or Hindi about **Welfare Schemes (Ladki Bahin, DBT)**, **Emergency Rescue & Hospitals**, **Tourist Forts**, or **APMC Mandi Rates**!`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     },
   ]);
@@ -170,11 +179,44 @@ export const AIAssistantDrawer: React.FC<AIAssistantDrawerProps> = ({ isOpen, on
     if (!promptText) setInput('');
     setLoading(true);
 
+    // Build complete User Situational JSON Context for Gemini
+    const userSituationalContext = {
+      user_profile: {
+        name: user?.name || 'Citizen',
+        email: user?.email || 'Not provided',
+        role: user?.role || 'CITIZEN',
+        admin_field: user?.adminField || 'NONE',
+        district: user?.district || district,
+        taluka: user?.taluka || 'Not specified',
+        village: user?.village || 'Not specified',
+        state: user?.state || 'Maharashtra',
+        language_preference: user?.language || 'en',
+        is_verified: user?.isEmailVerified || user?.isPhoneVerified || false,
+      },
+      live_location_telemetry: {
+        district: district,
+        city: city,
+        ward: ward,
+        coordinates: {
+          latitude: locationCtx.latitude || null,
+          longitude: locationCtx.longitude || null,
+        },
+        source: locationCtx.source || 'MANUAL',
+      },
+      active_local_alerts: (localAlerts || []).map((a: any) => ({
+        title: a.title,
+        severity: a.severity,
+        category: a.category,
+        district: a.district,
+        instructions: a.instructions,
+      })),
+      timestamp: new Date().toISOString(),
+    };
+
     try {
       const answer = await fetchAIAssistantResponse(
         textToSend,
-        district || 'Pune',
-        ward || city || 'Pune',
+        userSituationalContext,
         messages
       );
 
@@ -196,7 +238,7 @@ export const AIAssistantDrawer: React.FC<AIAssistantDrawerProps> = ({ isOpen, on
       const aiMsg: ChatMessage = {
         id: 'ai-' + Date.now(),
         sender: 'AI',
-        text: `⚠️ **AI Engine Notice**\n\n${errMsg}\n\n*Click the ⚙️ Key icon above to paste and save your Google Gemini API key.*`,
+        text: `⚠️ **Gemini AI Connection**\n\n${errMsg}\n\n*Click the ⚙️ Key icon in the top header to enter and save your Google Gemini API key.*`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         isError: true,
       };
@@ -268,7 +310,7 @@ export const AIAssistantDrawer: React.FC<AIAssistantDrawerProps> = ({ isOpen, on
               </button>
             </div>
             <p className="text-[11px] text-slate-300 leading-relaxed">
-              Connect your Google Gemini API key to receive 100% dynamic, live, unscripted answers with real-time reasoning.
+              Connect your Google Gemini API key to receive 100% dynamic, live AI reasoning with full user and local situational context.
             </p>
             <form onSubmit={handleSaveApiKey} className="space-y-2">
               <input
@@ -364,7 +406,7 @@ export const AIAssistantDrawer: React.FC<AIAssistantDrawerProps> = ({ isOpen, on
           {loading && (
             <div className="flex items-center gap-2 text-xs text-slate-500 bg-white p-3 rounded-2xl border border-slate-200 w-fit">
               <Sparkles className="w-4 h-4 text-amber-500 animate-spin" />
-              <span>Gemini AI is reasoning...</span>
+              <span>Gemini AI is analyzing user context & reasoning...</span>
             </div>
           )}
 
