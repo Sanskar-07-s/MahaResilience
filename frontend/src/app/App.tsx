@@ -105,8 +105,8 @@ const App: React.FC = () => {
                     <Route path="/login" element={<LoginPage />} />
                     <Route path="/register" element={<RegisterPage />} />
 
-                    {/* Standard and Civic routes wrapped in MainLayout */}
-                    <Route path="/" element={<MainLayout><LandingPage /></MainLayout>} />
+                    {/* Landing Route without app Navbar & Sidebar */}
+                    <Route path="/" element={<LandingPage />} />
                     <Route
                       path="/dashboard"
                       element={
