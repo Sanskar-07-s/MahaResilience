@@ -71,7 +71,8 @@ export const triggerEmergencySOS = async (
   district: string,
   address: string,
   user: any,
-  contacts: string[]
+  contacts: string[],
+  emails?: string[]
 ): Promise<{ success: boolean; deliveryStatus: string; eventId?: string; message: string }> => {
   // Play emergency siren sound audio
   playEmergencySirenSound();
@@ -94,6 +95,7 @@ export const triggerEmergencySOS = async (
         reporter: user?.name || 'Citizen User',
         email: user?.email || '',
         emergencyContacts: contacts,
+        emergencyEmails: emails || [],
       }),
     });
 

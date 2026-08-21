@@ -60,12 +60,14 @@ const EmergencyPage: React.FC = () => {
   interface VerifiedContact {
     name: string;
     phone: string;
+    email?: string;
     verified: boolean;
   }
 
   const [verifiedContacts, setVerifiedContacts] = useState<VerifiedContact[]>([]);
   const [newContactName, setNewContactName] = useState('');
   const [newContactPhone, setNewContactPhone] = useState('');
+  const [newContactEmail, setNewContactEmail] = useState('');
   const [verificationCode, setVerificationCode] = useState('');
   const [showVerifyInput, setShowVerifyInput] = useState(false);
   const [verifyingPhone, setVerifyingPhone] = useState('');
@@ -147,11 +149,12 @@ const EmergencyPage: React.FC = () => {
       if (response.ok && data.verified) {
         const updated = [
           ...verifiedContacts.filter(c => c.phone !== verifyingPhone),
-          { name: newContactName, phone: verifyingPhone, verified: true }
+          { name: newContactName, phone: verifyingPhone, email: newContactEmail, verified: true }
         ];
         saveVerifiedContactsList(updated);
         setNewContactName('');
         setNewContactPhone('');
+        setNewContactEmail('');
         setVerificationCode('');
         setShowVerifyInput(false);
         setVerifyingPhone('');
@@ -278,13 +281,18 @@ const EmergencyPage: React.FC = () => {
       const contactList = verifiedContacts.map((c) => c.phone);
       if (!contactList.includes('+919209966816')) contactList.push('+919209966816');
 
+      const emailList = Array.from(
+        new Set([user?.email, ...verifiedContacts.map((c) => c.email).filter(Boolean)])
+      ).filter(Boolean) as string[];
+
       const res = await triggerEmergencySOS(
         lat,
         lng,
         district,
         addressName,
         user,
-        contactList
+        contactList,
+        emailList
       );
 
       setSosSent(true);
@@ -425,6 +433,16 @@ const EmergencyPage: React.FC = () => {
                     className="w-full bg-slate-50 border border-slate-200 rounded-md3 px-3 py-2 text-slate-800 placeholder-slate-400 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40 focus:bg-white font-semibold"
                   />
                 </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Emergency Contact Email (Optional)</label>
+                  <input
+                    type="email"
+                    value={newContactEmail}
+                    onChange={(e) => setNewContactEmail(e.target.value)}
+                    placeholder="e.g. emergency.contact@gmail.com"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-md3 px-3 py-2 text-slate-800 placeholder-slate-400 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40 focus:bg-white font-semibold"
+                  />
+                </div>
                 {verificationError && (
                   <p className="text-danger text-[11px] font-semibold">{verificationError}</p>
                 )}
@@ -501,7 +519,9 @@ const EmergencyPage: React.FC = () => {
                         {contact.name}
                         <span className="bg-green-100 text-green-800 text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider">VERIFIED</span>
                       </h4>
-                      <p className="text-slate-500 text-xs font-semibold mt-0.5">{contact.phone}</p>
+                      <p className="text-slate-500 text-xs font-semibold mt-0.5">
+                        {contact.phone} {contact.email ? `• ${contact.email}` : ''}
+                      </p>
                     </div>
                     <button
                       onClick={() => handleDeleteContact(contact.phone)}

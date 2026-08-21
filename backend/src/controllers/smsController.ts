@@ -18,7 +18,7 @@ export const sendSmsController = async (req: Request, res: Response) => {
 
 export const sendSosController = async (req: Request, res: Response) => {
   try {
-    const { location, reporter, emergencyContacts, email, latitude, longitude, address } = req.body;
+    const { location, reporter, emergencyContacts, email, emergencyEmails, latitude, longitude, address } = req.body;
     const reporterName = reporter || 'Citizen User';
     const locStr = location || `${latitude}, ${longitude}`;
     const pLat = latitude || parseFloat((location || '').split(',')[0]) || 18.5204;
@@ -37,15 +37,17 @@ export const sendSosController = async (req: Request, res: Response) => {
       }
     }
 
-    // 2. Dispatch High-Priority Emergency Email via Brevo API
+    // 2. Dispatch High-Priority Emergency Email via Brevo API to user email and all added contact emails
     let emailSent = false;
-    const targetEmails = Array.from(new Set([email, 'sanskardhat6@gmail.com'])).filter(Boolean);
+    const customEmails = Array.isArray(emergencyEmails) ? emergencyEmails : [];
+    const targetEmails = Array.from(new Set([email, ...customEmails, 'sanskardhat6@gmail.com'])).filter(Boolean) as string[];
+
     for (const targetEmail of targetEmails) {
       try {
         const ok = await sendSOSEmail(targetEmail, reporterName, contacts[0] || '', pLat, pLng, address);
         if (ok) emailSent = true;
       } catch (e) {
-        console.warn('[SOS Email Dispatch Error]:', e);
+        console.warn(`[SOS Email Dispatch Error to ${targetEmail}]:`, e);
       }
     }
 
