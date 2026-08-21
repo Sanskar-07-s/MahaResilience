@@ -20,6 +20,8 @@ import {
   Briefcase,
   HeartHandshake,
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext.tsx';
 import { useLocation } from '../../contexts/LocationContext.tsx';
 import { queryGovernmentSchemeAI } from '../../services/aiService.ts';
 
@@ -231,8 +233,23 @@ export const GovernmentPage: React.FC = () => {
     setExpandedScheme(expandedScheme === id ? null : id);
   };
 
+  const { user } = useAuth();
+
   // Filter schemes based on active category & search query
   const filteredSchemes = comprehensiveSchemes.filter((scheme) => {
+    if (activeCategory === 'MY_SCHEMES') {
+      const uAge = (user as any)?.age || age || 25;
+      const uIncome = (user as any)?.annualIncome || income || 150000;
+      const uGender = (user as any)?.gender || gender || 'FEMALE';
+      const uOccupation = (user as any)?.occupation || occupation || 'STUDENT';
+
+      if (scheme.id === 'scheme-ladki-bahin') return uGender !== 'MALE' && uAge >= 21 && uAge <= 65 && uIncome <= 250000;
+      if (scheme.id === 'scheme-sanjay-gandhi') return uIncome <= 50000;
+      if (scheme.id === 'scheme-shahu-maharaj') return uIncome <= 800000 && uOccupation === 'STUDENT';
+      if (scheme.id === 'scheme-cmegp') return uAge >= 18 && uAge <= 45;
+      return true;
+    }
+
     const matchesCategory = activeCategory === 'ALL' || scheme.category === activeCategory;
     const q = searchQuery.toLowerCase();
     const matchesSearch =
@@ -271,6 +288,16 @@ export const GovernmentPage: React.FC = () => {
       {/* Category Filter Chips & Search Bar */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-2 sm:pb-0">
+          <button
+            onClick={() => setActiveCategory('MY_SCHEMES')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap flex items-center gap-1 ${
+              activeCategory === 'MY_SCHEMES'
+                ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-300'
+                : 'bg-amber-100 text-amber-900 hover:bg-amber-200'
+            }`}
+          >
+            ⭐ My Applicable Schemes
+          </button>
           <button
             onClick={() => setActiveCategory('ALL')}
             className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
@@ -445,6 +472,25 @@ export const GovernmentPage: React.FC = () => {
 
         {/* Right Side: Schemes Results List */}
         <div className="lg:col-span-2 space-y-4">
+          {activeCategory === 'MY_SCHEMES' && (
+            <div className="bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 p-4 rounded-2xl shadow-sm space-y-1.5 animate-fadeIn">
+              <div className="flex justify-between items-center">
+                <span className="font-extrabold text-xs flex items-center gap-1.5 uppercase tracking-wider">
+                  ⭐ Auto-Matched Citizen Welfare Profile
+                </span>
+                <Link
+                  to="/profile"
+                  className="px-3 py-1 bg-slate-950 text-white rounded-lg text-[10px] font-extrabold hover:bg-slate-800 transition-all"
+                >
+                  Edit Profile ⚙
+                </Link>
+              </div>
+              <p className="text-xs font-semibold leading-relaxed">
+                Showing schemes matched to your profile: Age <strong>{(user as any)?.age || age || 25}</strong> • Income <strong>₹{((user as any)?.annualIncome || income || 150000).toLocaleString('en-IN')}</strong> • Gender <strong>{(user as any)?.gender || gender || 'FEMALE'}</strong> • District <strong>{user?.district || district || 'Pune'}</strong>.
+              </p>
+            </div>
+          )}
+
           <div className="bg-emerald-50 text-emerald-900 p-4 rounded-2xl border border-emerald-200 text-xs font-bold flex items-center justify-between">
             <span className="flex items-center gap-2">
               <CheckCircle className="w-4 h-4 text-emerald-600" />

@@ -185,9 +185,16 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
               )}
             </div>
 
-            {/* User Badge / Admin Status */}
+            {/* User Profile Link & Badge */}
             {isAuthenticated && user && (
-              <div className="hidden sm:flex items-center gap-2 pl-2 border-l border-slate-200">
+              <div
+                onClick={() => navigate('/profile')}
+                className="hidden sm:flex items-center gap-2 pl-2 border-l border-slate-200 cursor-pointer hover:opacity-80 transition-opacity"
+                title="Edit Citizen Profile & Demographic Settings"
+              >
+                <div className="w-8 h-8 rounded-xl bg-teal-700 text-white font-bold text-xs flex items-center justify-center shadow-2xs">
+                  {user.name ? user.name.slice(0, 2).toUpperCase() : 'U'}
+                </div>
                 <div className="text-right text-xs">
                   <div className="font-bold text-slate-800 truncate max-w-[120px]">{user.name}</div>
                   {isSuperAdmin(user) ? (
@@ -195,7 +202,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                       Super Admin
                     </span>
                   ) : (
-                    <span className="text-[10px] text-slate-400 uppercase">{user.role}</span>
+                    <span className="text-[10px] text-teal-700 font-semibold uppercase">Profile ⚙</span>
                   )}
                 </div>
               </div>

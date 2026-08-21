@@ -33,6 +33,7 @@ import WastePage from '../pages/Waste/WastePage.tsx';
 import AgriculturePage from '../pages/Agriculture/AgriculturePage.tsx';
 import EducationPage from '../pages/Education/EducationPage.tsx';
 import AdminDashboardPage from '../pages/Admin/AdminDashboardPage.tsx';
+import ProfilePage from '../pages/Profile/ProfilePage.tsx';
 import { AdminPlacesModerationPage } from '../pages/Admin/AdminPlacesModerationPage.tsx';
 
 const queryClient = new QueryClient({
@@ -128,6 +129,7 @@ const App: React.FC = () => {
                     <Route path="/tourism" element={<MainLayout><TourismPage /></MainLayout>} />
                     <Route path="/tourism/place/:id" element={<MainLayout><PlaceDetailsPage /></MainLayout>} />
                     <Route path="/transport" element={<MainLayout><TransportPage /></MainLayout>} />
+                    <Route path="/profile" element={<MainLayout><ProfilePage /></MainLayout>} />
                     <Route path="/community" element={<MainLayout><CommunityPage /></MainLayout>} />
                     <Route path="/map" element={<MainLayout><MapPage /></MainLayout>} />
 
