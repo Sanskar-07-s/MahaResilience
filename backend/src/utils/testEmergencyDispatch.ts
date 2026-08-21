@@ -19,7 +19,7 @@ async function testDispatch() {
   // 2. Test Twilio SMS
   console.log('\n[2] Testing Twilio SMS Dispatch...');
   const smsResult = await sendSOS(
-    '+919373245464',
+    '+919209966816',
     '18.5204, 73.8567',
     'Sanskar Dhat (Test)',
     'Pune City Collectorate Campus, Maharashtra'

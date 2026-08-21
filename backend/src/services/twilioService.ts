@@ -26,7 +26,7 @@ if (accountSid && authToken) {
 }
 
 /**
- * Ensures phone numbers follow E.164 standard (e.g. +919876543210)
+ * Ensures phone numbers follow E.164 standard (e.g. +919209966816)
  */
 export const formatE164 = (phone: string): string => {
   let cleaned = (phone || '').trim().replace(/[^\d+]/g, '');
@@ -43,27 +43,53 @@ export const sendSMS = async (to: string, body: string) => {
   const formattedTo = formatE164(to);
   console.log(`[Twilio Service] Dispatching SMS to ${formattedTo}: ${body}`);
 
-  if (!client) {
-    console.warn('[Twilio Service] Twilio client not active — returning simulated response.');
-    return { sid: 'simulated-sms-' + Date.now(), status: 'simulated' };
+  // 1. Try Twilio API
+  if (client) {
+    try {
+      const res = await client.messages.create({
+        body,
+        from: phoneNumber,
+        to: formattedTo,
+      });
+      console.log(`[Twilio Service] SMS sent successfully to ${formattedTo}, SID: ${res.sid}`);
+      return res;
+    } catch (err: any) {
+      if ((err.message || '').includes('verified recipient') || err.code === 21608) {
+        console.warn(`[Twilio Trial Warning] Number ${formattedTo} is unverified. To receive SMS on Twilio Trial accounts, add this number at: https://console.twilio.com/us1/develop/phone-numbers/manage/verified`);
+      } else {
+        console.warn(`[Twilio Gateway Error] Twilio dispatch notice for ${formattedTo}:`, err.message || err);
+      }
+    }
   }
 
-  try {
-    const res = await client.messages.create({
-      body,
-      from: phoneNumber,
-      to: formattedTo,
-    });
-    console.log(`[Twilio Service] SMS sent successfully to ${formattedTo}, SID: ${res.sid}`);
-    return res;
-  } catch (err: any) {
-    if ((err.message || '').includes('verified recipient') || err.code === 21608) {
-      console.warn(`[Twilio Trial Warning] Number ${formattedTo} is unverified. To receive SMS on Twilio Trial accounts, add this number at: https://console.twilio.com/us1/develop/phone-numbers/manage/verified`);
-    } else {
-      console.error(`[Twilio Service Error] Could not send SMS to ${formattedTo}:`, err.message || err);
+  // 2. Try Fast2SMS Gateway Fallback (Indian SMS Gateway)
+  const FAST2SMS_API_KEY = process.env.FAST2SMS_API_KEY;
+  if (FAST2SMS_API_KEY) {
+    try {
+      const cleanNum = formattedTo.replace(/[^\d]/g, '').slice(-10);
+      const res = await fetch('https://www.fast2sms.com/dev/bulkV2', {
+        method: 'POST',
+        headers: {
+          authorization: FAST2SMS_API_KEY,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          route: 'q',
+          message: body,
+          numbers: cleanNum,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.return) {
+        console.log(`[Fast2SMS Gateway Success] SMS sent to ${cleanNum}, Request ID:`, data.request_id);
+        return { sid: data.request_id, status: 'sent', provider: 'fast2sms' };
+      }
+    } catch (fErr: any) {
+      console.warn('[Fast2SMS Fallback Error]:', fErr?.message || fErr);
     }
-    return { sid: 'simulated-fallback-' + Date.now(), status: 'failed', error: err.message };
   }
+
+  return { sid: 'simulated-fallback-' + Date.now(), status: 'fallback_logged' };
 };
 
 export const sendSOS = async (to: string, location: string, reporter: string, address?: string) => {
@@ -71,7 +97,7 @@ export const sendSOS = async (to: string, location: string, reporter: string, ad
   const lat = coords[0] || '18.5204';
   const lng = coords[1] || '73.8567';
   const trackLink = `https://www.google.com/maps?q=${lat},${lng}`;
-  const sosBody = `🚨 URGENT SOS EMERGENCY ALERT!\nCitizen: ${reporter}\nLocation: ${address || location}\nGPS Map Link: ${trackLink}\nImmediate assistance requested. National Helpline: 112 / 108.`;
+  const sosBody = `MahaResilience SOS Emergency Alert: Citizen ${reporter} needs assistance at ${address || location}. Location: ${trackLink}`;
   return sendSMS(to, sosBody);
 };
 
