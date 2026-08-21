@@ -1,34 +1,12 @@
 /**
- * permissions.ts — Comprehensive Role-based Access Control Helpers for MahaResilience
+ * permissions.ts — Comprehensive Role & Module Access Control Helpers for MahaResilience
  */
 
-import { UserProfile } from '../types/user.ts';
+import { UserProfile, AdminField } from '../types/user.ts';
 
 export { SUPER_ADMIN_UID } from './superAdminBootstrap.ts';
 
-const SUPER_ADMIN_UID_LOCAL = 'gfhWRztes9dYzGzHBu9MjZH5Uuo2';
-
-export type AdminRole =
-  | 'SUPER_ADMIN'
-  | 'DISTRICT_ADMIN'
-  | 'EMERGENCY_ADMIN'
-  | 'HEALTHCARE_ADMIN'
-  | 'GOVERNMENT_ADMIN'
-  | 'WATER_ADMIN'
-  | 'ELECTRICITY_ADMIN'
-  | 'WASTE_ADMIN'
-  | 'AGRICULTURE_ADMIN'
-  | 'EDUCATION_ADMIN'
-  | 'TRANSPORT_ADMIN'
-  | 'TOURISM_ADMIN'
-  | 'COMPLAINTS_ADMIN'
-  | 'COMMUNITY_MODERATOR'
-  | 'MODERATOR'
-  | 'ADMIN'
-  | 'OFFICIAL'
-  | 'VOLUNTEER'
-  | 'CITIZEN'
-  | 'USER';
+export const SUPER_ADMIN_UID_LOCAL = 'gfhWRztes9dYzGzHBu9MjZH5Uuo2';
 
 /** Check if the user is the permanent Super Admin */
 export const isSuperAdmin = (user: UserProfile | null | undefined): boolean => {
@@ -43,7 +21,7 @@ export const isSuperAdmin = (user: UserProfile | null | undefined): boolean => {
 /** Check if the user is a District Admin */
 export const isDistrictAdmin = (user: UserProfile | null | undefined): boolean => {
   if (!user) return false;
-  return isSuperAdmin(user) || user.role === 'DISTRICT_ADMIN' || user.role === 'ADMIN';
+  return isSuperAdmin(user) || user.role === 'DISTRICT_ADMIN';
 };
 
 /** Check if the user is an officer */
@@ -66,10 +44,29 @@ export const canAccessAdmin = (user: UserProfile | null | undefined): boolean =>
 
   const role = user.role || '';
   return (
+    role === 'MODULE_ADMIN' ||
+    role === 'DISTRICT_ADMIN' ||
+    role === 'MODERATOR' ||
     role.includes('ADMIN') ||
     role.includes('MODERATOR') ||
     role === 'OFFICIAL'
   );
+};
+
+/** Check if user can access a specific adminField module */
+export const canAccessAdminField = (
+  user: UserProfile | null | undefined,
+  field: AdminField | string
+): boolean => {
+  if (!user) return false;
+  if (isSuperAdmin(user)) return true;
+  if (user.status === 'SUSPENDED') return false;
+
+  if (user.role === 'MODULE_ADMIN' && user.adminField === field) return true;
+  if (user.role === `${field}_ADMIN`) return true;
+
+  const perms = user.permissions || [];
+  return perms.includes('*') || perms.includes(`MANAGE_${field}`) || perms.includes(field);
 };
 
 /** Check specific permission */
@@ -79,6 +76,7 @@ export const hasPermission = (
 ): boolean => {
   if (!user) return false;
   if (isSuperAdmin(user)) return true;
+  if (user.status === 'SUSPENDED') return false;
   const perms = user.permissions || [];
   return perms.includes('*') || perms.includes(permission);
 };

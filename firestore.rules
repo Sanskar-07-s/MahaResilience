@@ -18,11 +18,19 @@ service cloud.firestore {
       );
     }
 
+    function isModuleAdmin(field) {
+      return isAuthenticated() && (
+        isSuperAdmin() ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.adminField == field ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == field + '_ADMIN'
+      );
+    }
+
     function isAnyAdmin() {
       return isAuthenticated() && (
         isSuperAdmin() ||
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in [
-          'ADMIN', 'SUPER_ADMIN', 'DISTRICT_ADMIN', 'EMERGENCY_ADMIN', 'HEALTHCARE_ADMIN',
+          'ADMIN', 'SUPER_ADMIN', 'MODULE_ADMIN', 'DISTRICT_ADMIN', 'EMERGENCY_ADMIN', 'HEALTHCARE_ADMIN',
           'GOVERNMENT_ADMIN', 'WATER_ADMIN', 'ELECTRICITY_ADMIN', 'WASTE_ADMIN',
           'AGRICULTURE_ADMIN', 'EDUCATION_ADMIN', 'TRANSPORT_ADMIN', 'TOURISM_ADMIN',
           'COMPLAINTS_ADMIN', 'COMMUNITY_MODERATOR', 'MODERATOR', 'OFFICIAL'
@@ -34,14 +42,15 @@ service cloud.firestore {
     // 1. Users collection
     match /users/{userId} {
       allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isSuperAdmin() || (isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'adminField', 'permissions', 'status']));
       allow delete: if isSuperAdmin();
     }
 
     // 2. Disaster Alerts collection
     match /alerts/{alertId} {
       allow read: if true; // Public disaster advisories
-      allow create, update, delete: if isAnyAdmin();
+      allow create, update, delete: if isModuleAdmin('EMERGENCY') || isAnyAdmin();
     }
 
     // 3. Public Notifications collection
@@ -60,7 +69,7 @@ service cloud.firestore {
       allow read: if true;
       allow create: if isAuthenticated();
       allow update, delete: if isAuthenticated() && (
-        request.auth.uid == resource.data.createdBy || isAnyAdmin()
+        request.auth.uid == resource.data.createdBy || isModuleAdmin('COMMUNITY') || isAnyAdmin()
       );
 
       // Comments subcollection
@@ -68,7 +77,7 @@ service cloud.firestore {
         allow read: if true;
         allow create: if isAuthenticated();
         allow update, delete: if isAuthenticated() && (
-          request.auth.uid == resource.data.userId || isAnyAdmin()
+          request.auth.uid == resource.data.userId || isModuleAdmin('COMMUNITY') || isAnyAdmin()
         );
       }
 
@@ -84,7 +93,7 @@ service cloud.firestore {
       allow read: if true;
       allow create: if isAuthenticated();
       allow update, delete: if isAuthenticated() && (
-        request.auth.uid == resource.data.userId || isAnyAdmin()
+        request.auth.uid == resource.data.userId || isModuleAdmin('COMMUNITY') || isAnyAdmin()
       );
     }
 
@@ -94,30 +103,30 @@ service cloud.firestore {
       allow write, delete: if isAuthenticated();
     }
 
-    // 8. Community Reports & Moderate Queue
+    // 8. Community Reports & Moderation Queue
     match /communityPostReports/{reportId} {
-      allow read: if isAnyAdmin();
+      allow read: if isModuleAdmin('COMMUNITY') || isAnyAdmin();
       allow create: if isAuthenticated();
-      allow update, delete: if isAnyAdmin();
+      allow update, delete: if isModuleAdmin('COMMUNITY') || isAnyAdmin();
     }
 
     match /reports/{reportId} {
-      allow read: if isAnyAdmin();
+      allow read: if isModuleAdmin('COMMUNITY') || isAnyAdmin();
       allow create: if isAuthenticated();
-      allow update, delete: if isAnyAdmin();
+      allow update, delete: if isModuleAdmin('COMMUNITY') || isAnyAdmin();
     }
 
     // 9. Tourist Places collection
     match /places/{placeId} {
       allow read: if true;
       allow create: if isAuthenticated();
-      allow update, delete: if isAnyAdmin() || (isAuthenticated() && request.auth.uid == resource.data.createdBy);
+      allow update, delete: if isModuleAdmin('TOURISM') || isAnyAdmin() || (isAuthenticated() && request.auth.uid == resource.data.createdBy);
 
       match /reviews/{reviewId} {
         allow read: if true;
         allow create: if isAuthenticated();
         allow update, delete: if isAuthenticated() && (
-          request.auth.uid == resource.data.userId || isAnyAdmin()
+          request.auth.uid == resource.data.userId || isModuleAdmin('TOURISM') || isAnyAdmin()
         );
       }
     }
@@ -126,7 +135,7 @@ service cloud.firestore {
       allow read: if true;
       allow create: if isAuthenticated();
       allow update, delete: if isAuthenticated() && (
-        request.auth.uid == resource.data.userId || isAnyAdmin()
+        request.auth.uid == resource.data.userId || isModuleAdmin('TOURISM') || isAnyAdmin()
       );
     }
 
@@ -134,40 +143,40 @@ service cloud.firestore {
     match /complaints/{complaintId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
-      allow update, delete: if isAnyAdmin() || (isAuthenticated() && request.auth.uid == resource.data.userId);
+      allow update, delete: if isModuleAdmin('COMPLAINTS') || isAnyAdmin() || (isAuthenticated() && request.auth.uid == resource.data.userId);
     }
 
     // 11. Module Service Requests (Water, Waste, Electricity, Agriculture)
     match /waterRequests/{requestId} {
       allow read, create: if isAuthenticated();
-      allow update, delete: if isAnyAdmin();
+      allow update, delete: if isModuleAdmin('WATER') || isAnyAdmin();
     }
 
     match /wastePickups/{requestId} {
       allow read, create: if isAuthenticated();
-      allow update, delete: if isAnyAdmin();
+      allow update, delete: if isModuleAdmin('WASTE') || isAnyAdmin();
     }
 
     match /wasteReports/{reportId} {
       allow read, create: if isAuthenticated();
-      allow update, delete: if isAnyAdmin();
+      allow update, delete: if isModuleAdmin('WASTE') || isAnyAdmin();
     }
 
     match /electricityReports/{reportId} {
       allow read, create: if isAuthenticated();
-      allow update, delete: if isAnyAdmin();
+      allow update, delete: if isModuleAdmin('ELECTRICITY') || isAnyAdmin();
     }
 
     match /farmerRequests/{requestId} {
       allow read, create: if isAuthenticated();
-      allow update, delete: if isAnyAdmin();
+      allow update, delete: if isModuleAdmin('AGRICULTURE') || isAnyAdmin();
     }
 
     // 12. User Emergency SOS Events
     match /sosEvents/{eventId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
-      allow update, delete: if isAnyAdmin() || (isAuthenticated() && request.auth.uid == resource.data.userId);
+      allow update, delete: if isModuleAdmin('EMERGENCY') || isAnyAdmin() || (isAuthenticated() && request.auth.uid == resource.data.userId);
     }
 
     // 13. System Audit Logs
