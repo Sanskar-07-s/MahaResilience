@@ -25,7 +25,7 @@ import { ComplaintsAdminPortal } from './ComplaintsAdminPortal.tsx';
 import { CommunityModeratorPortal } from './CommunityModeratorPortal.tsx';
 
 export const SuperAdminPortal: React.FC = () => {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const { isEmergencyMode, activateEmergencyMode, deactivateEmergencyMode } = useEmergencyMode();
   const [activeTab, setActiveTab] = useState<
     | 'OVERVIEW'
@@ -152,6 +152,13 @@ export const SuperAdminPortal: React.FC = () => {
 
       await updateDoc(doc(db, 'users', targetUid), updateData);
 
+      // If updating current user, sync AuthContext immediately
+      if (user && targetUid === user.uid) {
+        try {
+          await updateUser(updateData);
+        } catch (_) {}
+      }
+
       // Audit Log B15
       await addDoc(collection(db, 'auditLogs'), {
         adminId: user?.uid || 'SUPER_ADMIN',
@@ -200,8 +207,13 @@ export const SuperAdminPortal: React.FC = () => {
         updatedAt: new Date().toISOString(),
       };
 
+      const roleStr = String(adminRole);
       if (adminRole === 'MODULE_ADMIN') {
         newAdminObj.adminField = adminField;
+      } else if (roleStr.endsWith('_ADMIN') && roleStr !== 'SUPER_ADMIN' && roleStr !== 'DISTRICT_ADMIN') {
+        newAdminObj.adminField = roleStr.replace('_ADMIN', '') as AdminField;
+      } else if (roleStr.endsWith('_MODERATOR') || roleStr === 'MODERATOR') {
+        newAdminObj.adminField = 'COMMUNITY';
       }
 
       await setDoc(doc(db, 'users', uid), newAdminObj);
