@@ -288,18 +288,18 @@ export const LandingPage: React.FC = () => {
           </div>
         </motion.header>
 
-        {/* ─── HERO MAIN CONTENT WITH HIGH CONTRAST & STAGGER ANIMATIONS ─── */}
-        <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-12">
-          <div className="max-w-2xl bg-white/45 hover:bg-white/60 backdrop-blur-md p-6 sm:p-8 rounded-3xl border border-white/70 shadow-lg space-y-4 transition-all duration-300">
+        {/* ─── HERO MAIN CONTENT WITH STAGGER ANIMATIONS ─────────────────────── */}
+        <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-12">
+          <div className="max-w-2xl space-y-4">
             {/* Live Indicator Pill */}
             <motion.div
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.6 }}
-              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/90 backdrop-blur-md border border-emerald-500/40 text-xs font-black text-emerald-950 shadow-sm"
+              className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-white/85 backdrop-blur-md border border-emerald-500/30 text-xs font-bold text-emerald-900 shadow-sm"
             >
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 animate-ping" />
-              <span>🟢 Active Sentinel Network • {ward || city || 'Statewide'}, {district || 'Maharashtra'}</span>
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+              <span>Active Sentinel Network • {ward || city || 'Statewide'}, {district || 'Maharashtra'}</span>
             </motion.div>
 
             {/* Main Headline */}
@@ -307,49 +307,47 @@ export const LandingPage: React.FC = () => {
               initial={{ opacity: 0, x: -40 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-              className="text-4xl sm:text-5xl lg:text-6xl font-black text-[#071b36] tracking-tight leading-[1.1] drop-shadow-[0_2px_8px_rgba(255,255,255,0.9)]"
+              className="text-4xl sm:text-5xl lg:text-6xl font-black text-[#0c2340] tracking-tight leading-[1.1] drop-shadow-sm"
             >
               Building a <br />
-              <span className="text-[#0a2347]">
+              <span className="bg-gradient-to-r from-[#0c2340] via-[#103b6d] to-[#0c2340] bg-clip-text text-transparent">
                 Resilient Maharashtra
               </span>
             </motion.h1>
 
-            {/* Subheading with high contrast vibrant emerald */}
+            {/* Subheading with glowing gradient */}
             <motion.div
               initial={{ opacity: 0, x: -40 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.8, delay: 0.18, ease: [0.16, 1, 0.3, 1] }}
-              className="text-2xl sm:text-3xl lg:text-4xl font-black text-[#0b5c34] tracking-tight leading-snug drop-shadow-[0_2px_8px_rgba(255,255,255,0.9)]"
+              className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[#157948] tracking-tight leading-snug drop-shadow-sm"
             >
               Together, We Recover. <br />
               Together, We Rise.
             </motion.div>
 
-            {/* High-Contrast Description Badge Card */}
-            <motion.div
+            {/* Description with high-contrast legibility against background */}
+            <motion.p
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.3 }}
-              className="bg-white/85 hover:bg-white/95 backdrop-blur-md border border-white/90 shadow-sm rounded-2xl p-4 transition-all"
+              className="text-sm sm:text-base font-extrabold text-[#08182b] bg-white/55 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-white/80 shadow-xs leading-relaxed max-w-xl"
             >
-              <p className="text-sm sm:text-base font-extrabold text-[#071933] leading-relaxed">
-                Real-time alerts, essential services, verified information and a strong community network — all in one platform for a safer and stronger Maharashtra.
-              </p>
-            </motion.div>
+              Real-time alerts, essential services, verified information and a strong community network — all in one platform for a safer and stronger Maharashtra.
+            </motion.p>
 
             {/* Action Buttons with Pulse / Glow Physics */}
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.42 }}
-              className="flex flex-wrap items-center gap-3.5 pt-2"
+              className="flex flex-wrap items-center gap-3.5 pt-4"
             >
               <motion.button
-                whileHover={{ scale: 1.07, y: -3, boxShadow: '0 20px 30px -10px rgba(15, 44, 89, 0.6)' }}
+                whileHover={{ scale: 1.07, y: -3, boxShadow: '0 20px 30px -10px rgba(15, 44, 89, 0.5)' }}
                 whileTap={{ scale: 0.95 }}
                 onClick={handleAlertsClick}
-                className="relative group bg-[#091f3d] hover:bg-[#061427] text-white px-7 py-3.5 rounded-full font-black text-sm shadow-xl transition-all flex items-center gap-2.5 border border-blue-800/60 cursor-pointer overflow-hidden"
+                className="relative group bg-gradient-to-r from-[#0f2c59] to-[#091b38] text-white px-7 py-3.5 rounded-full font-black text-sm shadow-xl transition-all flex items-center gap-2.5 border border-blue-800/40 cursor-pointer overflow-hidden"
               >
                 {/* Shimmer sweep effect */}
                 <span className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
@@ -358,10 +356,10 @@ export const LandingPage: React.FC = () => {
               </motion.button>
 
               <motion.button
-                whileHover={{ scale: 1.07, y: -3, boxShadow: '0 20px 30px -10px rgba(16, 185, 129, 0.4)' }}
+                whileHover={{ scale: 1.07, y: -3, boxShadow: '0 20px 30px -10px rgba(16, 185, 129, 0.3)' }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => handleCardClick('#services-section')}
-                className="bg-white/95 hover:bg-white text-slate-900 border border-slate-300 px-7 py-3.5 rounded-full font-black text-sm shadow-lg transition-all flex items-center gap-2 backdrop-blur-md cursor-pointer"
+                className="bg-white/90 hover:bg-white text-slate-900 border border-slate-300 px-7 py-3.5 rounded-full font-black text-sm shadow-lg transition-all flex items-center gap-2 backdrop-blur-md cursor-pointer"
               >
                 <MapPin className="w-4 h-4 text-emerald-700 animate-pulse" />
                 <span>Explore Services</span>
