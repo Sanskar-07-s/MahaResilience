@@ -4,7 +4,7 @@ import {
   XCircle, RefreshCw, Lock, UserPlus, Eye, Edit3, Trash2, Zap, Settings, Search, MapPin,
   Radio, Compass, HeartPulse, Droplet, Sprout, Landmark, GraduationCap, Bus, FileSpreadsheet, MessageSquare, Check, ChevronDown
 } from 'lucide-react';
-import { collection, onSnapshot, query, orderBy, setDoc, doc, updateDoc, addDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, setDoc, doc, updateDoc, addDoc, deleteField } from 'firebase/firestore';
 import { db } from '../../../lib/firebase.ts';
 import { useAuth } from '../../../contexts/AuthContext.tsx';
 import { useEmergencyMode } from '../../../contexts/EmergencyModeContext.tsx';
@@ -69,7 +69,6 @@ export const SuperAdminPortal: React.FC = () => {
   const [assignRole, setAssignRole] = useState<UserRole>('MODULE_ADMIN');
   const [assignField, setAssignField] = useState<AdminField>('TOURISM');
   const [assignDistrict, setAssignDistrict] = useState('Kolhapur');
-  const [savingAssign, setSavingAssign] = useState(false);
   const [assignToastMsg, setAssignToastMsg] = useState<string | null>(null);
 
   useEffect(() => {
@@ -103,7 +102,7 @@ export const SuperAdminPortal: React.FC = () => {
     setTimeout(() => setAssignToastMsg(null), 4000);
   };
 
-  // B6 — Admin Field Save Flow directly to Firestore users/{uid}
+  // B6 — Safe Admin Field Save Flow directly to Firestore users/{uid} (No undefined values!)
   const handleUpdateUserAdminField = async (
     targetUid: string,
     newRole: UserRole,
@@ -123,14 +122,23 @@ export const SuperAdminPortal: React.FC = () => {
     const targetUser = usersList.find((u) => u.uid === targetUid);
     const prevRole = targetUser?.role;
     const prevField = targetUser?.adminField;
+    const effectiveField = newField || targetUser?.adminField || 'TOURISM';
 
     try {
       const updateData: any = {
         role: newRole,
-        adminField: newRole === 'MODULE_ADMIN' ? newField : undefined,
         updatedAt: new Date().toISOString(),
       };
-      if (newDistrict) updateData.district = newDistrict;
+
+      if (newRole === 'MODULE_ADMIN') {
+        updateData.adminField = effectiveField;
+      } else {
+        updateData.adminField = deleteField();
+      }
+
+      if (newDistrict) {
+        updateData.district = newDistrict;
+      }
 
       await updateDoc(doc(db, 'users', targetUid), updateData);
 
@@ -143,12 +151,12 @@ export const SuperAdminPortal: React.FC = () => {
         previousRole: prevRole || 'USER',
         newRole,
         previousAdminField: prevField || 'NONE',
-        newAdminField: newField || 'NONE',
+        newAdminField: newRole === 'MODULE_ADMIN' ? effectiveField : 'NONE',
         timestamp: new Date().toISOString(),
-        details: `Assigned role ${newRole} (${newField || 'NONE'}) to user ${targetUser?.email || targetUid}`,
+        details: `Assigned role ${newRole} (${newRole === 'MODULE_ADMIN' ? effectiveField : 'NONE'}) to user ${targetUser?.email || targetUid}`,
       });
 
-      showToast(`Admin field updated successfully to ${newField || 'NONE'} for ${targetUser?.name || 'User'}!`);
+      showToast(`Admin field updated successfully to ${newRole === 'MODULE_ADMIN' ? effectiveField : 'NONE'} for ${targetUser?.name || 'User'}!`);
       setSelectedUserForAssign(null);
     } catch (err: any) {
       alert('Failed to update admin field in Firestore: ' + err.message);
@@ -169,12 +177,11 @@ export const SuperAdminPortal: React.FC = () => {
 
     try {
       const uid = 'admin_' + Date.now();
-      const newAdminObj: Partial<UserProfile> = {
+      const newAdminObj: any = {
         uid,
         name: adminName.trim(),
         email: adminEmail.trim(),
         role: adminRole,
-        adminField: adminRole === 'MODULE_ADMIN' ? adminField : undefined,
         district: adminDistrict,
         assignedAreas: [adminDistrict],
         status: adminStatus,
@@ -182,6 +189,10 @@ export const SuperAdminPortal: React.FC = () => {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
+
+      if (adminRole === 'MODULE_ADMIN') {
+        newAdminObj.adminField = adminField;
+      }
 
       await setDoc(doc(db, 'users', uid), newAdminObj);
 
@@ -524,7 +535,6 @@ export const SuperAdminPortal: React.FC = () => {
                               <button
                                 onClick={() => setSelectedUserForAssign(u)}
                                 className="px-2.5 py-1 rounded bg-teal-900/60 hover:bg-teal-800 text-teal-200 border border-teal-700/50 font-bold text-[11px]"
-                                title="Assign Admin Field Modal"
                               >
                                 Assign Field
                               </button>
