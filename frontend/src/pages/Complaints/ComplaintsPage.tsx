@@ -3,12 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext.tsx';
 import { useLocation } from '../../contexts/LocationContext.tsx';
 import { uploadImageToCloudinary } from '../../services/cloudinary.service.ts';
-import { ThumbsUp, MapPin, FileText, AlertCircle, Plus, CheckCircle, Clock, Upload } from 'lucide-react';
+import { ThumbsUp, MapPin, FileText, AlertCircle, Plus, CheckCircle, Clock, Upload, Trash2 } from 'lucide-react';
 import { db, storage } from '../../lib/firebase.ts';
 import { 
   collection, 
   query, 
   addDoc, 
+  deleteDoc,
   onSnapshot, 
   orderBy, 
   where, 
@@ -152,6 +153,16 @@ const ComplaintsPage: React.FC = () => {
         prev.map((c) => (c.id === id ? { ...c, upvotes: c.upvotes + 1 } : c))
       );
     }
+  };
+
+  const handleDeleteComplaint = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this complaint / file record?')) return;
+    try {
+      await deleteDoc(doc(db, 'complaints', id));
+    } catch (err) {
+      console.error('Firestore complaint delete error:', err);
+    }
+    setComplaints((prev) => prev.filter((c) => c.id !== id));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -440,6 +451,13 @@ const ComplaintsPage: React.FC = () => {
                     >
                       <ThumbsUp className="w-3.5 h-3.5" />
                       Support ({complaint.upvotes})
+                    </button>
+                    <button
+                      onClick={() => handleDeleteComplaint(complaint.id)}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 rounded-md3 text-xs font-bold transition-colors"
+                      title="Delete this complaint / file record"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" /> Delete File
                     </button>
                   </div>
                 </div>
