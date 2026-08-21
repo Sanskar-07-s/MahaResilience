@@ -106,8 +106,22 @@ export const LandingPage: React.FC = () => {
       if (elem) {
         elem.scrollIntoView({ behavior: 'smooth' });
       }
+    } else if (path === '/alerts' || path === '/emergency' || path === '/dashboard') {
+      if (!user) {
+        navigate('/login');
+      } else {
+        navigate(path);
+      }
     } else {
       navigate(path);
+    }
+  };
+
+  const handleAlertsClick = () => {
+    if (!user) {
+      navigate('/login');
+    } else {
+      navigate('/alerts');
     }
   };
 
@@ -150,9 +164,9 @@ export const LandingPage: React.FC = () => {
             {[
               { name: 'Home', action: () => navigate('/') },
               { name: 'Services', action: () => handleCardClick('#services-section') },
-              { name: 'Alerts', action: () => navigate('/alerts') },
+              { name: 'Alerts', action: () => handleAlertsClick() },
               { name: 'Resources', action: () => navigate('/government') },
-              { name: 'Dashboard', action: () => navigate('/dashboard') },
+              { name: 'Dashboard', action: () => handleCardClick('/dashboard') },
               { name: 'About Us', action: () => handleCardClick('#about-section') },
             ].map((item) => (
               <button
@@ -239,7 +253,7 @@ export const LandingPage: React.FC = () => {
               className="flex flex-wrap items-center gap-3.5 pt-4"
             >
               <button
-                onClick={() => navigate('/alerts')}
+                onClick={handleAlertsClick}
                 className="bg-[#0f2c59] hover:bg-[#091b38] text-white px-6 py-3.5 rounded-full font-extrabold text-sm shadow-xl hover:scale-105 transition-all flex items-center gap-2 border border-blue-900/40"
               >
                 <Bell className="w-4 h-4 text-yellow-300" />
