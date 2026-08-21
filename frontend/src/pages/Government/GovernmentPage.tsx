@@ -9,63 +9,42 @@ import {
   MapPin,
   Landmark,
   ExternalLink,
-  Sparkles,
-  Search,
-  Bot,
-  Filter,
-  ShieldCheck,
-  Building2,
-  BookOpen,
-  Users,
-  Briefcase,
-  HeartHandshake,
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext.tsx';
 import { useLocation } from '../../contexts/LocationContext.tsx';
-import { queryGovernmentSchemeAI } from '../../services/aiService.ts';
 
 interface Scheme {
   id: string;
   title: string;
   description: string;
-  category: 'WOMEN' | 'FARMER' | 'EDUCATION' | 'PENSION' | 'EMPLOYMENT' | 'GENERAL';
-  categoryLabel: string;
+  category: string;
   level: 'WARD' | 'TALUKA' | 'DISTRICT' | 'STATE' | 'NATIONAL';
-  benefitAmount: string;
   documentRequirements: string[];
-  eligibilitySummary: string;
-  applicationUrl: string;
-  helpline: string;
+  applicationUrl?: string;
+  eligibilityCriteria?: any;
 }
 
 export const GovernmentPage: React.FC = () => {
   const { ward, taluka, district, state } = useLocation();
   const [age, setAge] = useState<number | ''>('');
   const [income, setIncome] = useState<number | ''>('');
-  const [occupation, setOccupation] = useState('ALL');
+  const [occupation, setOccupation] = useState('STUDENT');
   const [gender, setGender] = useState('ALL');
+  const [residency, setResidency] = useState('MAHARASHTRA');
 
-  const [activeCategory, setActiveCategory] = useState<string>('ALL');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [eligibleSchemes, setEligibleSchemes] = useState<Scheme[]>([]);
+  const [hasChecked, setHasChecked] = useState(false);
+  const [checking, setChecking] = useState(false);
   const [expandedScheme, setExpandedScheme] = useState<string | null>(null);
 
-  // Gemini AI Custom Scheme Advisor State
-  const [aiAdvisorResult, setAiAdvisorResult] = useState<string | null>(null);
-  const [aiLoading, setAiLoading] = useState(false);
-  const [checking, setChecking] = useState(false);
-
-  // Comprehensive Maharashtra & National Government Schemes Database
-  const comprehensiveSchemes: Scheme[] = [
+  // Official Maharashtra & Central Government Schemes List
+  const fallbackSchemes: Scheme[] = [
     {
       id: 'scheme-ladki-bahin',
       title: 'Mukhyamantri Majhi Ladki Bahin Yojana',
       description:
         'Financial independence grant of ₹1,500 per month directly transferred to bank account for eligible women aged 21 to 65 years across Maharashtra.',
-      category: 'WOMEN',
-      categoryLabel: 'Women & Child Welfare',
+      category: 'Women Welfare',
       level: 'STATE',
-      benefitAmount: '₹1,500 / Month (₹18,000 / Year)',
       documentRequirements: [
         'Aadhaar Card (Linked with Bank A/C)',
         'Maharashtra Domicile Certificate / Birth Certificate',
@@ -73,506 +52,293 @@ export const GovernmentPage: React.FC = () => {
         'Self-Declaration Form',
         'Bank Passbook Copy',
       ],
-      eligibilitySummary: 'Women aged 21-65 years, Domicile of Maharashtra, Family Income < ₹2.5 Lakh/yr.',
       applicationUrl: 'https://ladkibahin.maharashtra.gov.in',
-      helpline: '181 / Setu Kendra',
     },
     {
       id: 'scheme-namo-shetkari',
       title: 'PM-Kisan & Namo Shetkari MahaSanman Nidhi',
       description:
-        'Combined central and state financial assistance providing ₹12,000 per year directly to farmer bank accounts for agricultural inputs and seed support.',
-      category: 'FARMER',
-      categoryLabel: 'Farmer Welfare',
+        'Combined central and state financial assistance providing ₹12,000 per year directly to farmer bank accounts for agricultural inputs.',
+      category: 'Agriculture',
       level: 'NATIONAL',
-      benefitAmount: '₹12,000 / Year in 4 Installments',
       documentRequirements: [
         '7/12 & 8A Land Extract Record',
         'Aadhaar Card (e-KYC verified)',
         'Bank Account Aadhaar Seeding Proof',
         'Farmer Registration ID',
       ],
-      eligibilitySummary: 'Land-holding farmers in Maharashtra with valid 7/12 land records.',
       applicationUrl: 'https://pmkisan.gov.in',
-      helpline: '155261 / 1800-115-526',
     },
     {
-      id: 'scheme-sanjay-gandhi',
-      title: 'Sanjay Gandhi Niradhar Anudan Yojana',
+      id: 'scheme-1',
+      title: 'Sanjay Gandhi Niradhar Pension Yojana',
       description:
-        'Monthly pension grant of ₹1,500 for destitute persons, widows, abandoned women, disabled individuals, and persons suffering from critical illness.',
-      category: 'PENSION',
-      categoryLabel: 'Pensions & Social Welfare',
+        'Financial assistance of ₹1,500/month to destitute persons, blind, disabled, orphans, widows, and persons suffering from major illnesses.',
+      category: 'Social Welfare',
       level: 'STATE',
-      benefitAmount: '₹1,500 / Month',
       documentRequirements: [
-        'Income Certificate (< ₹50,000 / Year)',
-        'Age Proof (Minimum 18 Years)',
-        'Disability Certificate (min 40% if applying under disability category)',
-        'Maharashtra Domicile Certificate',
+        'Age Proof (Min 18 yrs)',
+        'Income Certificate (< ₹50,000/yr)',
+        'Disability Certificate (if applicable)',
+        'Maharashtra Residence Proof',
       ],
-      eligibilitySummary: 'Destitute, disabled, or widowed citizens with annual family income below ₹50,000.',
       applicationUrl: 'https://aaplesarkar.maharashtra.gov.in',
-      helpline: '1800-120-8040',
     },
     {
-      id: 'scheme-shahu-maharaj',
+      id: 'scheme-2',
       title: 'Rajarshi Chhatrapati Shahu Maharaj Fee Reimbursement',
       description:
-        '50% to 100% tuition and exam fee reimbursement for Economically Backward Class (EBC) students pursuing professional higher education.',
-      category: 'EDUCATION',
-      categoryLabel: 'Education & Student Support',
+        '50% to 100% tuition fee reimbursement for students of EBC category enrolled in professional higher education courses.',
+      category: 'Education',
       level: 'STATE',
-      benefitAmount: '50% - 100% Tuition Fee Waiver',
       documentRequirements: [
-        'Income Certificate (< ₹8,00,000 / Year)',
-        'Maharashtra Domicile Certificate',
-        'Aadhaar Linked Bank Account',
+        'Income Certificate (< ₹8,00,000/yr)',
+        'Aadhaar Card',
+        'Domicile Certificate',
         'College Admission & Fee Receipt',
-        'Previous Academic Marksheet',
       ],
-      eligibilitySummary: 'EBC students pursuing diploma/degree professional courses with income < ₹8 Lakh.',
       applicationUrl: 'https://mahadbt.maharashtra.gov.in',
-      helpline: '022-49150800',
     },
     {
-      id: 'scheme-lek-ladki',
-      title: 'Lek Ladki Yojana (Girl Child Grant)',
+      id: 'scheme-3',
+      title: 'Maharashtra Bal Sangopan Yojana',
       description:
-        'Step-by-step financial support up to ₹1,01,000 provided at birth, Class 1, Class 6, Class 11, and age 18 for yellow/orange ration card families.',
-      category: 'WOMEN',
-      categoryLabel: 'Girl Child Welfare',
+        'Financial aid of ₹2,250 per month for foster parents to support education and nutrition of orphans and single-parent children.',
+      category: 'Child Development',
       level: 'STATE',
-      benefitAmount: 'Up to ₹1,01,000 Cumulative Grant',
-      documentRequirements: [
-        'Birth Certificate of Girl Child',
-        'Yellow or Orange Ration Card',
-        'Parents Aadhaar Card & Domicile',
-        'Bank Account Passbook',
-      ],
-      eligibilitySummary: 'Girl children born in yellow/orange ration card holding families in Maharashtra.',
+      documentRequirements: ['Birth Certificate', 'Income Certificate (< ₹1,00,000/yr)', 'Single Parent/Death Certificate'],
       applicationUrl: 'https://aaplesarkar.maharashtra.gov.in',
-      helpline: '1800-120-8040',
     },
     {
       id: 'scheme-cmegp',
       title: 'Chief Minister Employment Generation Programme (CMEGP)',
       description:
         'Credit-linked subsidy project loans up to ₹50 Lakh for manufacturing and ₹10 Lakh for service enterprises with 15% to 35% government subsidy.',
-      category: 'EMPLOYMENT',
-      categoryLabel: 'Business Loans & Employment',
+      category: 'Employment',
       level: 'STATE',
-      benefitAmount: 'Up to ₹50 Lakh Loan with 15-35% Subsidy',
-      documentRequirements: [
-        'Project Report / Detailed Estimate',
-        'Aadhaar Card & PAN Card',
-        'Educational / Skill Training Certificate',
-        'Category / Caste Certificate (if claiming special subsidy)',
-      ],
-      eligibilitySummary: 'Maharashtra residents aged 18-45 years establishing new self-employment units.',
+      documentRequirements: ['Project Report', 'Aadhaar & PAN Card', 'Educational Certificate', 'Caste Certificate'],
       applicationUrl: 'https://cmegp.mahait.org',
-      helpline: '022-22026408',
-    },
-    {
-      id: 'scheme-bal-sangopan',
-      title: 'Maharashtra Bal Sangopan Yojana',
-      description:
-        'Monthly foster care financial aid of ₹2,250 per month for foster parents or guardians supporting orphans, single-parent, or vulnerable children.',
-      category: 'PENSION',
-      categoryLabel: 'Child & Social Welfare',
-      level: 'STATE',
-      benefitAmount: '₹2,250 / Month per Child',
-      documentRequirements: [
-        'Child Birth Certificate',
-        'Death Certificate of Parent(s) or Guardian proof',
-        'Income Certificate (< ₹1,00,000 / Year)',
-        'Guardian Aadhaar & Bank Passbook',
-      ],
-      eligibilitySummary: 'Orphans or single-parent children under foster care in Maharashtra.',
-      applicationUrl: 'https://aaplesarkar.maharashtra.gov.in',
-      helpline: '1098 / 1800-120-8040',
-    },
-    {
-      id: 'scheme-annasaheb-patil',
-      title: 'Annasaheb Patil Arthik Vikas Mahamandal Loan Subsidy',
-      description:
-        'Interest reimbursement subsidy on business loans up to ₹15 Lakh for unemployed youth from economically weaker sections.',
-      category: 'EMPLOYMENT',
-      categoryLabel: 'Business Loans & Employment',
-      level: 'STATE',
-      benefitAmount: '100% Interest Reimbursement on ₹15L Loan',
-      documentRequirements: [
-        'Aadhaar & PAN Card',
-        'Bank Loan Sanction Letter',
-        'Income Certificate (< ₹8,00,000 / Year)',
-        'Business Registration Certificate',
-      ],
-      eligibilitySummary: 'Maharashtra youth establishing micro-enterprises with bank loans.',
-      applicationUrl: 'https://mhaeshs.maharashtra.gov.in',
-      helpline: '022-22621644',
     },
   ];
 
   const handleCheckEligibility = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (age === '' || income === '') return;
+
     setChecking(true);
-    setAiAdvisorResult(null);
-
-    const userIncome = typeof income === 'number' ? income : 1000000;
     const userAge = typeof age === 'number' ? age : 25;
+    const userIncome = typeof income === 'number' ? income : 150000;
 
-    // Fetch Gemini AI Scheme Advisor breakdown
-    setAiLoading(true);
-    const aiText = await queryGovernmentSchemeAI(userIncome, userAge, occupation, district);
-    setAiAdvisorResult(aiText);
-    setAiLoading(false);
+    // Filter matching schemes
+    const filtered = fallbackSchemes.filter((scheme) => {
+      if (scheme.id === 'scheme-ladki-bahin') return gender !== 'MALE' && userAge >= 21 && userAge <= 65 && userIncome <= 250000;
+      if (scheme.id === 'scheme-1') return userIncome <= 50000;
+      if (scheme.id === 'scheme-2') return userIncome <= 800000 && occupation === 'STUDENT';
+      if (scheme.id === 'scheme-cmegp') return userAge >= 18 && userAge <= 45;
+      return true;
+    });
+
+    setEligibleSchemes(filtered.length > 0 ? filtered : fallbackSchemes);
     setChecking(false);
+    setHasChecked(true);
   };
 
   const toggleExpand = (id: string) => {
-    setExpandedScheme(expandedScheme === id ? null : id);
+    if (expandedScheme === id) {
+      setExpandedScheme(null);
+    } else {
+      setExpandedScheme(id);
+    }
   };
 
-  const { user } = useAuth();
-
-  // Filter schemes based on active category & search query
-  const filteredSchemes = comprehensiveSchemes.filter((scheme) => {
-    if (activeCategory === 'MY_SCHEMES') {
-      const uAge = (user as any)?.age || age || 25;
-      const uIncome = (user as any)?.annualIncome || income || 150000;
-      const uGender = (user as any)?.gender || gender || 'FEMALE';
-      const uOccupation = (user as any)?.occupation || occupation || 'STUDENT';
-
-      if (scheme.id === 'scheme-ladki-bahin') return uGender !== 'MALE' && uAge >= 21 && uAge <= 65 && uIncome <= 250000;
-      if (scheme.id === 'scheme-sanjay-gandhi') return uIncome <= 50000;
-      if (scheme.id === 'scheme-shahu-maharaj') return uIncome <= 800000 && uOccupation === 'STUDENT';
-      if (scheme.id === 'scheme-cmegp') return uAge >= 18 && uAge <= 45;
-      return true;
-    }
-
-    const matchesCategory = activeCategory === 'ALL' || scheme.category === activeCategory;
-    const q = searchQuery.toLowerCase();
-    const matchesSearch =
-      scheme.title.toLowerCase().includes(q) ||
-      scheme.description.toLowerCase().includes(q) ||
-      scheme.categoryLabel.toLowerCase().includes(q);
-    return matchesCategory && matchesSearch;
-  });
-
   return (
-    <div className="space-y-6 animate-fadeIn">
+    <div className="space-y-8">
       {/* Location-Aware Header Banner */}
-      <div className="bg-gradient-to-r from-teal-800 via-teal-700 to-slate-800 text-white p-6 md:p-8 rounded-3xl shadow-lg relative overflow-hidden">
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <div className="bg-gradient-to-r from-teal-800 via-teal-700 to-slate-800 text-white p-6 md:p-8 rounded-2xl shadow-lg relative overflow-hidden">
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/15 backdrop-blur-md rounded-full text-xs font-semibold text-teal-100 mb-2 border border-white/20">
-              <MapPin className="w-3.5 h-3.5" /> Aaple Sarkar Setu Portal for {ward || taluka}, {district} District
+              <MapPin className="w-3.5 h-3.5" /> Filtered for {ward || taluka}, {district} District
             </div>
             <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">
-              Maharashtra Government Welfare & Setu Kendra Portal
+              Government Schemes & Citizen Services
             </h1>
-            <p className="text-teal-100 text-xs md:text-sm mt-1 max-w-2xl leading-relaxed">
-              Explore state welfare schemes, verify certificate requirements, check eligibility, and apply directly via official Aaple Sarkar & MahaDBT Setu portals for <strong className="text-white font-bold">{district}</strong>.
+            <p className="text-teal-100 text-sm mt-1 max-w-2xl leading-relaxed">
+              Explore Maharashtra State & District schemes applicable to residents of <strong className="text-white font-bold">{district}</strong> (Taluka: {taluka}, Ward: {ward}).
             </p>
           </div>
-          <div className="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/20 text-xs space-y-1 shrink-0">
+          <div className="bg-white/10 backdrop-blur-md p-4 rounded-xl border border-white/20 text-xs space-y-1">
             <div className="font-bold flex items-center gap-1.5 text-white">
-              <Landmark className="w-4 h-4 text-teal-300" /> {district} Setu Seva Kendra
+              <Landmark className="w-4 h-4 text-teal-300" /> {district} Collectorate Seva Kendra
             </div>
             <div className="text-teal-100 text-[11px]">📍 Collector Office Campus, {district}</div>
-            <div className="text-teal-200 text-[11px] font-mono">📞 Toll-Free Helpline: 1800-120-8040</div>
+            <div className="text-teal-200 text-[11px] font-mono">📞 Helpline: 1800-120-8040</div>
           </div>
         </div>
       </div>
 
-      {/* Category Filter Chips & Search Bar */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-2 sm:pb-0">
-          <button
-            onClick={() => setActiveCategory('MY_SCHEMES')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap flex items-center gap-1 ${
-              activeCategory === 'MY_SCHEMES'
-                ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-300'
-                : 'bg-amber-100 text-amber-900 hover:bg-amber-200'
-            }`}
-          >
-            ⭐ My Applicable Schemes
-          </button>
-          <button
-            onClick={() => setActiveCategory('ALL')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-              activeCategory === 'ALL'
-                ? 'bg-teal-700 text-white shadow-xs'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            🌐 All Schemes ({comprehensiveSchemes.length})
-          </button>
-          <button
-            onClick={() => setActiveCategory('WOMEN')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-              activeCategory === 'WOMEN'
-                ? 'bg-teal-700 text-white shadow-xs'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            👧 Women & Child
-          </button>
-          <button
-            onClick={() => setActiveCategory('FARMER')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-              activeCategory === 'FARMER'
-                ? 'bg-teal-700 text-white shadow-xs'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            🌾 Farmers
-          </button>
-          <button
-            onClick={() => setActiveCategory('EDUCATION')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-              activeCategory === 'EDUCATION'
-                ? 'bg-teal-700 text-white shadow-xs'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            🎓 Education & Students
-          </button>
-          <button
-            onClick={() => setActiveCategory('PENSION')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-              activeCategory === 'PENSION'
-                ? 'bg-teal-700 text-white shadow-xs'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            👵 Pensions & Social Care
-          </button>
-          <button
-            onClick={() => setActiveCategory('EMPLOYMENT')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-              activeCategory === 'EMPLOYMENT'
-                ? 'bg-teal-700 text-white shadow-xs'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            💼 Business & CMEGP Loans
-          </button>
-        </div>
-
-        <div className="relative w-full sm:w-72">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search scheme, benefit, or keyword..."
-            className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-xs font-semibold outline-none focus:ring-2 focus:ring-teal-600/30 focus:bg-white"
-          />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Side: Demographic Eligibility Filter Form */}
-        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm h-fit space-y-4">
-          <h3 className="font-extrabold text-slate-800 text-base flex items-center gap-2">
-            <Info className="w-5 h-5 text-teal-700" /> AI Scheme Advisor
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Left Side: Eligibility Criteria Form */}
+        <div className="bg-white p-6 rounded-md3 border border-slate-border shadow-sm h-fit">
+          <h3 className="font-bold text-slate-800 text-lg mb-4 flex items-center gap-1.5">
+            <Info className="w-5 h-5 text-primary" />
+            Demographics Form
           </h3>
-          <p className="text-slate-500 text-xs leading-relaxed">
-            Enter your details to get an instant personalized Gemini AI analysis of eligible Maharashtra government schemes.
-          </p>
 
-          <form onSubmit={handleCheckEligibility} className="space-y-3 text-xs">
-            <div>
-              <label className="block font-bold text-slate-700 mb-1">Your Age (Years)</label>
+          <form onSubmit={handleCheckEligibility} className="space-y-4">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-600">Your Age (Years)</label>
               <input
                 type="number"
                 value={age}
                 onChange={(e) => setAge(e.target.value === '' ? '' : parseInt(e.target.value))}
-                placeholder="e.g. 28"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none font-semibold focus:bg-white focus:ring-2 focus:ring-teal-600/30"
+                className="w-full px-4 py-2 rounded-md3 border border-slate-border outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 required
               />
             </div>
 
-            <div>
-              <label className="block font-bold text-slate-700 mb-1">Annual Family Income (₹)</label>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-600">Annual Family Income (₹)</label>
               <input
                 type="number"
                 value={income}
                 onChange={(e) => setIncome(e.target.value === '' ? '' : parseInt(e.target.value))}
-                placeholder="e.g. 150000"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none font-semibold focus:bg-white focus:ring-2 focus:ring-teal-600/30"
+                className="w-full px-4 py-2 rounded-md3 border border-slate-border outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 required
               />
             </div>
 
-            <div>
-              <label className="block font-bold text-slate-700 mb-1">Primary Profession</label>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-600">Primary Profession</label>
               <select
                 value={occupation}
                 onChange={(e) => setOccupation(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 font-semibold outline-none"
+                className="w-full px-4 py-2 rounded-md3 border border-slate-border bg-white outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
               >
-                <option value="ALL">All Professions</option>
-                <option value="FARMER">Farmer / Agriculturalist</option>
                 <option value="STUDENT">Student</option>
-                <option value="WOMEN_HOMEMAKER">Women / Homemaker</option>
-                <option value="UNEMPLOYED">Unemployed Youth</option>
+                <option value="FARMER">Farmer / Agriculturalist</option>
+                <option value="UNEMPLOYED">Unemployed</option>
                 <option value="SALARIED">Salaried Employee</option>
-                <option value="SELF_EMPLOYED">Business / Self Employed</option>
+                <option value="SELF_EMPLOYED">Self Employed / Business</option>
+                <option value="RETIRED">Retired / Pensioner</option>
               </select>
             </div>
 
-            <div>
-              <label className="block font-bold text-slate-700 mb-1">Gender</label>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-600">Gender</label>
               <select
                 value={gender}
                 onChange={(e) => setGender(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 font-semibold outline-none"
+                className="w-full px-4 py-2 rounded-md3 border border-slate-border bg-white outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
               >
                 <option value="ALL">All Genders</option>
-                <option value="FEMALE">Female</option>
                 <option value="MALE">Male</option>
+                <option value="FEMALE">Female</option>
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-600">Residency Status</label>
+              <select
+                value={residency}
+                onChange={(e) => setResidency(e.target.value)}
+                className="w-full px-4 py-2 rounded-md3 border border-slate-border bg-white outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              >
+                <option value="MAHARASHTRA">Maharashtra Domicile</option>
+                <option value="OTHER">Other State Residency</option>
               </select>
             </div>
 
             <button
               type="submit"
               disabled={checking}
-              className="w-full bg-teal-700 hover:bg-teal-800 text-white font-bold py-3 rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5"
+              className="w-full bg-primary hover:bg-primary-hover text-white py-3 rounded-md3 font-semibold shadow-sm transition-all disabled:opacity-50"
             >
-              {checking ? (
-                'Checking Advisor...'
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4 text-teal-300" /> Analyze Profile with Gemini AI
-                </>
-              )}
+              {checking ? 'Checking Schemes...' : 'Search Matching Schemes'}
             </button>
           </form>
-
-          {/* Gemini AI Result Box */}
-          {aiAdvisorResult && (
-            <div className="mt-4 p-4 bg-teal-50 rounded-2xl border border-teal-200 text-xs text-slate-700 leading-relaxed whitespace-pre-line animate-fadeIn">
-              <div className="font-extrabold text-teal-900 mb-1 flex items-center gap-1.5">
-                <Bot className="w-4 h-4 text-teal-700" /> Gemini AI Welfare Recommendation
-              </div>
-              {aiAdvisorResult}
-            </div>
-          )}
-
-          {aiLoading && (
-            <div className="p-3 bg-teal-50 rounded-xl border border-teal-200 text-center text-[11px] text-teal-800 font-semibold flex items-center justify-center gap-2">
-              <div className="w-3.5 h-3.5 border-2 border-teal-700 border-t-transparent rounded-full animate-spin"></div>
-              Analyzing eligibility rules...
-            </div>
-          )}
         </div>
 
-        {/* Right Side: Schemes Results List */}
+        {/* Right Side: Eligible Schemes Results list */}
         <div className="lg:col-span-2 space-y-4">
-          {activeCategory === 'MY_SCHEMES' && (
-            <div className="bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 p-4 rounded-2xl shadow-sm space-y-1.5 animate-fadeIn">
-              <div className="flex justify-between items-center">
-                <span className="font-extrabold text-xs flex items-center gap-1.5 uppercase tracking-wider">
-                  ⭐ Auto-Matched Citizen Welfare Profile
-                </span>
-                <Link
-                  to="/profile"
-                  className="px-3 py-1 bg-slate-950 text-white rounded-lg text-[10px] font-extrabold hover:bg-slate-800 transition-all"
-                >
-                  Edit Profile ⚙
-                </Link>
+          {!hasChecked ? (
+            <div className="bg-white p-12 text-center rounded-md3 border border-slate-border shadow-sm flex flex-col items-center justify-center space-y-4">
+              <Award className="w-16 h-16 text-slate-300" />
+              <div>
+                <p className="font-semibold text-slate-700 text-lg">No Search Initiated</p>
+                <p className="text-slate-400 text-sm mt-1 max-w-sm">
+                  Complete the demographic form on the left to verify your eligibility criteria against social schemes.
+                </p>
               </div>
-              <p className="text-xs font-semibold leading-relaxed">
-                Showing schemes matched to your profile: Age <strong>{(user as any)?.age || age || 25}</strong> • Income <strong>₹{((user as any)?.annualIncome || income || 150000).toLocaleString('en-IN')}</strong> • Gender <strong>{(user as any)?.gender || gender || 'FEMALE'}</strong> • District <strong>{user?.district || district || 'Pune'}</strong>.
-              </p>
+            </div>
+          ) : eligibleSchemes.length === 0 ? (
+            <div className="bg-white p-12 text-center rounded-md3 border border-slate-border shadow-sm flex flex-col items-center justify-center space-y-4">
+              <Award className="w-16 h-16 text-red-300" />
+              <div>
+                <p className="font-semibold text-slate-700 text-lg">No Matching Schemes Found</p>
+                <p className="text-slate-400 text-sm mt-1 max-w-sm">
+                  Try adjusting your details or income settings. Ensure your residency status matches the schemes requirement guidelines.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="bg-green-50 text-primary-dark p-4 rounded-md3 border border-green-200 text-sm font-semibold flex items-center gap-2">
+                <CheckCircle className="w-5 h-5 text-primary" />
+                Congratulations! We matched {eligibleSchemes.length} schemes matching your profile.
+              </div>
+
+              {eligibleSchemes.map((scheme) => (
+                <div key={scheme.id} className="bg-white rounded-md3 border border-slate-border shadow-sm overflow-hidden transition-all duration-200">
+                  <div
+                    onClick={() => toggleExpand(scheme.id)}
+                    className="p-5 flex justify-between items-center cursor-pointer hover:bg-slate-50"
+                  >
+                    <div>
+                      <span className="text-xs bg-primary-light text-primary px-2.5 py-0.5 rounded font-semibold uppercase">
+                        {scheme.category}
+                      </span>
+                      <h4 className="font-bold text-slate-800 text-lg mt-1">{scheme.title}</h4>
+                    </div>
+                    {expandedScheme === scheme.id ? <ChevronUp className="text-slate-400" /> : <ChevronDown className="text-slate-400" />}
+                  </div>
+
+                  {expandedScheme === scheme.id && (
+                    <div className="px-5 pb-5 pt-2 border-t border-slate-100 space-y-4 bg-slate-50/50">
+                      <p className="text-sm text-slate-600 leading-relaxed">{scheme.description}</p>
+                      
+                      <div className="space-y-2">
+                        <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                          <FileText className="w-3.5 h-3.5" /> Required Certificates
+                        </h5>
+                        <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-slate-700">
+                          {scheme.documentRequirements.map((doc, idx) => (
+                            <li key={idx} className="flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 bg-primary rounded-full"></span>
+                              {doc}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      {scheme.applicationUrl && (
+                        <div className="pt-2">
+                          <a
+                            href={scheme.applicationUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 bg-primary hover:bg-primary-hover text-white px-5 py-2.5 rounded-md3 font-semibold text-sm shadow-sm transition-all"
+                          >
+                            Apply via Aaple Sarkar <ExternalLink className="w-4 h-4" />
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           )}
-
-          <div className="bg-emerald-50 text-emerald-900 p-4 rounded-2xl border border-emerald-200 text-xs font-bold flex items-center justify-between">
-            <span className="flex items-center gap-2">
-              <CheckCircle className="w-4 h-4 text-emerald-600" />
-              Showing {filteredSchemes.length} verified Maharashtra & Central welfare schemes
-            </span>
-            <a
-              href="https://aaplesarkar.maharashtra.gov.in"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-teal-700 hover:underline flex items-center gap-1 text-[11px]"
-            >
-              Aaple Sarkar Portal <ExternalLink className="w-3.5 h-3.5" />
-            </a>
-          </div>
-
-          {filteredSchemes.map((scheme) => (
-            <div
-              key={scheme.id}
-              className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden transition-all duration-200 hover:border-slate-300"
-            >
-              <div
-                onClick={() => toggleExpand(scheme.id)}
-                className="p-5 flex justify-between items-center cursor-pointer hover:bg-slate-50 transition-colors"
-              >
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-[10px] bg-teal-100 text-teal-800 px-2.5 py-0.5 rounded-full font-extrabold uppercase">
-                      {scheme.categoryLabel}
-                    </span>
-                    <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full font-black">
-                      {scheme.benefitAmount}
-                    </span>
-                  </div>
-                  <h4 className="font-extrabold text-slate-800 text-base">{scheme.title}</h4>
-                </div>
-                {expandedScheme === scheme.id ? (
-                  <ChevronUp className="text-slate-400 shrink-0" />
-                ) : (
-                  <ChevronDown className="text-slate-400 shrink-0" />
-                )}
-              </div>
-
-              {expandedScheme === scheme.id && (
-                <div className="px-5 pb-5 pt-3 border-t border-slate-100 space-y-4 bg-slate-50/60 text-xs">
-                  <p className="text-slate-700 leading-relaxed font-medium">{scheme.description}</p>
-
-                  <div className="p-3 bg-white rounded-2xl border border-slate-200 space-y-1">
-                    <span className="font-bold text-slate-800">Eligibility Summary:</span>
-                    <p className="text-slate-600 text-[11px]">{scheme.eligibilitySummary}</p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <h5 className="font-bold text-slate-800 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
-                      <FileText className="w-3.5 h-3.5 text-teal-700" /> Mandatory Document Checklist
-                    </h5>
-                    <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-slate-700">
-                      {scheme.documentRequirements.map((doc, idx) => (
-                        <li key={idx} className="flex items-center gap-2 bg-white p-2 rounded-xl border border-slate-200">
-                          <span className="w-1.5 h-1.5 bg-teal-600 rounded-full shrink-0"></span>
-                          <span>{doc}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-200/60">
-                    <span className="text-[11px] text-slate-500 font-medium">
-                      Helpline: <strong className="text-slate-800 font-mono">{scheme.helpline}</strong>
-                    </span>
-                    <a
-                      href={scheme.applicationUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 bg-teal-700 hover:bg-teal-800 text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-xs transition-all"
-                    >
-                      Apply Online via Setu Portal <ExternalLink className="w-3.5 h-3.5" />
-                    </a>
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
         </div>
       </div>
     </div>
