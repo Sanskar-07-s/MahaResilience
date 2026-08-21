@@ -339,8 +339,16 @@ const EmergencyPage: React.FC = () => {
                 <span>{sosStatusInfo?.message || '🚨 SOS Event Broadcasted Live!'}</span>
               </div>
 
-              {/* Action Buttons */}
+              {/* Option 3 Direct Action Buttons */}
               <div className="flex flex-wrap items-center justify-center md:justify-end gap-2">
+                <a
+                  href={`sms:${verifiedContacts[0]?.phone || '+919209966816'}?body=${encodeURIComponent(
+                    `🚨 URGENT SOS EMERGENCY ALERT!\nCitizen: ${user?.name || 'Resident'}\nGPS Location: https://www.google.com/maps?q=${userLat},${userLng}\nAddress: ${ward || city}, ${district}`
+                  )}`}
+                  className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black shadow-xs flex items-center gap-1.5 transition-all"
+                >
+                  📱 Send Device SMS
+                </a>
                 <a
                   href={`https://wa.me/${(verifiedContacts[0]?.phone || '+919209966816').replace(/[^\d]/g, '')}?text=${encodeURIComponent(
                     `🚨 URGENT SOS EMERGENCY ALERT!\nCitizen: ${user?.name || 'Resident'}\nGPS Location: https://www.google.com/maps?q=${userLat},${userLng}\nAddress: ${ward || city}, ${district}`
