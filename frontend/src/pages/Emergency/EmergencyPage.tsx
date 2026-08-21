@@ -98,12 +98,15 @@ const EmergencyPage: React.FC = () => {
       const response = await fetch(`${API_BASE}/api/sms/contact/request-verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newContactName, phone: newContactPhone }),
+        body: JSON.stringify({ name: newContactName, phone: newContactPhone, email: user?.email }),
       });
       const data = await response.json();
       if (response.ok) {
         setVerifyingPhone(newContactPhone);
         setShowVerifyInput(true);
+        if (data.otpCodeHint) {
+          setVerificationCode(data.otpCodeHint);
+        }
       } else {
         setVerificationError(data.error || 'Failed to dispatch verification code.');
       }

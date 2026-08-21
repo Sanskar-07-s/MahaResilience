@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import crypto from 'crypto';
 
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
@@ -53,7 +54,11 @@ export const sendBrevoEmail = async ({
     const data = await response.json();
 
     if (!response.ok) {
-      console.error('[Brevo Email Error Response]:', data);
+      if (data.code === 'unauthorized' || (data.message || '').includes('unrecognised IP')) {
+        console.warn('[Brevo Security Notice]: IP restriction active on Brevo account. Please disable IP restrictions or authorize server IPs at: https://app.brevo.com/security/authorised_ips');
+      } else {
+        console.error('[Brevo Email Error Response]:', data);
+      }
       return false;
     }
 

@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import twilio from 'twilio';
 
 const accountSid = process.env.TWILIO_ACCOUNT_SID;
@@ -56,7 +57,11 @@ export const sendSMS = async (to: string, body: string) => {
     console.log(`[Twilio Service] SMS sent successfully to ${formattedTo}, SID: ${res.sid}`);
     return res;
   } catch (err: any) {
-    console.error(`[Twilio Service Error] Could not send SMS to ${formattedTo}:`, err.message || err);
+    if ((err.message || '').includes('verified recipient') || err.code === 21608) {
+      console.warn(`[Twilio Trial Warning] Number ${formattedTo} is unverified. To receive SMS on Twilio Trial accounts, add this number at: https://console.twilio.com/us1/develop/phone-numbers/manage/verified`);
+    } else {
+      console.error(`[Twilio Service Error] Could not send SMS to ${formattedTo}:`, err.message || err);
+    }
     return { sid: 'simulated-fallback-' + Date.now(), status: 'failed', error: err.message };
   }
 };
