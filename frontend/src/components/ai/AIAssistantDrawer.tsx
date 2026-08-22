@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  Bot, X, Send, MapPin, Sparkles, AlertTriangle, ShieldCheck,
-  RefreshCw, Mic, MicOff, Volume2, VolumeX, Copy, Check, Share2
+  Bot, X, Send, MapPin, Sparkles, Mic, MicOff, Volume2, VolumeX, Copy, Check
 } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext.tsx';
 import { useLocation } from '../../contexts/LocationContext.tsx';
+import { useDisasterAlerts } from '../../contexts/AlertContext.tsx';
 import { fetchAIAssistantResponse } from '../../services/aiService.ts';
 
 interface AIAssistantDrawerProps {
@@ -16,15 +17,23 @@ interface ChatMessage {
   sender: 'USER' | 'AI';
   text: string;
   timestamp: string;
+  isError?: boolean;
 }
 
 export const AIAssistantDrawer: React.FC<AIAssistantDrawerProps> = ({ isOpen, onClose }) => {
-  const { ward, city, district } = useLocation();
+  const { user } = useAuth();
+  const locationCtx = useLocation();
+  const { localAlerts } = useDisasterAlerts();
+
+  const district = locationCtx.district || user?.district || 'Pune';
+  const ward = locationCtx.ward || '';
+  const city = locationCtx.city || locationCtx.district || 'Pune';
+
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'm-1',
       sender: 'AI',
-      text: `Namaskar! I am your refined **MahaResilience AI Assistant** for **${ward || city || 'Maharashtra'}, ${district}**. \n\nAsk me anything about **Government Schemes**, **Emergency Rescue**, **Tourist Forts**, **Nearest Hospitals**, or **APMC Mandi Rates**!`,
+      text: `Namaskar ${user?.name ? `**${user.name}**` : ''}! I am your **Google Gemini AI Assistant** connected to Maharashtra's state data network for **${ward || city}, ${district}**.\n\nAsk me anything in English, Marathi, or Hindi about **Welfare Schemes (Ladki Bahin, DBT)**, **Emergency Rescue & Hospitals**, **Tourist Forts**, or **APMC Mandi Rates**!`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     },
   ]);
@@ -49,7 +58,7 @@ export const AIAssistantDrawer: React.FC<AIAssistantDrawerProps> = ({ isOpen, on
       const recognition = new SpeechClass();
       recognition.continuous = false;
       recognition.interimResults = false;
-      recognition.lang = 'en-IN'; // Supports Marathi/Hindi mixed queries
+      recognition.lang = 'en-IN';
 
       recognition.onresult = (event: any) => {
         const transcript = event.results[0][0].transcript;
@@ -59,13 +68,8 @@ export const AIAssistantDrawer: React.FC<AIAssistantDrawerProps> = ({ isOpen, on
         setIsListening(false);
       };
 
-      recognition.onerror = () => {
-        setIsListening(false);
-      };
-
-      recognition.onend = () => {
-        setIsListening(false);
-      };
+      recognition.onerror = () => setIsListening(false);
+      recognition.onend = () => setIsListening(false);
 
       recognitionRef.current = recognition;
     }
@@ -102,7 +106,6 @@ export const AIAssistantDrawer: React.FC<AIAssistantDrawerProps> = ({ isOpen, on
     }
 
     window.speechSynthesis.cancel();
-    // Clean markdown symbols for natural speech synthesis
     const cleanText = text.replace(/[*#_`\[\]()]/g, '');
     const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.rate = 1.0;
@@ -123,11 +126,11 @@ export const AIAssistantDrawer: React.FC<AIAssistantDrawerProps> = ({ isOpen, on
 
   const quickPrompts = [
     `🏰 Top historic forts & tourist places near ${district}?`,
-    `📜 Which government schemes am I eligible for?`,
-    '🏥 Nearest government hospitals & ICU beds?',
-    '🌊 Emergency flood & disaster guidelines',
-    '🌾 APMC Mandi rates & crop protection',
-    '💧 How to book a municipal water tanker?',
+    `📜 Mukhyamantri Majhi Ladki Bahin Yojana eligibility?`,
+    '🏥 24x7 emergency civil hospitals with ICU in my area?',
+    '🌾 Best pesticide & spray dosage for crop pest control?',
+    '🌊 Flood safety precautions and NDRF helpline numbers',
+    '💧 How to book a municipal drinking water tanker?',
   ];
 
   const handleSend = async (promptText?: string) => {
@@ -141,15 +144,50 @@ export const AIAssistantDrawer: React.FC<AIAssistantDrawerProps> = ({ isOpen, on
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
 
-    setMessages((prev) => [...prev, userMsg]);
+    const newHistory = [...messages, userMsg];
+    setMessages(newHistory);
     if (!promptText) setInput('');
     setLoading(true);
+
+    // Build complete User Situational JSON Context for Gemini
+    const userSituationalContext = {
+      user_profile: {
+        name: user?.name || 'Citizen',
+        email: user?.email || 'Not provided',
+        role: user?.role || 'CITIZEN',
+        admin_field: user?.adminField || 'NONE',
+        district: user?.district || district,
+        taluka: user?.taluka || 'Not specified',
+        village: user?.village || 'Not specified',
+        state: user?.state || 'Maharashtra',
+        language_preference: user?.language || 'en',
+        is_verified: user?.isEmailVerified || user?.isPhoneVerified || false,
+      },
+      live_location_telemetry: {
+        district: district,
+        city: city,
+        ward: ward,
+        coordinates: {
+          latitude: locationCtx.latitude || null,
+          longitude: locationCtx.longitude || null,
+        },
+        source: locationCtx.source || 'MANUAL',
+      },
+      active_local_alerts: (localAlerts || []).map((a: any) => ({
+        title: a.title,
+        severity: a.severity,
+        category: a.category,
+        district: a.district,
+        instructions: a.instructions,
+      })),
+      timestamp: new Date().toISOString(),
+    };
 
     try {
       const answer = await fetchAIAssistantResponse(
         textToSend,
-        district || 'Pune',
-        ward || city || 'Pune'
+        userSituationalContext,
+        messages
       );
 
       const aiMsg: ChatMessage = {
@@ -159,12 +197,14 @@ export const AIAssistantDrawer: React.FC<AIAssistantDrawerProps> = ({ isOpen, on
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
       setMessages((prev) => [...prev, aiMsg]);
-    } catch (err) {
+    } catch (err: any) {
+      const errMsg = err.message || 'Gemini AI call failed';
       const aiMsg: ChatMessage = {
         id: 'ai-' + Date.now(),
         sender: 'AI',
-        text: `### 🛡️ Grounded Emergency Helpline (${ward || city}, ${district})\n\n• **National Emergency Helpline**: Dial **112**\n• **Ambulance**: Dial **108**\n• **Municipal Water/Waste**: Dial **1916**\n• **Aaple Sarkar Portal**: [https://aaplesarkar.maharashtra.gov.in](https://aaplesarkar.maharashtra.gov.in)`,
+        text: `⚠️ **Gemini AI Notice**\n\n${errMsg}`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        isError: true,
       };
       setMessages((prev) => [...prev, aiMsg]);
     } finally {
@@ -173,112 +213,121 @@ export const AIAssistantDrawer: React.FC<AIAssistantDrawerProps> = ({ isOpen, on
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
+    <div className="fixed inset-0 z-50 flex justify-end font-sans">
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs animate-fadeIn"
         onClick={onClose}
-      ></div>
+      />
 
       {/* Slide-out Drawer */}
       <div className="relative w-full max-w-md h-full bg-white shadow-2xl flex flex-col z-10 border-l border-slate-200">
         {/* Header */}
-        <div className="p-4 bg-gradient-to-r from-teal-800 via-teal-900 to-slate-900 text-white flex items-center justify-between shadow-md">
+        <div className="p-4 bg-gradient-to-r from-teal-800 via-teal-900 to-slate-900 text-white flex items-center justify-between shadow-md shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-teal-600/40 border border-teal-400/30 flex items-center justify-center text-teal-300 shadow-inner">
               <Bot className="w-6 h-6 animate-pulse" />
             </div>
             <div>
               <h3 className="font-extrabold text-sm flex items-center gap-1.5">
-                MahaResilience AI Assistant <Sparkles className="w-4 h-4 text-yellow-300" />
+                MahaResilience Gemini AI <Sparkles className="w-4 h-4 text-yellow-300" />
               </h3>
               <div className="text-[10px] text-teal-200 flex items-center gap-1 font-medium mt-0.5">
-                <MapPin className="w-3 h-3 text-yellow-400" /> Location: {ward || city || 'Maharashtra'}, {district}
+                <MapPin className="w-3 h-3 text-yellow-400" /> {ward || city || 'Maharashtra'}, {district}
               </div>
             </div>
           </div>
+
           <button
             onClick={onClose}
-            className="p-1.5 rounded-full text-slate-300 hover:bg-white/10 hover:text-white transition-colors"
+            className="p-2 rounded-xl hover:bg-white/10 text-slate-300 hover:text-white transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Quick Topics Pills */}
-        <div className="p-3 bg-slate-50 border-b border-slate-200 flex gap-2 overflow-x-auto text-[11px] no-scrollbar">
-          {quickPrompts.map((q, idx) => (
-            <button
-              key={idx}
-              onClick={() => handleSend(q)}
-              className="px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-slate-700 font-bold hover:border-teal-600 hover:text-teal-800 hover:bg-teal-50/50 shrink-0 shadow-2xs transition-all"
-            >
-              {q}
-            </button>
-          ))}
-        </div>
-
-        {/* Chat Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/50 text-xs">
-          {messages.map((m) => (
-            <div
-              key={m.id}
-              className={`flex flex-col ${m.sender === 'USER' ? 'items-end' : 'items-start'}`}
-            >
+        {/* Chat Messages Body */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50">
+          {messages.map((m) => {
+            const isUser = m.sender === 'USER';
+            return (
               <div
-                className={`max-w-[90%] p-4 rounded-2xl shadow-xs whitespace-pre-wrap leading-relaxed ${
-                  m.sender === 'USER'
-                    ? 'bg-teal-700 text-white font-semibold rounded-tr-none'
-                    : 'bg-white text-slate-800 border border-slate-200 rounded-tl-none font-normal'
-                }`}
+                key={m.id}
+                className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} space-y-1`}
               >
-                {m.text}
+                <div
+                  className={`max-w-[85%] rounded-2xl px-4 py-3 text-xs shadow-xs leading-relaxed ${
+                    isUser
+                      ? 'bg-teal-700 text-white rounded-br-none'
+                      : m.isError
+                      ? 'bg-red-50 text-red-900 border border-red-200 rounded-bl-none'
+                      : 'bg-white text-slate-800 border border-slate-200/80 rounded-bl-none'
+                  }`}
+                >
+                  <div className="whitespace-pre-line prose-xs select-text font-sans">
+                    {m.text}
+                  </div>
+                </div>
 
-                {/* AI Card Action Tools: Read Aloud & Copy */}
-                {m.sender === 'AI' && (
-                  <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500">
-                    <span className="font-bold text-teal-700 flex items-center gap-1">
-                      <ShieldCheck className="w-3.5 h-3.5 text-teal-600" /> Grounded Advisor
-                    </span>
-                    <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 px-1 text-[10px] text-slate-400 font-mono">
+                  <span>{m.timestamp}</span>
+                  {!isUser && !m.isError && (
+                    <>
                       <button
                         onClick={() => speakText(m.id, m.text)}
-                        className={`p-1 rounded hover:bg-slate-100 transition-colors flex items-center gap-1 ${
-                          speakingMsgId === m.id ? 'text-teal-600 font-bold' : 'text-slate-500'
-                        }`}
-                        title="Read Aloud"
+                        className="hover:text-teal-600 transition-colors"
+                        title={speakingMsgId === m.id ? 'Stop reading' : 'Read aloud'}
                       >
-                        {speakingMsgId === m.id ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
-                        <span>{speakingMsgId === m.id ? 'Stop' : 'Listen'}</span>
+                        {speakingMsgId === m.id ? (
+                          <VolumeX className="w-3.5 h-3.5 text-teal-600" />
+                        ) : (
+                          <Volume2 className="w-3.5 h-3.5" />
+                        )}
                       </button>
                       <button
                         onClick={() => copyText(m.id, m.text)}
-                        className="p-1 rounded hover:bg-slate-100 transition-colors flex items-center gap-1 text-slate-500"
-                        title="Copy Response"
+                        className="hover:text-teal-600 transition-colors"
+                        title="Copy answer"
                       >
-                        {copiedMsgId === m.id ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
-                        <span>{copiedMsgId === m.id ? 'Copied' : 'Copy'}</span>
+                        {copiedMsgId === m.id ? (
+                          <Check className="w-3.5 h-3.5 text-emerald-600" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5" />
+                        )}
                       </button>
-                    </div>
-                  </div>
-                )}
+                    </>
+                  )}
+                </div>
               </div>
-              <span className="text-[9px] text-slate-400 mt-1 px-1">{m.timestamp}</span>
-            </div>
-          ))}
+            );
+          })}
 
           {loading && (
-            <div className="flex items-center gap-2 p-3 bg-white border border-slate-200 rounded-2xl max-w-[70%] text-slate-600">
-              <RefreshCw className="w-4 h-4 animate-spin text-teal-600" />
-              <span className="text-xs font-semibold">Consulting MahaResilience Advisor...</span>
+            <div className="flex items-center gap-2 text-xs text-slate-500 bg-white p-3 rounded-2xl border border-slate-200 w-fit">
+              <Sparkles className="w-4 h-4 text-amber-500 animate-spin" />
+              <span>Gemini AI is analyzing situational context & reasoning...</span>
             </div>
           )}
 
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input Bar */}
-        <div className="p-3 bg-white border-t border-slate-200">
+        {/* Quick Suggested Queries */}
+        <div className="p-2.5 bg-white border-t border-slate-100 flex gap-1.5 overflow-x-auto no-scrollbar shrink-0">
+          {quickPrompts.map((p, i) => (
+            <button
+              key={i}
+              onClick={() => handleSend(p)}
+              disabled={loading}
+              className="px-2.5 py-1 bg-slate-100 hover:bg-teal-50 hover:text-teal-800 text-slate-600 border border-slate-200 rounded-full text-[10px] font-semibold whitespace-nowrap shrink-0 transition-all"
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+
+        {/* Message Input Box */}
+        <div className="p-3 bg-white border-t border-slate-200 shrink-0">
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -289,26 +338,33 @@ export const AIAssistantDrawer: React.FC<AIAssistantDrawerProps> = ({ isOpen, on
             <button
               type="button"
               onClick={toggleMic}
-              className={`p-2.5 rounded-xl transition-all border ${
+              className={`p-2.5 rounded-xl transition-all ${
                 isListening
-                  ? 'bg-red-500 text-white border-red-600 animate-pulse'
-                  : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
+                  ? 'bg-red-500 text-white animate-pulse'
+                  : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
               }`}
-              title={isListening ? 'Listening...' : 'Voice Dictation'}
+              title={isListening ? 'Stop listening' : 'Voice Input (Marathi/Hindi/English)'}
             >
               {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
             </button>
+
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder={isListening ? 'Listening to your voice...' : 'Ask about schemes, hospitals, forts, or SOS...'}
-              className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 placeholder-slate-400 font-semibold focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:bg-white"
+              placeholder="Ask anything (forts, schemes, health, crops)..."
+              disabled={loading}
+              className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-teal-600"
             />
+
             <button
               type="submit"
               disabled={!input.trim() || loading}
-              className="bg-teal-700 hover:bg-teal-800 text-white p-2.5 rounded-xl shadow-xs hover-scale disabled:opacity-40"
+              className={`p-2.5 rounded-xl transition-all ${
+                input.trim() && !loading
+                  ? 'bg-teal-700 hover:bg-teal-600 text-white shadow-md'
+                  : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+              }`}
             >
               <Send className="w-4 h-4" />
             </button>
@@ -318,3 +374,5 @@ export const AIAssistantDrawer: React.FC<AIAssistantDrawerProps> = ({ isOpen, on
     </div>
   );
 };
+
+export default AIAssistantDrawer;

@@ -14,7 +14,8 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import { auth } from '../lib/firebase.ts';
+import { onSnapshot, doc, DocumentSnapshot } from 'firebase/firestore';
+import { auth, db } from '../lib/firebase.ts';
 import {
   getUserProfile,
   createOrUpdateUserProfile,
@@ -216,6 +217,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setUser(profile);
             setCachedUser(profile);
             createOrUpdateUserSession(firebaseUser.uid).catch(() => {});
+
+            // Setup real-time listener on user profile in Firestore
+            try {
+              const unsubDoc = onSnapshot(doc(db, 'users', firebaseUser.uid), (docSnap: DocumentSnapshot) => {
+                if (docSnap.exists()) {
+                  const liveData = { uid: docSnap.id, ...docSnap.data() } as UserProfile;
+                  setUser((prev) => {
+                    const merged = { ...(prev || {}), ...liveData } as UserProfile;
+                    setCachedUser(merged);
+                    return merged;
+                  });
+                }
+              });
+              // Cleanup on next auth cycle
+            } catch (_) {}
           } else {
             // Signed out
             setUser(null);
