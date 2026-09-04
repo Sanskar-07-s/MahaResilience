@@ -30,7 +30,12 @@ interface Hospital {
 export const HealthcareAdminPortal: React.FC = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'FACILITIES' | 'BED_TELEMETRY' | 'BLOOD_EMERGENCY' | 'CITIZEN_REQUESTS'>('FACILITIES');
-  const [hospitals, setHospitals] = useState<Hospital[]>([]);
+  const [hospitals, setHospitals] = useState<Hospital[]>([
+    { id: 'hosp_1', name: 'Sassoon General Hospital & Medical College', type: 'GOVT_HOSPITAL', district: 'Pune', taluka: 'Pune City', address: 'Station Road, Pune', contactNumber: '020-26128000', icuBedsTotal: 65, icuBedsAvailable: 14, oxygenBedsTotal: 250, oxygenBedsAvailable: 82, ventilatorsAvailable: 12, hasBloodBank: true, hasTraumaCenter: true, isVerified: true },
+    { id: 'hosp_2', name: 'Chhatrapati Pramila Raje (CPR) Civil Hospital', type: 'GOVT_HOSPITAL', district: 'Kolhapur', taluka: 'Karvir', address: 'Bhavani Mandap Road, Kolhapur', contactNumber: '0231-2641011', icuBedsTotal: 40, icuBedsAvailable: 7, oxygenBedsTotal: 180, oxygenBedsAvailable: 45, ventilatorsAvailable: 6, hasBloodBank: true, hasTraumaCenter: true, isVerified: true },
+    { id: 'hosp_3', name: 'District Civil Hospital Nashik', type: 'GOVT_HOSPITAL', district: 'Nashik', taluka: 'Nashik', address: 'Trimbak Road, Nashik', contactNumber: '0253-2573211', icuBedsTotal: 35, icuBedsAvailable: 4, oxygenBedsTotal: 140, oxygenBedsAvailable: 29, ventilatorsAvailable: 4, hasBloodBank: true, hasTraumaCenter: true, isVerified: true },
+    { id: 'hosp_4', name: 'Rural Primary Health Center (PHC)', type: 'PHC_RURAL', district: 'Satara', taluka: 'Patan', address: 'Koynanagar, Patan', contactNumber: '02162-230111', icuBedsTotal: 4, icuBedsAvailable: 2, oxygenBedsTotal: 20, oxygenBedsAvailable: 11, ventilatorsAvailable: 1, hasBloodBank: false, hasTraumaCenter: false, isVerified: true },
+  ]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState('ALL');
 
@@ -49,19 +54,18 @@ export const HealthcareAdminPortal: React.FC = () => {
   const [ventAvail, setVentAvail] = useState<number>(5);
 
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'hospitals'), (snap) => {
-      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Hospital));
-      if (list.length === 0) {
-        setHospitals([
-          { id: 'hosp_1', name: 'Sassoon General Hospital & Medical College', type: 'GOVT_HOSPITAL', district: 'Pune', taluka: 'Pune City', address: 'Station Road, Pune', contactNumber: '020-26128000', icuBedsTotal: 65, icuBedsAvailable: 14, oxygenBedsTotal: 250, oxygenBedsAvailable: 82, ventilatorsAvailable: 12, hasBloodBank: true, hasTraumaCenter: true, isVerified: true },
-          { id: 'hosp_2', name: 'Chhatrapati Pramila Raje (CPR) Civil Hospital', type: 'GOVT_HOSPITAL', district: 'Kolhapur', taluka: 'Karvir', address: 'Bhavani Mandap Road, Kolhapur', contactNumber: '0231-2641011', icuBedsTotal: 40, icuBedsAvailable: 7, oxygenBedsTotal: 180, oxygenBedsAvailable: 45, ventilatorsAvailable: 6, hasBloodBank: true, hasTraumaCenter: true, isVerified: true },
-          { id: 'hosp_3', name: 'District Civil Hospital Nashik', type: 'GOVT_HOSPITAL', district: 'Nashik', taluka: 'Nashik', address: 'Trimbak Road, Nashik', contactNumber: '0253-2573211', icuBedsTotal: 35, icuBedsAvailable: 4, oxygenBedsTotal: 140, oxygenBedsAvailable: 29, ventilatorsAvailable: 4, hasBloodBank: true, hasTraumaCenter: true, isVerified: true },
-          { id: 'hosp_4', name: 'Rural Primary Health Center (PHC)', type: 'PHC_RURAL', district: 'Satara', taluka: 'Patan', address: 'Koynanagar, Patan', contactNumber: '02162-230111', icuBedsTotal: 4, icuBedsAvailable: 2, oxygenBedsTotal: 20, oxygenBedsAvailable: 11, ventilatorsAvailable: 1, hasBloodBank: false, hasTraumaCenter: false, isVerified: true },
-        ]);
-      } else {
-        setHospitals(list);
+    const unsub = onSnapshot(
+      collection(db, 'hospitals'),
+      (snap) => {
+        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Hospital));
+        if (list.length > 0) {
+          setHospitals(list);
+        }
+      },
+      (err) => {
+        console.warn('hospitals onSnapshot error:', err.message);
       }
-    });
+    );
 
     return () => unsub();
   }, []);

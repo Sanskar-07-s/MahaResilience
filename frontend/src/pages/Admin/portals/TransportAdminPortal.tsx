@@ -38,14 +38,22 @@ interface TransitAlert {
 export const TransportAdminPortal: React.FC = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'EV_CHARGING' | 'TRANSIT_ALERTS' | 'FLEET_METRICS'>('EV_CHARGING');
-  const [evStations, setEvStations] = useState<EVStation[]>([]);
-  const [transitAlerts, setTransitAlerts] = useState<TransitAlert[]>([]);
+  const [evStations, setEvStations] = useState<EVStation[]>([
+    { id: 'ev_1', name: 'MSEDCL Fast Charging Hub - Expressway Plaza', operator: 'MSEDCL EV', district: 'Pune', locationAddress: 'Mumbai-Pune Expressway, Urse Toll', fastChargingKw: 120, connectors: ['CCS2', 'Type-2'], totalPorts: 6, availablePorts: 4, status: 'OPERATIONAL', tariffPerKwh: 15.0 },
+    { id: 'ev_2', name: 'Central Bus Stand EV Station', operator: 'MSRTC E-Shivneri', district: 'Kolhapur', locationAddress: 'CBS Bus Depot, Kolhapur', fastChargingKw: 60, connectors: ['CCS2'], totalPorts: 4, availablePorts: 2, status: 'OPERATIONAL', tariffPerKwh: 13.5 },
+    { id: 'ev_3', name: 'Nashik Highway Smart Grid Charger', operator: 'Tata Power EZ Charge', district: 'Nashik', locationAddress: 'Dwarka Circle, Nashik', fastChargingKw: 50, connectors: ['CCS2', 'CHAdeMO'], totalPorts: 2, availablePorts: 0, status: 'BUSY', tariffPerKwh: 16.0 },
+    { id: 'ev_4', name: 'Samruddhi Mahamarg Interchange EV Hub', operator: 'MahaMetro EV', district: 'Nagpur', locationAddress: 'Nagpur Bypass Corridor', fastChargingKw: 150, connectors: ['Dual CCS2'], totalPorts: 8, availablePorts: 8, status: 'OPERATIONAL', tariffPerKwh: 14.0 },
+  ]);
+  const [transitAlerts, setTransitAlerts] = useState<TransitAlert[]>([
+    { id: 'alt_1', routeTitle: 'Mumbai - Pune Expressway (Khandala Ghat)', routeType: 'HIGHWAY', district: 'Pune', severity: 'WARNING', description: 'Heavy fog and slow vehicle movement. Maintain safe distance.', delayMinutes: 20, rerouteDetails: 'Old Highway NH-48 as alternate route', isActive: true, timestamp: new Date().toISOString() },
+    { id: 'alt_2', routeTitle: 'MSRTC Shivshahi Bus Service: Pune to Ratnagiri', routeType: 'MSRTC_BUS', district: 'Ratnagiri', severity: 'INFO', description: 'Additional holiday shuttle departures added via Kumbharli Ghat.', delayMinutes: 0, rerouteDetails: 'Normal schedule operating', isActive: true, timestamp: new Date().toISOString() },
+  ]);
   const [searchQuery, setSearchQuery] = useState('');
 
   // New EV Station Form Modal
   const [showEvModal, setShowEvModal] = useState(false);
   const [stationName, setStationName] = useState('');
-  const [operator, setOperator] = useState('MSEDCL Green Mobility / Tata Power');
+  const [operator, setOperator] = useState('MSEDCL EV Infrastructure');
   const [district, setDistrict] = useState(user?.district || 'Pune');
   const [address, setAddress] = useState('');
   const [kwCapacity, setKwCapacity] = useState<number>(60);
@@ -62,31 +70,31 @@ export const TransportAdminPortal: React.FC = () => {
   const [reroutePath, setReroutePath] = useState('');
 
   useEffect(() => {
-    const unsubEv = onSnapshot(collection(db, 'evStations'), (snap) => {
-      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() } as EVStation));
-      if (list.length === 0) {
-        setEvStations([
-          { id: 'ev_1', name: 'MSEDCL Fast Charging Hub - Expressway Plaza', operator: 'MSEDCL EV', district: 'Pune', locationAddress: 'Mumbai-Pune Expressway, Urse Toll', fastChargingKw: 120, connectors: ['CCS2', 'Type-2'], totalPorts: 6, availablePorts: 4, status: 'OPERATIONAL', tariffPerKwh: 15.0 },
-          { id: 'ev_2', name: 'Central Bus Stand EV Station', operator: 'MSRTC E-Shivneri', district: 'Kolhapur', locationAddress: 'CBS Bus Depot, Kolhapur', fastChargingKw: 60, connectors: ['CCS2'], totalPorts: 4, availablePorts: 2, status: 'OPERATIONAL', tariffPerKwh: 13.5 },
-          { id: 'ev_3', name: 'Nashik Highway Smart Grid Charger', operator: 'Tata Power EZ Charge', district: 'Nashik', locationAddress: 'Dwarka Circle, Nashik', fastChargingKw: 50, connectors: ['CCS2', 'CHAdeMO'], totalPorts: 2, availablePorts: 0, status: 'BUSY', tariffPerKwh: 16.0 },
-          { id: 'ev_4', name: 'Samruddhi Mahamarg Interchange EV Hub', operator: 'MahaMetro EV', district: 'Nagpur', locationAddress: 'Nagpur Bypass Corridor', fastChargingKw: 150, connectors: ['Dual CCS2'], totalPorts: 8, availablePorts: 8, status: 'OPERATIONAL', tariffPerKwh: 14.0 },
-        ]);
-      } else {
-        setEvStations(list);
+    const unsubEv = onSnapshot(
+      collection(db, 'evStations'),
+      (snap) => {
+        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() } as EVStation));
+        if (list.length > 0) {
+          setEvStations(list);
+        }
+      },
+      (err) => {
+        console.warn('evStations onSnapshot error:', err.message);
       }
-    });
+    );
 
-    const unsubAlerts = onSnapshot(collection(db, 'transitAlerts'), (snap) => {
-      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() } as TransitAlert));
-      if (list.length === 0) {
-        setTransitAlerts([
-          { id: 'alt_1', routeTitle: 'Mumbai - Pune Expressway (Khandala Ghat)', routeType: 'HIGHWAY', district: 'Pune', severity: 'WARNING', description: 'Heavy fog and slow vehicle movement. Maintain safe distance.', delayMinutes: 20, rerouteDetails: 'Old Highway NH-48 as alternate route', isActive: true, timestamp: new Date().toISOString() },
-          { id: 'alt_2', routeTitle: 'MSRTC Shivshahi Bus Service: Pune to Ratnagiri', routeType: 'MSRTC_BUS', district: 'Ratnagiri', severity: 'INFO', description: 'Additional holiday shuttle departures added via Kumbharli Ghat.', delayMinutes: 0, rerouteDetails: 'Normal schedule operating', isActive: true, timestamp: new Date().toISOString() },
-        ]);
-      } else {
-        setTransitAlerts(list);
+    const unsubAlerts = onSnapshot(
+      collection(db, 'transitAlerts'),
+      (snap) => {
+        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() } as TransitAlert));
+        if (list.length > 0) {
+          setTransitAlerts(list);
+        }
+      },
+      (err) => {
+        console.warn('transitAlerts onSnapshot error:', err.message);
       }
-    });
+    );
 
     return () => {
       unsubEv();

@@ -38,8 +38,17 @@ interface APMCRate {
 export const AgricultureAdminPortal: React.FC = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'MANDI_RATES' | 'FARMER_REQUESTS' | 'PEST_ADVISORIES' | 'FACILITIES'>('MANDI_RATES');
-  const [requests, setRequests] = useState<FarmerRequest[]>([]);
-  const [mandiRates, setMandiRates] = useState<APMCRate[]>([]);
+  const [requests, setRequests] = useState<FarmerRequest[]>([
+    { id: 'fr_1', farmerName: 'Anandrao Patil', phone: '9822998877', district: 'Kolhapur', taluka: 'Karvir', crop: 'Sugarcane (Co 86032)', issueDescription: 'White Grub infestation noticed in root zone after heavy monsoon rains.', status: 'PENDING', createdAt: new Date().toISOString() },
+    { id: 'fr_2', farmerName: 'Balasaheb Shinde', phone: '9422001122', district: 'Nashik', taluka: 'Niphad', crop: 'Grapes (Thompson Seedless)', issueDescription: 'Downy mildew symptoms on young grape clusters.', status: 'RESOLVED', agronomistAdvice: 'Spray Metalaxyl 8% + Mancozeb 64% WP @ 2.5 g/L. Maintain canopy aeration.', createdAt: new Date().toISOString() },
+    { id: 'fr_3', farmerName: 'Vishnu Deshmukh', phone: '9766554433', district: 'Latur', taluka: 'Ausa', crop: 'Soybean (JS 335)', issueDescription: 'Girdle beetle and stem fly damage on 35-day crop.', status: 'PENDING', createdAt: new Date().toISOString() },
+  ]);
+  const [mandiRates, setMandiRates] = useState<APMCRate[]>([
+    { id: 'rt_1', mandi: 'Gultekdi APMC Market Yard', district: 'Pune', commodity: 'Onion (Red Nashik)', variety: 'Medium', minPrice: 1800, maxPrice: 2600, modalPrice: 2250, arrivalTons: 620, trend: 'UP', updatedAt: new Date().toISOString() },
+    { id: 'rt_2', mandi: 'Latur APMC Mandi', district: 'Latur', commodity: 'Soybean (Yellow)', variety: 'FAQ Quality', minPrice: 4350, maxPrice: 4850, modalPrice: 4650, arrivalTons: 1100, trend: 'STABLE', updatedAt: new Date().toISOString() },
+    { id: 'rt_3', mandi: 'Kolhapur Shahu Market Yard', district: 'Kolhapur', commodity: 'Jaggery (Gur Box)', variety: 'No. 1 Organic', minPrice: 3800, maxPrice: 4400, modalPrice: 4150, arrivalTons: 380, trend: 'UP', updatedAt: new Date().toISOString() },
+    { id: 'rt_4', mandi: 'Akola Cotton APMC', district: 'Akola', commodity: 'Cotton (Kapás)', variety: 'Medium Staple', minPrice: 6900, maxPrice: 7550, modalPrice: 7250, arrivalTons: 850, trend: 'DOWN', updatedAt: new Date().toISOString() },
+  ]);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Mandi Rate Modal
@@ -58,32 +67,31 @@ export const AgricultureAdminPortal: React.FC = () => {
   const [replyAdvice, setReplyAdvice] = useState('Spray Chlorantraniliprole 18.5% SC @ 0.4 ml/L water. Ensure proper soil moisture.');
 
   useEffect(() => {
-    const unsubReq = onSnapshot(collection(db, 'farmerRequests'), (snap) => {
-      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() } as FarmerRequest));
-      if (list.length === 0) {
-        setRequests([
-          { id: 'fr_1', farmerName: 'Anandrao Patil', phone: '9822998877', district: 'Kolhapur', taluka: 'Karvir', crop: 'Sugarcane (Co 86032)', issueDescription: 'White Grub infestation noticed in root zone after heavy monsoon rains.', status: 'PENDING', createdAt: new Date().toISOString() },
-          { id: 'fr_2', farmerName: 'Balasaheb Shinde', phone: '9422001122', district: 'Nashik', taluka: 'Niphad', crop: 'Grapes (Thompson Seedless)', issueDescription: 'Downy mildew symptoms on young grape clusters.', status: 'RESOLVED', agronomistAdvice: 'Spray Metalaxyl 8% + Mancozeb 64% WP @ 2.5 g/L. Maintain canopy aeration.', createdAt: new Date().toISOString() },
-          { id: 'fr_3', farmerName: 'Vishnu Deshmukh', phone: '9766554433', district: 'Latur', taluka: 'Ausa', crop: 'Soybean (JS 335)', issueDescription: 'Girdle beetle and stem fly damage on 35-day crop.', status: 'PENDING', createdAt: new Date().toISOString() },
-        ]);
-      } else {
-        setRequests(list);
+    const unsubReq = onSnapshot(
+      collection(db, 'farmerRequests'),
+      (snap) => {
+        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() } as FarmerRequest));
+        if (list.length > 0) {
+          setRequests(list);
+        }
+      },
+      (err) => {
+        console.warn('farmerRequests onSnapshot error:', err.message);
       }
-    });
+    );
 
-    const unsubRates = onSnapshot(collection(db, 'apmcRates'), (snap) => {
-      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() } as APMCRate));
-      if (list.length === 0) {
-        setMandiRates([
-          { id: 'rt_1', mandi: 'Gultekdi APMC Market Yard', district: 'Pune', commodity: 'Onion (Red Nashik)', variety: 'Medium', minPrice: 1800, maxPrice: 2600, modalPrice: 2250, arrivalTons: 620, trend: 'UP', updatedAt: new Date().toISOString() },
-          { id: 'rt_2', mandi: 'Latur APMC Mandi', district: 'Latur', commodity: 'Soybean (Yellow)', variety: 'FAQ Quality', minPrice: 4350, maxPrice: 4850, modalPrice: 4650, arrivalTons: 1100, trend: 'STABLE', updatedAt: new Date().toISOString() },
-          { id: 'rt_3', mandi: 'Kolhapur Shahu Market Yard', district: 'Kolhapur', commodity: 'Jaggery (Gur Box)', variety: 'No. 1 Organic', minPrice: 3800, maxPrice: 4400, modalPrice: 4150, arrivalTons: 380, trend: 'UP', updatedAt: new Date().toISOString() },
-          { id: 'rt_4', mandi: 'Akola Cotton APMC', district: 'Akola', commodity: 'Cotton (Kapás)', variety: 'Medium Staple', minPrice: 6900, maxPrice: 7550, modalPrice: 7250, arrivalTons: 850, trend: 'DOWN', updatedAt: new Date().toISOString() },
-        ]);
-      } else {
-        setMandiRates(list);
+    const unsubRates = onSnapshot(
+      collection(db, 'apmcRates'),
+      (snap) => {
+        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() } as APMCRate));
+        if (list.length > 0) {
+          setMandiRates(list);
+        }
+      },
+      (err) => {
+        console.warn('apmcRates onSnapshot error:', err.message);
       }
-    });
+    );
 
     return () => {
       unsubReq();

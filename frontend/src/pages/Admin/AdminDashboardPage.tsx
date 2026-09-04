@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext.tsx';
 import { SUPER_ADMIN_UID_LOCAL, isSuperAdmin, canAccessAdmin } from '../../utils/permissions.ts';
 import { UserRole, AdminField } from '../../types/user.ts';
@@ -36,10 +37,31 @@ const ROLE_PORTAL_OPTIONS = [
   { role: 'COMMUNITY_MODERATOR', field: 'COMMUNITY', label: '💬 Community Moderator (Feed Posts & Safety)', color: 'from-rose-900 to-slate-900' },
 ];
 
+export const normalizeAdminField = (field?: string | null): string => {
+  if (!field) return '';
+  const f = field.toUpperCase().trim();
+  if (['GOVERNMENT', 'SCHEMES', 'WELFARE', 'DBT', 'GOV'].includes(f)) return 'GOVERNMENT';
+  if (['WASTE', 'SANITATION', 'SWM', 'CLEANLINESS'].includes(f)) return 'WASTE';
+  if (['AGRICULTURE', 'AGRI', 'APMC', 'FARMER', 'MANDI'].includes(f)) return 'AGRICULTURE';
+  if (['ELECTRICITY', 'POWER', 'MSEDCL', 'GRID'].includes(f)) return 'ELECTRICITY';
+  if (['HEALTHCARE', 'HEALTH', 'HOSPITAL'].includes(f)) return 'HEALTHCARE';
+  if (['TRANSPORT', 'TRANSIT'].includes(f)) return 'TRANSPORT';
+  if (['EDUCATION', 'SCHOOL'].includes(f)) return 'EDUCATION';
+  if (['COMPLAINTS', 'GRIEVANCES'].includes(f)) return 'COMPLAINTS';
+  if (['TOURISM'].includes(f)) return 'TOURISM';
+  if (['EMERGENCY', 'DISASTER'].includes(f)) return 'EMERGENCY';
+  if (['SUPER', 'ADMIN'].includes(f)) return 'SUPER';
+  if (['DISTRICT'].includes(f)) return 'DISTRICT';
+  return f;
+};
+
 export const AdminDashboardPage: React.FC = () => {
   const { user, updateUser } = useAuth();
-  const searchParams = new URLSearchParams(window.location.search);
-  const paramField = searchParams.get('field')?.toUpperCase();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+
+  const rawParamField = searchParams.get('field');
+  const paramField = normalizeAdminField(rawParamField);
   const paramRole = searchParams.get('role')?.toUpperCase();
 
   const isUserSuperAdmin = isSuperAdmin(user) || user?.uid === SUPER_ADMIN_UID_LOCAL || user?.role === 'SUPER_ADMIN';
@@ -47,23 +69,24 @@ export const AdminDashboardPage: React.FC = () => {
 
   // Determine user's allocated admin field from database
   const userRoleStr = String(user?.role || '');
-  let userAllocatedField = user?.adminField;
+  let userAllocatedField = user?.adminField ? normalizeAdminField(user.adminField) : undefined;
   if (!userAllocatedField && userRoleStr.endsWith('_ADMIN') && userRoleStr !== 'SUPER_ADMIN' && userRoleStr !== 'DISTRICT_ADMIN') {
-    userAllocatedField = userRoleStr.replace('_ADMIN', '') as AdminField;
+    userAllocatedField = normalizeAdminField(userRoleStr.replace('_ADMIN', '')) as AdminField;
   } else if (!userAllocatedField && userRoleStr === 'DISTRICT_ADMIN') {
     userAllocatedField = 'DISTRICT' as any;
   }
 
   // Determine initial active panel based on role allocation
   const [activePanel, setActivePanel] = useState<string>(() => {
+    if (paramField) return paramField;
+    if (paramRole) {
+      if (paramRole === 'SUPER_ADMIN') return 'SUPER';
+      if (paramRole === 'DISTRICT_ADMIN') return 'DISTRICT';
+      if (paramRole.endsWith('_ADMIN')) return normalizeAdminField(paramRole.replace('_ADMIN', ''));
+      if (paramRole.endsWith('_MODERATOR')) return 'COMMUNITY';
+    }
+
     if (isUserSuperAdmin) {
-      if (paramField) return paramField;
-      if (paramRole) {
-        if (paramRole === 'SUPER_ADMIN') return 'SUPER';
-        if (paramRole === 'DISTRICT_ADMIN') return 'DISTRICT';
-        if (paramRole.endsWith('_ADMIN')) return paramRole.replace('_ADMIN', '');
-        if (paramRole.endsWith('_MODERATOR')) return 'COMMUNITY';
-      }
       return localStorage.getItem('mr_active_admin_panel') || 'SUPER';
     }
 
@@ -75,12 +98,24 @@ export const AdminDashboardPage: React.FC = () => {
     return paramField || 'GATEWAY';
   });
 
+  // Keep active panel synchronized whenever URL query changes
+  useEffect(() => {
+    const rawField = searchParams.get('field');
+    if (rawField) {
+      const normalized = normalizeAdminField(rawField);
+      if (normalized && normalized !== activePanel) {
+        setActivePanel(normalized);
+        localStorage.setItem('mr_active_admin_panel', normalized);
+      }
+    }
+  }, [searchParams, location.search]);
+
   // Ensure non-super admin stays on their allocated panel
   useEffect(() => {
-    if (!isUserSuperAdmin && userAllocatedField && activePanel !== userAllocatedField) {
+    if (!isUserSuperAdmin && userAllocatedField && activePanel !== userAllocatedField && !paramField) {
       setActivePanel(userAllocatedField);
     }
-  }, [isUserSuperAdmin, userAllocatedField, activePanel]);
+  }, [isUserSuperAdmin, userAllocatedField, activePanel, paramField]);
 
   const [savingRole, setSavingRole] = useState(false);
 
@@ -90,16 +125,17 @@ export const AdminDashboardPage: React.FC = () => {
       return;
     }
 
-    setActivePanel(targetField);
-    localStorage.setItem('mr_active_admin_panel', targetField);
-    window.history.replaceState(null, '', `?field=${targetField}`);
+    const normalized = normalizeAdminField(targetField);
+    setActivePanel(normalized);
+    setSearchParams({ field: normalized });
+    localStorage.setItem('mr_active_admin_panel', normalized);
 
     if (user && isUserSuperAdmin) {
       setSavingRole(true);
       try {
         await updateUser({
           role: targetRole as UserRole,
-          adminField: (targetField !== 'SUPER' && targetField !== 'DISTRICT' ? targetField : undefined) as AdminField,
+          adminField: (normalized !== 'SUPER' && normalized !== 'DISTRICT' ? normalized : undefined) as AdminField,
           isAdmin: true,
         });
       } catch (_) {}
@@ -149,27 +185,49 @@ export const AdminDashboardPage: React.FC = () => {
       case 'DISTRICT':
         return <DistrictAdminPortal />;
       case 'EDUCATION':
+      case 'SCHOOL':
         return <EducationAdminPortal />;
       case 'TRANSPORT':
+      case 'TRANSIT':
         return <TransportAdminPortal />;
       case 'GOVERNMENT':
+      case 'SCHEMES':
+      case 'WELFARE':
+      case 'DBT':
+      case 'GOV':
         return <GovernmentAdminPortal />;
       case 'HEALTHCARE':
+      case 'HEALTH':
+      case 'HOSPITAL':
         return <HealthcareAdminPortal />;
       case 'ELECTRICITY':
+      case 'POWER':
+      case 'MSEDCL':
+      case 'GRID':
         return <ElectricityAdminPortal />;
       case 'WATER':
         return <WaterAdminPortal />;
       case 'WASTE':
+      case 'SANITATION':
+      case 'SWM':
+      case 'CLEANLINESS':
         return <WasteAdminPortal />;
       case 'AGRICULTURE':
+      case 'AGRI':
+      case 'APMC':
+      case 'FARMER':
+      case 'MANDI':
         return <AgricultureAdminPortal />;
       case 'TOURISM':
         return <TourismAdminPortal />;
       case 'COMPLAINTS':
+      case 'GRIEVANCES':
         return <ComplaintsAdminPortal />;
       case 'COMMUNITY':
         return <CommunityModeratorPortal />;
+      case 'EMERGENCY':
+      case 'DISASTER':
+        return <EmergencyAdminPortal />;
       default:
         return (
           <div className="min-h-screen bg-slate-950 text-slate-100 p-6 font-sans">

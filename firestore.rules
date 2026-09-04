@@ -146,30 +146,93 @@ service cloud.firestore {
       allow update, delete: if isModuleAdmin('COMPLAINTS') || isAnyAdmin() || (isAuthenticated() && request.auth.uid == resource.data.userId);
     }
 
-    // 11. Module Service Requests (Water, Waste, Electricity, Agriculture)
+    // 11. Module Operational Collections & Registries
+    // Water
     match /waterRequests/{requestId} {
-      allow read, create: if isAuthenticated();
+      allow read, create: if true;
       allow update, delete: if isModuleAdmin('WATER') || isAnyAdmin();
     }
+    match /reservoirMetrics/{resId} {
+      allow read: if true;
+      allow create, update, delete: if isModuleAdmin('WATER') || isAnyAdmin();
+    }
 
+    // Waste & Sanitation
+    match /wasteRequests/{requestId} {
+      allow read, create: if true;
+      allow update, delete: if isModuleAdmin('WASTE') || isAnyAdmin();
+    }
     match /wastePickups/{requestId} {
-      allow read, create: if isAuthenticated();
+      allow read, create: if true;
       allow update, delete: if isModuleAdmin('WASTE') || isAnyAdmin();
     }
-
     match /wasteReports/{reportId} {
-      allow read, create: if isAuthenticated();
+      allow read, create: if true;
       allow update, delete: if isModuleAdmin('WASTE') || isAnyAdmin();
     }
+    match /wasteFleet/{vehicleId} {
+      allow read: if true;
+      allow create, update, delete: if isModuleAdmin('WASTE') || isAnyAdmin();
+    }
 
+    // Electricity & Power Grid
     match /electricityReports/{reportId} {
-      allow read, create: if isAuthenticated();
+      allow read, create: if true;
       allow update, delete: if isModuleAdmin('ELECTRICITY') || isAnyAdmin();
     }
+    match /electricitySubstations/{subId} {
+      allow read: if true;
+      allow create, update, delete: if isModuleAdmin('ELECTRICITY') || isAnyAdmin();
+    }
 
+    // Agriculture & Mandi
     match /farmerRequests/{requestId} {
-      allow read, create: if isAuthenticated();
+      allow read, create: if true;
       allow update, delete: if isModuleAdmin('AGRICULTURE') || isAnyAdmin();
+    }
+    match /apmcRates/{rateId} {
+      allow read: if true;
+      allow create, update, delete: if isModuleAdmin('AGRICULTURE') || isAnyAdmin();
+    }
+
+    // Government & Welfare Schemes
+    match /schemes/{schemeId} {
+      allow read: if true;
+      allow create, update, delete: if isModuleAdmin('GOVERNMENT') || isAnyAdmin();
+    }
+    match /schemeApplications/{appId} {
+      allow read, create: if true;
+      allow update, delete: if isModuleAdmin('GOVERNMENT') || isAnyAdmin();
+    }
+    match /schemeRequests/{requestId} {
+      allow read, create: if true;
+      allow update, delete: if isModuleAdmin('GOVERNMENT') || isAnyAdmin();
+    }
+
+    // Healthcare
+    match /hospitals/{hospitalId} {
+      allow read: if true;
+      allow create, update, delete: if isModuleAdmin('HEALTHCARE') || isAnyAdmin();
+    }
+
+    // Education
+    match /educationInstitutes/{instId} {
+      allow read: if true;
+      allow create, update, delete: if isModuleAdmin('EDUCATION') || isAnyAdmin();
+    }
+    match /educationNotices/{noticeId} {
+      allow read: if true;
+      allow create, update, delete: if isModuleAdmin('EDUCATION') || isAnyAdmin();
+    }
+
+    // Transport
+    match /evStations/{stationId} {
+      allow read: if true;
+      allow create, update, delete: if isModuleAdmin('TRANSPORT') || isAnyAdmin();
+    }
+    match /transitAlerts/{alertId} {
+      allow read: if true;
+      allow create, update, delete: if isModuleAdmin('TRANSPORT') || isAnyAdmin();
     }
 
     // 12. User Emergency SOS Events

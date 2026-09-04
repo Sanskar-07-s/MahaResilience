@@ -35,8 +35,16 @@ interface Substation {
 export const ElectricityAdminPortal: React.FC = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'OUTAGES' | 'SUBSTATIONS' | 'AGRI_POWER' | 'FACILITIES'>('OUTAGES');
-  const [outages, setOutages] = useState<OutageReport[]>([]);
-  const [substations, setSubstations] = useState<Substation[]>([]);
+  const [outages, setOutages] = useState<OutageReport[]>([
+    { id: 'out_1', feederName: '11kV Kothrud Express Feeder', substation: '132kV Kothrud Grid', district: 'Pune', wardOrTaluka: 'Kothrud Ward 12', cause: 'MAINTENANCE', affectedConsumers: 4200, status: 'CREW_DISPATCHED', restorationEta: '17:00 IST Today', reportedAt: new Date().toISOString() },
+    { id: 'out_2', feederName: '33kV Shirol Industrial Feeder', substation: 'Jaysingpur 220kV Substation', district: 'Kolhapur', wardOrTaluka: 'Shirol MIDC', cause: 'TRANSFORMER_BURST', affectedConsumers: 1850, status: 'ACTIVE', restorationEta: '19:30 IST Today', reportedAt: new Date().toISOString() },
+    { id: 'out_3', feederName: '11kV Sinnar Rural Agri Feeder', substation: 'Sinnar 66kV Substation', district: 'Nashik', wardOrTaluka: 'Sinnar Taluka', cause: 'STORM', affectedConsumers: 5100, status: 'RESOLVED', restorationEta: 'Restored at 14:15 IST', reportedAt: new Date().toISOString() },
+  ]);
+  const [substations, setSubstations] = useState<Substation[]>([
+    { id: 'sub_1', name: 'Pune West 400/220kV EHV Substation', district: 'Pune', voltageKv: '400/220 kV', capacityMva: 500, currentLoadMva: 380, agriPowerShift: 'DAY_SHIFT (06:00 - 14:00)', status: 'OPTIMAL' },
+    { id: 'sub_2', name: 'Kolhapur MIDC Gokul Shirgaon 220kV Substation', district: 'Kolhapur', voltageKv: '220/33 kV', capacityMva: 200, currentLoadMva: 165, agriPowerShift: 'NIGHT_SHIFT (22:00 - 06:00)', status: 'OPTIMAL' },
+    { id: 'sub_3', name: 'Nashik Satpur 132/33kV Substation', district: 'Nashik', voltageKv: '132/33 kV', capacityMva: 150, currentLoadMva: 142, agriPowerShift: 'DAY_SHIFT (06:00 - 14:00)', status: 'OVERLOADED' },
+  ]);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Outage Modal
@@ -50,31 +58,31 @@ export const ElectricityAdminPortal: React.FC = () => {
   const [eta, setEta] = useState('2 hours (18:30 IST)');
 
   useEffect(() => {
-    const unsubOutages = onSnapshot(collection(db, 'electricityReports'), (snap) => {
-      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() } as OutageReport));
-      if (list.length === 0) {
-        setOutages([
-          { id: 'out_1', feederName: '11kV Kothrud Express Feeder', substation: '132kV Kothrud Grid', district: 'Pune', wardOrTaluka: 'Kothrud Ward 12', cause: 'MAINTENANCE', affectedConsumers: 4200, status: 'CREW_DISPATCHED', restorationEta: '17:00 IST Today', reportedAt: new Date().toISOString() },
-          { id: 'out_2', feederName: '33kV Shirol Industrial Feeder', substation: 'Jaysingpur 220kV Substation', district: 'Kolhapur', wardOrTaluka: 'Shirol MIDC', cause: 'TRANSFORMER_BURST', affectedConsumers: 1850, status: 'ACTIVE', restorationEta: '19:30 IST Today', reportedAt: new Date().toISOString() },
-          { id: 'out_3', feederName: '11kV Sinnar Rural Agri Feeder', substation: 'Sinnar 66kV Substation', district: 'Nashik', wardOrTaluka: 'Sinnar Taluka', cause: 'STORM', affectedConsumers: 5100, status: 'RESOLVED', restorationEta: 'Restored at 14:15 IST', reportedAt: new Date().toISOString() },
-        ]);
-      } else {
-        setOutages(list);
+    const unsubOutages = onSnapshot(
+      collection(db, 'electricityReports'),
+      (snap) => {
+        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() } as OutageReport));
+        if (list.length > 0) {
+          setOutages(list);
+        }
+      },
+      (err) => {
+        console.warn('electricityReports onSnapshot error:', err.message);
       }
-    });
+    );
 
-    const unsubSubs = onSnapshot(collection(db, 'electricitySubstations'), (snap) => {
-      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Substation));
-      if (list.length === 0) {
-        setSubstations([
-          { id: 'sub_1', name: 'Pune West 400/220kV EHV Substation', district: 'Pune', voltageKv: '400/220 kV', capacityMva: 500, currentLoadMva: 380, agriPowerShift: 'DAY_SHIFT (06:00 - 14:00)', status: 'OPTIMAL' },
-          { id: 'sub_2', name: 'Kolhapur MIDC Gokul Shirgaon 220kV Substation', district: 'Kolhapur', voltageKv: '220/33 kV', capacityMva: 200, currentLoadMva: 165, agriPowerShift: 'NIGHT_SHIFT (22:00 - 06:00)', status: 'OPTIMAL' },
-          { id: 'sub_3', name: 'Nashik Satpur 132/33kV Substation', district: 'Nashik', voltageKv: '132/33 kV', capacityMva: 150, currentLoadMva: 142, agriPowerShift: 'DAY_SHIFT (06:00 - 14:00)', status: 'OVERLOADED' },
-        ]);
-      } else {
-        setSubstations(list);
+    const unsubSubs = onSnapshot(
+      collection(db, 'electricitySubstations'),
+      (snap) => {
+        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Substation));
+        if (list.length > 0) {
+          setSubstations(list);
+        }
+      },
+      (err) => {
+        console.warn('electricitySubstations onSnapshot error:', err.message);
       }
-    });
+    );
 
     return () => {
       unsubOutages();

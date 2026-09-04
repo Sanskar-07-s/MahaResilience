@@ -37,11 +37,20 @@ interface Notice {
 export const EducationAdminPortal: React.FC = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'INSTITUTIONS' | 'NOTICES' | 'INFRA_GRIEVANCES'>('INSTITUTIONS');
-  const [institutions, setInstitutions] = useState<Institution[]>([]);
-  const [notices, setNotices] = useState<Notice[]>([]);
+  const [institutions, setInstitutions] = useState<Institution[]>([
+    { id: 'inst_1', name: 'Government College of Engineering (COEP Tech)', category: 'COLLEGE', district: 'Pune', address: 'Shivajinagar, Pune', affiliation: 'Autonomous State University', intakeCapacity: 1200, contactEmail: 'principal@coep.ac.in', isVerified: true, status: 'ACTIVE' },
+    { id: 'inst_2', name: 'Zilla Parishad High School & Jr College', category: 'SCHOOL', district: 'Kolhapur', address: 'Bhavani Mandap Road, Kolhapur', affiliation: 'Maharashtra State Board', intakeCapacity: 650, contactEmail: 'zp.kolhapur@edu.mah.gov.in', isVerified: true, status: 'ACTIVE' },
+    { id: 'inst_3', name: 'Dr. Babasaheb Ambedkar Central Library', category: 'LIBRARY', district: 'Nagpur', address: 'Civil Lines, Nagpur', affiliation: 'State Directorate of Libraries', intakeCapacity: 350, contactEmail: 'lib.nagpur@gov.in', isVerified: true, status: 'ACTIVE' },
+    { id: 'inst_4', name: 'Government Industrial Training Institute (ITI)', category: 'TRAINING', district: 'Nashik', address: 'MIDC Satpur, Nashik', affiliation: 'DVET Maharashtra', intakeCapacity: 500, contactEmail: 'iti.nashik@dvet.gov.in', isVerified: false, status: 'PENDING' },
+  ]);
+  const [notices, setNotices] = useState<Notice[]>([
+    { id: 'not_1', title: 'MahaDBT Post-Matric Scholarship Scheme 2026-27 Registrations Open', category: 'SCHOLARSHIP', targetAudience: 'SC/ST/OBC/EBC College Students', deadline: '2026-10-15', linkUrl: 'https://mahadbt.maharashtra.gov.in', publishedAt: new Date().toISOString(), active: true },
+    { id: 'not_2', title: 'MHT-CET Centralized Admission Process (CAP) Round 1 Schedule', category: 'ADMISSION', targetAudience: 'Engineering & Pharmacy Aspirants', deadline: '2026-09-05', linkUrl: 'https://cetcell.mahacet.org', publishedAt: new Date().toISOString(), active: true },
+    { id: 'not_3', title: 'State Directorate RTE 25% Free Admission Quota Lottery Results', category: 'CIRCULAR', targetAudience: 'Primary School Applicants', deadline: '2026-08-30', linkUrl: 'https://student.maharashtra.gov.in', publishedAt: new Date().toISOString(), active: true },
+  ]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState('ALL');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   // New Institution Form Modal
   const [showInstModal, setShowInstModal] = useState(false);
@@ -53,6 +62,7 @@ export const EducationAdminPortal: React.FC = () => {
   const [instCapacity, setInstCapacity] = useState<number>(450);
   const [instEmail, setInstEmail] = useState('');
   const [instPhone, setInstPhone] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // New Notice Form Modal
   const [showNoticeModal, setShowNoticeModal] = useState(false);
@@ -63,34 +73,33 @@ export const EducationAdminPortal: React.FC = () => {
   const [noticeLink, setNoticeLink] = useState('https://scholarships.gov.in');
 
   useEffect(() => {
-    const unsubInst = onSnapshot(collection(db, 'educationInstitutes'), (snap) => {
-      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Institution));
-      // Fallback initial demo records if collection is empty
-      if (list.length === 0) {
-        setInstitutions([
-          { id: 'inst_1', name: 'Government College of Engineering (COEP Tech)', category: 'COLLEGE', district: 'Pune', address: 'Shivajinagar, Pune', affiliation: 'Autonomous State University', intakeCapacity: 1200, contactEmail: 'principal@coep.ac.in', isVerified: true, status: 'ACTIVE' },
-          { id: 'inst_2', name: 'Zilla Parishad High School & Jr College', category: 'SCHOOL', district: 'Kolhapur', address: 'Bhavani Mandap Road, Kolhapur', affiliation: 'Maharashtra State Board', intakeCapacity: 650, contactEmail: 'zp.kolhapur@edu.mah.gov.in', isVerified: true, status: 'ACTIVE' },
-          { id: 'inst_3', name: 'Dr. Babasaheb Ambedkar Central Library', category: 'LIBRARY', district: 'Nagpur', address: 'Civil Lines, Nagpur', affiliation: 'State Directorate of Libraries', intakeCapacity: 350, contactEmail: 'lib.nagpur@gov.in', isVerified: true, status: 'ACTIVE' },
-          { id: 'inst_4', name: 'Government Industrial Training Institute (ITI)', category: 'TRAINING', district: 'Nashik', address: 'MIDC Satpur, Nashik', affiliation: 'DVET Maharashtra', intakeCapacity: 500, contactEmail: 'iti.nashik@dvet.gov.in', isVerified: false, status: 'PENDING' },
-        ]);
-      } else {
-        setInstitutions(list);
+    const unsubInst = onSnapshot(
+      collection(db, 'educationInstitutes'),
+      (snap) => {
+        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Institution));
+        if (list.length > 0) {
+          setInstitutions(list);
+        }
+        setLoading(false);
+      },
+      (err) => {
+        console.warn('educationInstitutes onSnapshot error:', err.message);
+        setLoading(false);
       }
-      setLoading(false);
-    });
+    );
 
-    const unsubNotices = onSnapshot(collection(db, 'educationNotices'), (snap) => {
-      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Notice));
-      if (list.length === 0) {
-        setNotices([
-          { id: 'not_1', title: 'MahaDBT Post-Matric Scholarship Scheme 2026-27 Registrations Open', category: 'SCHOLARSHIP', targetAudience: 'SC/ST/OBC/EBC College Students', deadline: '2026-10-15', linkUrl: 'https://mahadbt.maharashtra.gov.in', publishedAt: new Date().toISOString(), active: true },
-          { id: 'not_2', title: 'MHT-CET Centralized Admission Process (CAP) Round 1 Schedule', category: 'ADMISSION', targetAudience: 'Engineering & Pharmacy Aspirants', deadline: '2026-09-05', linkUrl: 'https://cetcell.mahacet.org', publishedAt: new Date().toISOString(), active: true },
-          { id: 'not_3', title: 'State Directorate RTE 25% Free Admission Quota Lottery Results', category: 'CIRCULAR', targetAudience: 'Primary School Applicants', deadline: '2026-08-30', linkUrl: 'https://student.maharashtra.gov.in', publishedAt: new Date().toISOString(), active: true },
-        ]);
-      } else {
-        setNotices(list);
+    const unsubNotices = onSnapshot(
+      collection(db, 'educationNotices'),
+      (snap) => {
+        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Notice));
+        if (list.length > 0) {
+          setNotices(list);
+        }
+      },
+      (err) => {
+        console.warn('educationNotices onSnapshot error:', err.message);
       }
-    });
+    );
 
     return () => {
       unsubInst();

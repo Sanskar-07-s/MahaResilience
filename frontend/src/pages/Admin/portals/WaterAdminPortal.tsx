@@ -40,8 +40,17 @@ interface ReservoirData {
 export const WaterAdminPortal: React.FC = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'TANKERS' | 'RESERVOIRS' | 'LEAKAGES'>('TANKERS');
-  const [requests, setRequests] = useState<TankerRequest[]>([]);
-  const [reservoirs, setReservoirs] = useState<ReservoirData[]>([]);
+  const [requests, setRequests] = useState<TankerRequest[]>([
+    { id: 'wt_1', applicantName: 'Sanjay Deshmukh (Housing Society)', phone: '9822145670', district: 'Pune', wardOrVillage: 'Wagholi Ward 4', capacityLitres: 10000, assignedTankerNo: 'MH-12-QB-4491', driverPhone: '9422019921', status: 'DISPATCHED', priority: 'NORMAL', createdAt: new Date().toISOString() },
+    { id: 'wt_2', applicantName: 'Grampanchayat Shiroli', phone: '9970123411', district: 'Kolhapur', wardOrVillage: 'Shiroli MIDC Area', capacityLitres: 20000, status: 'PENDING', priority: 'EMERGENCY', createdAt: new Date().toISOString() },
+    { id: 'wt_3', applicantName: 'Panchavati Slum Rehabilitation Block', phone: '9890112233', district: 'Nashik', wardOrVillage: 'Panchavati Ward 14', capacityLitres: 10000, status: 'DELIVERED', priority: 'NORMAL', createdAt: new Date().toISOString() },
+  ]);
+  const [reservoirs, setReservoirs] = useState<ReservoirData[]>([
+    { id: 'res_1', name: 'Khadakwasla Dam', district: 'Pune', currentPercentage: 88.4, totalCapacityTmc: 1.97, currentStorageTmc: 1.74, inflowCusecs: 1200, outflowCusecs: 850, status: 'SAFE' },
+    { id: 'res_2', name: 'Koyna Dam (Shivsagar Lake)', district: 'Satara', currentPercentage: 92.1, totalCapacityTmc: 105.25, currentStorageTmc: 96.93, inflowCusecs: 4500, outflowCusecs: 2100, status: 'SAFE' },
+    { id: 'res_3', name: 'Jayakwadi Dam (Nath Sagar)', district: 'Chhatrapati Sambhajinagar', currentPercentage: 64.2, totalCapacityTmc: 102.73, currentStorageTmc: 65.95, inflowCusecs: 3100, outflowCusecs: 0, status: 'SAFE' },
+    { id: 'res_4', name: 'Radhanagari Dam', district: 'Kolhapur', currentPercentage: 96.8, totalCapacityTmc: 8.36, currentStorageTmc: 8.09, inflowCusecs: 1800, outflowCusecs: 1400, status: 'ALERT' },
+  ]);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Dispatch Modal
@@ -59,32 +68,31 @@ export const WaterAdminPortal: React.FC = () => {
   const [litres, setLitres] = useState<number>(10000);
 
   useEffect(() => {
-    const unsubReq = onSnapshot(collection(db, 'waterRequests'), (snap) => {
-      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() } as TankerRequest));
-      if (list.length === 0) {
-        setRequests([
-          { id: 'wt_1', applicantName: 'Sanjay Deshmukh (Housing Society)', phone: '9822145670', district: 'Pune', wardOrVillage: 'Wagholi Ward 4', capacityLitres: 10000, assignedTankerNo: 'MH-12-QB-4491', driverPhone: '9422019921', status: 'DISPATCHED', priority: 'NORMAL', createdAt: new Date().toISOString() },
-          { id: 'wt_2', applicantName: 'Grampanchayat Shiroli', phone: '9970123411', district: 'Kolhapur', wardOrVillage: 'Shiroli MIDC Area', capacityLitres: 20000, status: 'PENDING', priority: 'EMERGENCY', createdAt: new Date().toISOString() },
-          { id: 'wt_3', applicantName: 'Panchavati Slum Rehabilitation Block', phone: '9890112233', district: 'Nashik', wardOrVillage: 'Panchavati Ward 14', capacityLitres: 10000, status: 'DELIVERED', priority: 'NORMAL', createdAt: new Date().toISOString() },
-        ]);
-      } else {
-        setRequests(list);
+    const unsubReq = onSnapshot(
+      collection(db, 'waterRequests'),
+      (snap) => {
+        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() } as TankerRequest));
+        if (list.length > 0) {
+          setRequests(list);
+        }
+      },
+      (err) => {
+        console.warn('waterRequests onSnapshot error:', err.message);
       }
-    });
+    );
 
-    const unsubRes = onSnapshot(collection(db, 'reservoirMetrics'), (snap) => {
-      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() } as ReservoirData));
-      if (list.length === 0) {
-        setReservoirs([
-          { id: 'res_1', name: 'Khadakwasla Dam', district: 'Pune', currentPercentage: 88.4, totalCapacityTmc: 1.97, currentStorageTmc: 1.74, inflowCusecs: 1200, outflowCusecs: 850, status: 'SAFE' },
-          { id: 'res_2', name: 'Koyna Dam (Shivsagar Lake)', district: 'Satara', currentPercentage: 92.1, totalCapacityTmc: 105.25, currentStorageTmc: 96.93, inflowCusecs: 4500, outflowCusecs: 2100, status: 'SAFE' },
-          { id: 'res_3', name: 'Jayakwadi Dam (Nath Sagar)', district: 'Chhatrapati Sambhajinagar', currentPercentage: 64.2, totalCapacityTmc: 102.73, currentStorageTmc: 65.95, inflowCusecs: 3100, outflowCusecs: 0, status: 'SAFE' },
-          { id: 'res_4', name: 'Radhanagari Dam', district: 'Kolhapur', currentPercentage: 96.8, totalCapacityTmc: 8.36, currentStorageTmc: 8.09, inflowCusecs: 1800, outflowCusecs: 1400, status: 'ALERT' },
-        ]);
-      } else {
-        setReservoirs(list);
+    const unsubRes = onSnapshot(
+      collection(db, 'reservoirMetrics'),
+      (snap) => {
+        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() } as ReservoirData));
+        if (list.length > 0) {
+          setReservoirs(list);
+        }
+      },
+      (err) => {
+        console.warn('reservoirMetrics onSnapshot error:', err.message);
       }
-    });
+    );
 
     return () => {
       unsubReq();

@@ -34,8 +34,16 @@ interface FleetVehicle {
 export const WasteAdminPortal: React.FC = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'BLACKSPOTS' | 'FLEET' | 'RECYCLING' | 'FACILITIES'>('BLACKSPOTS');
-  const [reports, setReports] = useState<WasteReport[]>([]);
-  const [fleet, setFleet] = useState<FleetVehicle[]>([]);
+  const [reports, setReports] = useState<WasteReport[]>([
+    { id: 'wst_1', location: 'Behind Market Yard Gate No 3', district: 'Pune', ward: 'Gultekdi Ward 18', wasteType: 'MUNICIPAL_GARBAGE', reportedBy: 'Citizen Suresh Kadam', status: 'CLEANUP_DISPATCHED', assignedInspector: 'Inspector S. Joshi', createdAt: new Date().toISOString() },
+    { id: 'wst_2', location: 'Near Rankala Lake Promenade', district: 'Kolhapur', ward: 'Rankala Ward 2', wasteType: 'MUNICIPAL_GARBAGE', reportedBy: 'Tourist Forum', status: 'PENDING', assignedInspector: 'Inspector V. Shinde', createdAt: new Date().toISOString() },
+    { id: 'wst_3', location: 'MIDC Ambad Ring Road Corner', district: 'Nashik', ward: 'Ambad Ward 11', wasteType: 'CONSTRUCTION_DEBRIS', reportedBy: 'Industrial Association', status: 'CLEARED', assignedInspector: 'Inspector R. More', createdAt: new Date().toISOString() },
+  ]);
+  const [fleet, setFleet] = useState<FleetVehicle[]>([
+    { id: 'flt_1', vehicleNo: 'MH-12-CZ-1980', driverName: 'Santosh Gaikwad', district: 'Pune', ward: 'Kothrud', vehicleType: 'HYDRAULIC_COMPACTOR', wasteCategory: 'WET_WASTE', status: 'ON_ROUTE' },
+    { id: 'flt_2', vehicleNo: 'MH-09-EM-3341', driverName: 'Tanaji Patil', district: 'Kolhapur', ward: 'Shahupuri', vehicleType: 'TIPPER_TRUCK', wasteCategory: 'DRY_RECYCLABLE', status: 'AT_PROCESSING_PLANT' },
+    { id: 'flt_3', vehicleNo: 'MH-15-AB-5590', driverName: 'Ganesh Desale', district: 'Nashik', ward: 'Panchavati', vehicleType: 'E_RICKSHAW', wasteCategory: 'WET_WASTE', status: 'ON_ROUTE' },
+  ]);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Blackspot form modal
@@ -47,31 +55,31 @@ export const WasteAdminPortal: React.FC = () => {
   const [inspector, setInspector] = useState('Sanitation Inspector K. Pawar');
 
   useEffect(() => {
-    const unsubReports = onSnapshot(collection(db, 'wasteRequests'), (snap) => {
-      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() } as WasteReport));
-      if (list.length === 0) {
-        setReports([
-          { id: 'wst_1', location: 'Behind Market Yard Gate No 3', district: 'Pune', ward: 'Gultekdi Ward 18', wasteType: 'MUNICIPAL_GARBAGE', reportedBy: 'Citizen Suresh Kadam', status: 'CLEANUP_DISPATCHED', assignedInspector: 'Inspector S. Joshi', createdAt: new Date().toISOString() },
-          { id: 'wst_2', location: 'Near Rankala Lake Promenade', district: 'Kolhapur', ward: 'Rankala Ward 2', wasteType: 'MUNICIPAL_GARBAGE', reportedBy: 'Tourist Forum', status: 'PENDING', assignedInspector: 'Inspector V. Shinde', createdAt: new Date().toISOString() },
-          { id: 'wst_3', location: 'MIDC Ambad Ring Road Corner', district: 'Nashik', ward: 'Ambad Ward 11', wasteType: 'CONSTRUCTION_DEBRIS', reportedBy: 'Industrial Association', status: 'CLEARED', assignedInspector: 'Inspector R. More', createdAt: new Date().toISOString() },
-        ]);
-      } else {
-        setReports(list);
+    const unsubReports = onSnapshot(
+      collection(db, 'wasteRequests'),
+      (snap) => {
+        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() } as WasteReport));
+        if (list.length > 0) {
+          setReports(list);
+        }
+      },
+      (err) => {
+        console.warn('wasteRequests onSnapshot error:', err.message);
       }
-    });
+    );
 
-    const unsubFleet = onSnapshot(collection(db, 'wasteFleet'), (snap) => {
-      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() } as FleetVehicle));
-      if (list.length === 0) {
-        setFleet([
-          { id: 'flt_1', vehicleNo: 'MH-12-CZ-1980', driverName: 'Santosh Gaikwad', district: 'Pune', ward: 'Kothrud', vehicleType: 'HYDRAULIC_COMPACTOR', wasteCategory: 'WET_WASTE', status: 'ON_ROUTE' },
-          { id: 'flt_2', vehicleNo: 'MH-09-EM-3341', driverName: 'Tanaji Patil', district: 'Kolhapur', ward: 'Shahupuri', vehicleType: 'TIPPER_TRUCK', wasteCategory: 'DRY_RECYCLABLE', status: 'AT_PROCESSING_PLANT' },
-          { id: 'flt_3', vehicleNo: 'MH-15-AB-5590', driverName: 'Ganesh Desale', district: 'Nashik', ward: 'Panchavati', vehicleType: 'E_RICKSHAW', wasteCategory: 'WET_WASTE', status: 'ON_ROUTE' },
-        ]);
-      } else {
-        setFleet(list);
+    const unsubFleet = onSnapshot(
+      collection(db, 'wasteFleet'),
+      (snap) => {
+        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() } as FleetVehicle));
+        if (list.length > 0) {
+          setFleet(list);
+        }
+      },
+      (err) => {
+        console.warn('wasteFleet onSnapshot error:', err.message);
       }
-    });
+    );
 
     return () => {
       unsubReports();
