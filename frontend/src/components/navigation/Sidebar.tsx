@@ -71,6 +71,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {
         title: 'MASTER COMMAND CENTER',
         items: [
+          { label: '📊 Platform Dashboard', path: '/dashboard', icon: LayoutDashboard },
           { label: '👑 Master Control Hub', path: '/admin?field=SUPER', icon: ShieldCheck, admin: true },
           { label: 'Platform Map & GIS', path: '/map', icon: MapPin },
           { label: 'Disaster Alerts Studio', path: '/alerts', icon: Bell },
@@ -101,6 +102,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {
         title: 'DISTRICT OPERATIONS',
         items: [
+          { label: '📊 District Dashboard', path: '/dashboard', icon: LayoutDashboard },
           { label: '📍 District Admin Console', path: '/admin?field=DISTRICT', icon: ShieldCheck, admin: true },
           { label: 'District Resiliency Map', path: '/map', icon: MapPin },
           { label: 'Disaster Bulletins', path: '/alerts', icon: Bell },
@@ -155,6 +157,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {
         title: 'ASSIGNED OPERATIONAL CONSOLE',
         items: [
+          { label: '📊 Operations Dashboard', path: '/dashboard', icon: LayoutDashboard },
           { label: currentModule.label, path: `/admin?field=${targetField}`, icon: ShieldCheck, admin: true },
           { label: 'Module Public View', path: currentModule.path, icon: currentModule.icon },
         ],
@@ -260,8 +263,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Brand Header */}
       <div className="p-4 flex items-center justify-between border-b border-slate-800">
         <div
-          onClick={() => navigate('/')}
+          onClick={() => navigate('/dashboard')}
           className="flex items-center gap-3 cursor-pointer overflow-hidden"
+          title="Go to Platform Dashboard"
         >
           <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-teal-500 via-teal-600 to-sky-500 flex items-center justify-center text-white font-black text-lg shadow-md shrink-0">
             MR

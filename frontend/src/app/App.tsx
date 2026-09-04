@@ -110,9 +110,7 @@ const App: React.FC = () => {
                     <Route
                       path="/dashboard"
                       element={
-                        <ProtectedRoute>
-                          <MainLayout><DashboardPage /></MainLayout>
-                        </ProtectedRoute>
+                        <MainLayout><DashboardPage /></MainLayout>
                       }
                     />
                     <Route path="/emergency" element={<MainLayout><EmergencyPage /></MainLayout>} />

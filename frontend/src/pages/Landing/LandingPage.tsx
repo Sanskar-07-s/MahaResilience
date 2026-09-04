@@ -155,23 +155,13 @@ export const LandingPage: React.FC = () => {
       if (elem) {
         elem.scrollIntoView({ behavior: 'smooth' });
       }
-    } else if (path === '/alerts' || path === '/emergency' || path === '/dashboard') {
-      if (!user) {
-        navigate('/login');
-      } else {
-        navigate(path);
-      }
     } else {
       navigate(path);
     }
   };
 
   const handleAlertsClick = () => {
-    if (!user) {
-      navigate('/login');
-    } else {
-      navigate('/alerts');
-    }
+    navigate('/alerts');
   };
 
   return (
