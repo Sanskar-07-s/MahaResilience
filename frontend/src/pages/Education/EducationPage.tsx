@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { GraduationCap, MapPin, Search, BookOpen, Award, Navigation, Building } from 'lucide-react';
 import { useLocation, haversineDistance } from '../../contexts/LocationContext.tsx';
+import { CivicFacilityBoard } from '../../components/civic/CivicFacilityBoard.tsx';
 
 interface EduInstitute {
   id: string;
@@ -102,6 +103,13 @@ export const EducationPage: React.FC = () => {
           </div>
         ))}
       </div>
+
+      {/* Real-time Education & Student Study Facility Board */}
+      <CivicFacilityBoard
+        module="EDUCATION"
+        title="Public Education & Student Facility Services"
+        subtitle="Request quiet AC study room/library desks, rural school bus route extensions, digital smart classroom equipment, and scholarship helpdesk slots. Monitored by education officers and visible to students."
+      />
     </div>
   );
 };

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Bus, MapPin, Search, Navigation, Clock, Zap } from 'lucide-react';
 import { useLocation, haversineDistance } from '../../contexts/LocationContext.tsx';
+import { CivicFacilityBoard } from '../../components/civic/CivicFacilityBoard.tsx';
 
 const TransportPage: React.FC = () => {
   const { ward, city, district, latitude, longitude } = useLocation();
@@ -56,6 +57,13 @@ const TransportPage: React.FC = () => {
           </div>
         ))}
       </div>
+
+      {/* Real-time Transit, Fleet & Roadside Asset Board */}
+      <CivicFacilityBoard
+        module="TRANSPORT"
+        title="Transit, Fleet Support & EV Charging Asset Requests"
+        subtitle="Request roadside mobile fast-charging vans for stalled EVs, MSRTC emergency bus route extensions, and heavy road recovery cranes. Escalated directly to municipal transport and highway authorities."
+      />
     </div>
   );
 };

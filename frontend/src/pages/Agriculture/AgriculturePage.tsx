@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useLocation } from '../../contexts/LocationContext.tsx';
 import { queryAgriculturePesticideAI } from '../../services/aiService.ts';
+import { CivicFacilityBoard } from '../../components/civic/CivicFacilityBoard.tsx';
 
 interface CropRate {
   crop: string;
@@ -423,6 +424,13 @@ export const AgriculturePage: React.FC = () => {
           ))}
         </div>
       </div>
+
+      {/* Real-time Agriculture & APMC Mandi Field Facility Board */}
+      <CivicFacilityBoard
+        module="AGRICULTURE"
+        title="APMC Mandi & Agricultural Field Asset Requests"
+        subtitle="Request on-farm mobile soil testing labs, emergency APMC cold storage slots, pest inspection teams, and subsidized grain transport. Transparently logged for farmers and agriculture officers."
+      />
     </div>
   );
 };

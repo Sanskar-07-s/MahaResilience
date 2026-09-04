@@ -24,6 +24,7 @@ import { AddPlaceModal } from '../../components/tourism/AddPlaceModal.tsx';
 import { DirectionsModal } from '../../components/tourism/DirectionsModal.tsx';
 import { db } from '../../lib/firebase.ts';
 import { collection, onSnapshot } from 'firebase/firestore';
+import { CivicFacilityBoard } from '../../components/civic/CivicFacilityBoard.tsx';
 
 const createCategoryIcon = (category: string) => {
   let emoji = '📍';
@@ -381,6 +382,13 @@ export const TourismPage: React.FC = () => {
           </div>
         ))}
       </div>
+
+      {/* Real-time Tourism, Heritage & Pilgrim Amenities Board */}
+      <CivicFacilityBoard
+        module="TOURISM"
+        title="Tourism, Heritage & Pilgrim Amenity Requests"
+        subtitle="Request certified fort & monument guides, pilgrim special drinking water / mobile rest facilities, and tourist assistance information kiosks. Monitored in real-time by MTDC and municipal authorities."
+      />
 
       {/* Floating Add Place Button for Mobile */}
       <button

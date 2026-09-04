@@ -20,6 +20,8 @@ export const getAllUsersController = async (req: AuthenticatedRequest, res: Resp
         name: true,
         phone: true,
         role: true,
+        adminField: true,
+        district: true,
         isVerified: true,
         createdAt: true,
       },
@@ -33,12 +35,12 @@ export const getAllUsersController = async (req: AuthenticatedRequest, res: Resp
 };
 
 /**
- * Update user role (CITIZEN, VOLUNTEER, OFFICIAL, ADMIN)
+ * Update user role and optional adminField / district in database
  */
 export const updateUserRoleController = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const { userId } = req.params;
-    const { role } = req.body;
+    const { role, adminField, district } = req.body;
 
     if (!role || !Object.values(Role).includes(role as Role)) {
       return res.status(400).json({ error: 'Valid role string is required.' });
@@ -46,10 +48,15 @@ export const updateUserRoleController = async (req: AuthenticatedRequest, res: R
 
     const updatedUser = await prisma.user.update({
       where: { id: userId },
-      data: { role: role as Role, isVerified: true },
+      data: {
+        role: role as Role,
+        adminField: adminField || null,
+        district: district || null,
+        isVerified: true,
+      },
     });
 
-    await logAuditAction(req.user?.id || 'admin', 'UPDATE_ROLE', userId, `Assigned role ${role}`);
+    await logAuditAction(req.user?.id || 'admin', 'UPDATE_ROLE', userId, `Assigned role ${role} (Field: ${adminField || 'NONE'}, District: ${district || 'ALL'})`);
 
     return res.status(200).json({ success: true, user: updatedUser });
   } catch (error) {

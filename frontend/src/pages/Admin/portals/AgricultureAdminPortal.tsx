@@ -6,6 +6,7 @@ import {
 import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, addDoc } from 'firebase/firestore';
 import { db } from '../../../lib/firebase.ts';
 import { useAuth } from '../../../contexts/AuthContext.tsx';
+import { CivicFacilityBoard } from '../../../components/civic/CivicFacilityBoard.tsx';
 
 interface FarmerRequest {
   id: string;
@@ -36,7 +37,7 @@ interface APMCRate {
 
 export const AgricultureAdminPortal: React.FC = () => {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'MANDI_RATES' | 'FARMER_REQUESTS' | 'PEST_ADVISORIES'>('MANDI_RATES');
+  const [activeTab, setActiveTab] = useState<'MANDI_RATES' | 'FARMER_REQUESTS' | 'PEST_ADVISORIES' | 'FACILITIES'>('MANDI_RATES');
   const [requests, setRequests] = useState<FarmerRequest[]>([]);
   const [mandiRates, setMandiRates] = useState<APMCRate[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -230,6 +231,7 @@ export const AgricultureAdminPortal: React.FC = () => {
         <div className="flex gap-2 border-b border-slate-800 pb-2 text-xs">
           {[
             { id: 'MANDI_RATES', label: 'Daily APMC Mandi Rates', icon: TrendingUp },
+            { id: 'FACILITIES', label: '🌱 Mandi & Field Asset Requests', icon: Shield },
             { id: 'FARMER_REQUESTS', label: 'Agronomist Advisory Desk', icon: Sprout },
             { id: 'PEST_ADVISORIES', label: 'CIBRC Pest & Disease Protocols', icon: BookOpen },
           ].map((tab) => {
@@ -251,6 +253,15 @@ export const AgricultureAdminPortal: React.FC = () => {
             );
           })}
         </div>
+
+        {/* TAB: FACILITY REQUESTS */}
+        {activeTab === 'FACILITIES' && (
+          <CivicFacilityBoard
+            module="AGRICULTURE"
+            title="APMC Mandi & Agricultural Field Facility Requests"
+            subtitle="Review farmer requests for mobile soil testing vans, cold storage reservation slots, pest outbreak inspection squads, and APMC grain transport."
+          />
+        )}
 
         {/* TAB 1: MANDI RATES */}
         {activeTab === 'MANDI_RATES' && (

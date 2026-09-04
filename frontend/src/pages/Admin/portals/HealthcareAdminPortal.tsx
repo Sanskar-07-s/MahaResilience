@@ -6,6 +6,7 @@ import {
 import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, addDoc } from 'firebase/firestore';
 import { db } from '../../../lib/firebase.ts';
 import { useAuth } from '../../../contexts/AuthContext.tsx';
+import { CivicFacilityBoard } from '../../../components/civic/CivicFacilityBoard.tsx';
 
 interface Hospital {
   id: string;
@@ -28,7 +29,7 @@ interface Hospital {
 
 export const HealthcareAdminPortal: React.FC = () => {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'FACILITIES' | 'BED_TELEMETRY' | 'BLOOD_EMERGENCY'>('FACILITIES');
+  const [activeTab, setActiveTab] = useState<'FACILITIES' | 'BED_TELEMETRY' | 'BLOOD_EMERGENCY' | 'CITIZEN_REQUESTS'>('FACILITIES');
   const [hospitals, setHospitals] = useState<Hospital[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState('ALL');
@@ -225,6 +226,7 @@ export const HealthcareAdminPortal: React.FC = () => {
         <div className="flex gap-2 border-b border-slate-800 pb-2 text-xs">
           {[
             { id: 'FACILITIES', label: 'Hospitals & Medical Centers', icon: Building },
+            { id: 'CITIZEN_REQUESTS', label: '🚑 Medical Asset Requests', icon: Shield },
             { id: 'BED_TELEMETRY', label: 'Live ICU & Oxygen Telemetry', icon: Activity },
             { id: 'BLOOD_EMERGENCY', label: 'Blood Bank & 108 Fleet', icon: Droplet },
           ].map((tab) => {
@@ -246,6 +248,15 @@ export const HealthcareAdminPortal: React.FC = () => {
             );
           })}
         </div>
+
+        {/* TAB: MEDICAL ASSET REQUESTS */}
+        {activeTab === 'CITIZEN_REQUESTS' && (
+          <CivicFacilityBoard
+            module="HEALTHCARE"
+            title="Emergency Medical Facility & Asset Dispatch Desk"
+            subtitle="Review community requests for ICU/ventilator bed reservations, cardiac ambulances, mobile blood banks, and doorstep oxygen concentrators."
+          />
+        )}
 
         {/* TAB 1: FACILITIES */}
         {activeTab === 'FACILITIES' && (

@@ -6,6 +6,7 @@ import {
 import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, addDoc } from 'firebase/firestore';
 import { db } from '../../../lib/firebase.ts';
 import { useAuth } from '../../../contexts/AuthContext.tsx';
+import { CivicFacilityBoard } from '../../../components/civic/CivicFacilityBoard.tsx';
 
 interface WasteReport {
   id: string;
@@ -32,7 +33,7 @@ interface FleetVehicle {
 
 export const WasteAdminPortal: React.FC = () => {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'BLACKSPOTS' | 'FLEET' | 'RECYCLING'>('BLACKSPOTS');
+  const [activeTab, setActiveTab] = useState<'BLACKSPOTS' | 'FLEET' | 'RECYCLING' | 'FACILITIES'>('BLACKSPOTS');
   const [reports, setReports] = useState<WasteReport[]>([]);
   const [fleet, setFleet] = useState<FleetVehicle[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -208,6 +209,7 @@ export const WasteAdminPortal: React.FC = () => {
         <div className="flex gap-2 border-b border-slate-800 pb-2 text-xs">
           {[
             { id: 'BLACKSPOTS', label: 'Dumping Blackspot Resolution', icon: Trash2 },
+            { id: 'FACILITIES', label: '♻️ Heavy Waste Requests', icon: Shield },
             { id: 'FLEET', label: 'Compactor Fleet Tracking', icon: Truck },
             { id: 'RECYCLING', label: 'Bio-CNG & Composting Centers', icon: Recycle },
           ].map((tab) => {
@@ -229,6 +231,15 @@ export const WasteAdminPortal: React.FC = () => {
             );
           })}
         </div>
+
+        {/* TAB: FACILITY REQUESTS */}
+        {activeTab === 'FACILITIES' && (
+          <CivicFacilityBoard
+            module="WASTE"
+            title="Sanitation, Compactor Truck & Hazardous Waste Requests"
+            subtitle="Review community requests for heavy compactor trucks, e-waste/chemical pickup, nallah unclogging drives, and animal carcass sanitation."
+          />
+        )}
 
         {/* TAB 1: BLACKSPOTS */}
         {activeTab === 'BLACKSPOTS' && (

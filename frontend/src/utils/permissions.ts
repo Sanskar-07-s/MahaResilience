@@ -40,16 +40,20 @@ export const isCitizen = (user: UserProfile | null | undefined): boolean => {
 export const canAccessAdmin = (user: UserProfile | null | undefined): boolean => {
   if (!user) return false;
   if (isSuperAdmin(user)) return true;
-  if (user.isAdmin === true) return true;
 
-  const role = user.role || '';
+  const role = (user.role || '').toUpperCase();
+  // Citizens, standard users, tourists, and volunteers NEVER have admin access
+  if (role === 'CITIZEN' || role === 'USER' || role === 'TOURIST' || role === 'VOLUNTEER' || role === '') {
+    return false;
+  }
+
   return (
+    role === 'ADMIN' ||
     role === 'MODULE_ADMIN' ||
     role === 'DISTRICT_ADMIN' ||
     role === 'MODERATOR' ||
-    role.includes('ADMIN') ||
-    role.includes('MODERATOR') ||
-    role === 'OFFICIAL'
+    role.endsWith('_ADMIN') ||
+    role.endsWith('_MODERATOR')
   );
 };
 

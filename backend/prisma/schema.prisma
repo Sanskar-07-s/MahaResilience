@@ -12,6 +12,22 @@ enum Role {
   VOLUNTEER
   OFFICIAL
   ADMIN
+  SUPER_ADMIN
+  MODULE_ADMIN
+  DISTRICT_ADMIN
+  EMERGENCY_ADMIN
+  HEALTHCARE_ADMIN
+  GOVERNMENT_ADMIN
+  WATER_ADMIN
+  ELECTRICITY_ADMIN
+  WASTE_ADMIN
+  AGRICULTURE_ADMIN
+  EDUCATION_ADMIN
+  TRANSPORT_ADMIN
+  TOURISM_ADMIN
+  COMPLAINTS_ADMIN
+  COMMUNITY_MODERATOR
+  MODERATOR
   TOURIST
   MUNICIPAL_STAFF
   EMERGENCY_STAFF
@@ -99,6 +115,8 @@ model User {
   name            String
   phone           String?          @unique
   role            Role             @default(CITIZEN)
+  adminField      String?
+  district        String?
   profileImage    String?
   isVerified      Boolean          @default(false)
   createdAt       DateTime         @default(now())

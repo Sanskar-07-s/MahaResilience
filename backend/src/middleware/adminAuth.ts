@@ -24,8 +24,17 @@ export const requireAdmin = (req: AuthenticatedRequest, res: Response, next: Nex
       name: string;
     };
 
-    if (decoded.role?.toUpperCase() !== 'ADMIN') {
-      return res.status(403).json({ error: 'Access denied: Admin privileges required.' });
+    const roleUpper = (decoded.role || '').toUpperCase();
+    const isAdminRole =
+      roleUpper === 'ADMIN' ||
+      roleUpper === 'SUPER_ADMIN' ||
+      roleUpper === 'MODULE_ADMIN' ||
+      roleUpper === 'DISTRICT_ADMIN' ||
+      roleUpper.endsWith('_ADMIN') ||
+      roleUpper.endsWith('_MODERATOR');
+
+    if (!isAdminRole) {
+      return res.status(403).json({ error: 'Access denied: Administrative privileges required.' });
     }
 
     req.user = decoded as any;

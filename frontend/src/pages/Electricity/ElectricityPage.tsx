@@ -4,6 +4,7 @@ import { useLocation } from '../../contexts/LocationContext.tsx';
 import { db } from '../../lib/firebase.ts';
 import { collection, addDoc } from 'firebase/firestore';
 import { useAuth } from '../../contexts/AuthContext.tsx';
+import { CivicFacilityBoard } from '../../components/civic/CivicFacilityBoard.tsx';
 
 export const ElectricityPage: React.FC = () => {
   const { ward, city, district, latitude, longitude } = useLocation();
@@ -140,6 +141,13 @@ export const ElectricityPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Real-time MSEDCL Emergency Facilities & Public Transparency Board */}
+      <CivicFacilityBoard
+        module="ELECTRICITY"
+        title="MSEDCL Power Grid & Emergency Facilities Board"
+        subtitle="Request emergency diesel generators, transformer fuse replacements, and hazardous live wire crews with real-time public status tracking."
+      />
     </div>
   );
 };

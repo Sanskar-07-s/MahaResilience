@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext.tsx';
-import { SUPER_ADMIN_UID_LOCAL, isSuperAdmin } from '../../utils/permissions.ts';
+import { SUPER_ADMIN_UID_LOCAL, isSuperAdmin, canAccessAdmin } from '../../utils/permissions.ts';
 import { UserRole, AdminField } from '../../types/user.ts';
 import { Shield, ChevronDown, CheckCircle, RefreshCw } from 'lucide-react';
 
@@ -42,37 +42,59 @@ export const AdminDashboardPage: React.FC = () => {
   const paramField = searchParams.get('field')?.toUpperCase();
   const paramRole = searchParams.get('role')?.toUpperCase();
 
-  // Determine initial active panel from URL param, localStorage, or user profile
+  const isUserSuperAdmin = isSuperAdmin(user) || user?.uid === SUPER_ADMIN_UID_LOCAL || user?.role === 'SUPER_ADMIN';
+  const hasAdminAccess = canAccessAdmin(user) || isUserSuperAdmin || user?.role === 'ADMIN';
+
+  // Determine user's allocated admin field from database
+  const userRoleStr = String(user?.role || '');
+  let userAllocatedField = user?.adminField;
+  if (!userAllocatedField && userRoleStr.endsWith('_ADMIN') && userRoleStr !== 'SUPER_ADMIN' && userRoleStr !== 'DISTRICT_ADMIN') {
+    userAllocatedField = userRoleStr.replace('_ADMIN', '') as AdminField;
+  } else if (!userAllocatedField && userRoleStr === 'DISTRICT_ADMIN') {
+    userAllocatedField = 'DISTRICT' as any;
+  }
+
+  // Determine initial active panel based on role allocation
   const [activePanel, setActivePanel] = useState<string>(() => {
-    if (paramField) return paramField;
-    if (paramRole) {
-      if (paramRole === 'SUPER_ADMIN') return 'SUPER';
-      if (paramRole === 'DISTRICT_ADMIN') return 'DISTRICT';
-      if (paramRole.endsWith('_ADMIN')) return paramRole.replace('_ADMIN', '');
-      if (paramRole.endsWith('_MODERATOR')) return 'COMMUNITY';
+    if (isUserSuperAdmin) {
+      if (paramField) return paramField;
+      if (paramRole) {
+        if (paramRole === 'SUPER_ADMIN') return 'SUPER';
+        if (paramRole === 'DISTRICT_ADMIN') return 'DISTRICT';
+        if (paramRole.endsWith('_ADMIN')) return paramRole.replace('_ADMIN', '');
+        if (paramRole.endsWith('_MODERATOR')) return 'COMMUNITY';
+      }
+      return localStorage.getItem('mr_active_admin_panel') || 'SUPER';
     }
-    const saved = localStorage.getItem('mr_active_admin_panel');
-    if (saved) return saved;
-    if (isSuperAdmin(user) || user?.uid === SUPER_ADMIN_UID_LOCAL) return 'SUPER';
-    if (user?.role === 'DISTRICT_ADMIN') return 'DISTRICT';
-    if (user?.adminField) return user.adminField;
-    if (user?.role) {
-      const r = user.role.toUpperCase();
-      if (r.endsWith('_ADMIN')) return r.replace('_ADMIN', '');
-      if (r.endsWith('_MODERATOR')) return 'COMMUNITY';
+
+    // For non-Super Admin module admins, force allocation to their assigned field
+    if (userAllocatedField) {
+      return userAllocatedField;
     }
-    return 'GATEWAY';
+
+    return paramField || 'GATEWAY';
   });
+
+  // Ensure non-super admin stays on their allocated panel
+  useEffect(() => {
+    if (!isUserSuperAdmin && userAllocatedField && activePanel !== userAllocatedField) {
+      setActivePanel(userAllocatedField);
+    }
+  }, [isUserSuperAdmin, userAllocatedField, activePanel]);
 
   const [savingRole, setSavingRole] = useState(false);
 
   const handleSwitchPanel = async (targetField: string, targetRole: string) => {
+    if (!isUserSuperAdmin && userAllocatedField && targetField !== userAllocatedField) {
+      alert(`Access Restricted: Your assigned database role is locked to the ${userAllocatedField} Operational Portal.`);
+      return;
+    }
+
     setActivePanel(targetField);
     localStorage.setItem('mr_active_admin_panel', targetField);
     window.history.replaceState(null, '', `?field=${targetField}`);
 
-    // Also persist to current user profile in Firestore and localStorage if logged in
-    if (user) {
+    if (user && isUserSuperAdmin) {
       setSavingRole(true);
       try {
         await updateUser({
@@ -84,6 +106,40 @@ export const AdminDashboardPage: React.FC = () => {
       setSavingRole(false);
     }
   };
+
+  // If user does not have admin access in database
+  if (!hasAdminAccess) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 p-6 font-sans flex items-center justify-center">
+        <div className="max-w-md w-full bg-slate-900 border border-red-500/30 rounded-2xl p-6 shadow-2xl text-center space-y-4">
+          <div className="w-16 h-16 bg-red-500/10 border border-red-500/30 text-red-400 rounded-2xl flex items-center justify-center mx-auto">
+            <Shield className="w-8 h-8" />
+          </div>
+          <div>
+            <span className="bg-red-500/20 text-red-400 text-[10px] font-black px-2.5 py-0.5 rounded uppercase tracking-wider">
+              ACCESS RESTRICTED
+            </span>
+            <h1 className="text-xl font-black text-white mt-2">Administrative Role Required</h1>
+            <p className="text-slate-400 text-xs mt-2 leading-relaxed">
+              Logged in as <strong className="text-white">{user?.email || 'Citizen User'}</strong>. Your account has the assigned database role of <code className="text-amber-400 font-mono font-bold">{user?.role || 'CITIZEN'}</code>.
+            </p>
+            <p className="text-slate-500 text-xs mt-1">
+              Admin panel access is allocated strictly via backend database roles. Please contact your Super Administrator to request role elevation.
+            </p>
+          </div>
+
+          <div className="pt-2 flex flex-col gap-2">
+            <a
+              href="/dashboard"
+              className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl text-xs font-extrabold transition-all"
+            >
+              Return to Citizen Dashboard →
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Render the selected active panel
   const renderPanel = () => {
@@ -115,7 +171,6 @@ export const AdminDashboardPage: React.FC = () => {
       case 'COMMUNITY':
         return <CommunityModeratorPortal />;
       default:
-        // Default Gateway Selector
         return (
           <div className="min-h-screen bg-slate-950 text-slate-100 p-6 font-sans">
             <div className="max-w-5xl mx-auto space-y-6 pt-6">
@@ -130,14 +185,14 @@ export const AdminDashboardPage: React.FC = () => {
                     </span>
                     <h1 className="text-2xl font-black text-white mt-1">Select & Activate Operational Center</h1>
                     <p className="text-amber-100 text-xs mt-0.5">
-                      Logged in as <strong className="text-white">{user?.name || user?.email || 'Administrator'}</strong>. Select any role below to activate its dedicated professional management console.
+                      Logged in as <strong className="text-white">{user?.name || user?.email || 'Administrator'}</strong>. Assigned Role: <code className="bg-slate-950 text-yellow-300 font-mono px-2 py-0.5 rounded">{user?.role}</code>
                     </p>
                   </div>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {ROLE_PORTAL_OPTIONS.map((item) => (
+                {ROLE_PORTAL_OPTIONS.filter((item) => isUserSuperAdmin || item.field === userAllocatedField).map((item) => (
                   <div
                     key={item.field}
                     onClick={() => handleSwitchPanel(item.field, item.role)}
@@ -179,30 +234,32 @@ export const AdminDashboardPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <label className="text-slate-400 text-[11px] font-semibold hidden sm:inline">Switch Role Panel:</label>
-          <select
-            value={activePanel}
-            onChange={(e) => {
-              const opt = ROLE_PORTAL_OPTIONS.find((o) => o.field === e.target.value);
-              if (opt) handleSwitchPanel(opt.field, opt.role);
-            }}
-            className="bg-slate-950 border border-amber-500/50 text-yellow-300 font-bold rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-amber-400 shadow-inner"
-          >
-            {ROLE_PORTAL_OPTIONS.map((opt) => (
-              <option key={opt.field} value={opt.field}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+        {isUserSuperAdmin && (
+          <div className="flex items-center gap-2">
+            <label className="text-slate-400 text-[11px] font-semibold hidden sm:inline">Super Admin Switcher:</label>
+            <select
+              value={activePanel}
+              onChange={(e) => {
+                const opt = ROLE_PORTAL_OPTIONS.find((o) => o.field === e.target.value);
+                if (opt) handleSwitchPanel(opt.field, opt.role);
+              }}
+              className="bg-slate-950 border border-amber-500/50 text-yellow-300 font-bold rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-amber-400 shadow-inner"
+            >
+              {ROLE_PORTAL_OPTIONS.map((opt) => (
+                <option key={opt.field} value={opt.field}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
 
-          <button
-            onClick={() => setActivePanel('GATEWAY')}
-            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl font-bold text-xs"
-          >
-            All Roles Hub
-          </button>
-        </div>
+            <button
+              onClick={() => setActivePanel('GATEWAY')}
+              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl font-bold text-xs"
+            >
+              All Roles Hub
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Render Active Portal */}

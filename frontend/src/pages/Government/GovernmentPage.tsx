@@ -11,6 +11,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { useLocation } from '../../contexts/LocationContext.tsx';
+import { CivicFacilityBoard } from '../../components/civic/CivicFacilityBoard.tsx';
 
 interface Scheme {
   id: string;
@@ -341,6 +342,13 @@ export const GovernmentPage: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Real-time Welfare Seva & Doorstep MahaSeva Mobile Kendra Board */}
+      <CivicFacilityBoard
+        module="GOVERNMENT"
+        title="MahaSeva Kendra Doorstep Units & Welfare Facilitation Requests"
+        subtitle="Request doorstep Mobile MahaSeva Kendra vans for Aadhaar/DBT seeding, Majhi Ladki Bahin e-KYC camps, and senior citizen pension biometrics. Monitored in real-time by district tehsildar and administrative officers."
+      />
     </div>
   );
 };

@@ -54,43 +54,206 @@ export const Sidebar: React.FC<SidebarProps> = ({
     items: NavItem[];
   }
 
-  const navGroups: NavGroup[] = [
-    {
-      title: 'CORE PLATFORM',
-      items: [
-        { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-        { label: 'Resiliency Map', path: '/map', icon: MapPin },
-        { label: 'Emergency SOS', path: '/emergency', icon: ShieldAlert, highlight: true },
-        { label: 'Disaster Alerts', path: '/alerts', icon: Bell },
-      ],
-    },
-    {
-      title: 'CIVIC & PUBLIC SERVICES',
-      items: [
-        { label: 'Government Seva', path: '/government', icon: Landmark },
-        { label: 'Healthcare Beds', path: '/healthcare', icon: HeartPulse },
-        { label: 'Water Utilities', path: '/water', icon: Droplets },
-        { label: 'Electricity Grid', path: '/electricity', icon: Zap },
-        { label: 'Sanitation & Waste', path: '/waste', icon: Trash2 },
-      ],
-    },
-    {
-      title: 'COMMUNITY & REGIONAL',
-      items: [
-        { label: 'Agriculture & APMC', path: '/agriculture', icon: Wheat },
-        { label: 'Education & ITI', path: '/education', icon: GraduationCap },
-        { label: 'Transit & EV Hubs', path: '/transport', icon: Bus },
-        { label: 'Tourism & Heritage', path: '/tourism', icon: Compass },
-        { label: 'Community Hub', path: '/community', icon: Users },
-        { label: 'File Complaint', path: '/complaints', icon: FileText },
-      ],
-    },
-  ];
+  const roleUpper = (user?.role || 'CITIZEN').toUpperCase();
+  const isUserSuperAdmin = isSuperAdmin();
+  const hasAdminAccess = canAccessAdmin();
 
-  navGroups.push({
-    title: 'COMMAND CENTER',
-    items: [{ label: 'Admin Command Center', path: '/admin', icon: ShieldCheck, admin: true }],
-  });
+  // ─── Build Distinct Navbars Based On Exact User Role ─────────────────────────
+  let navGroups: NavGroup[] = [];
+  let roleBadgeLabel = 'Citizen Resident';
+  let roleBadgeColor = 'text-teal-400 bg-teal-950/60 border-teal-500/30';
+
+  if (isUserSuperAdmin || roleUpper === 'SUPER_ADMIN' || roleUpper === 'ADMIN') {
+    // 1. SUPER ADMIN NAVBAR
+    roleBadgeLabel = '👑 Super Admin Control';
+    roleBadgeColor = 'text-yellow-400 bg-yellow-950/60 border-yellow-500/40';
+    navGroups = [
+      {
+        title: 'MASTER COMMAND CENTER',
+        items: [
+          { label: '👑 Master Control Hub', path: '/admin?field=SUPER', icon: ShieldCheck, admin: true },
+          { label: 'Platform Map & GIS', path: '/map', icon: MapPin },
+          { label: 'Disaster Alerts Studio', path: '/alerts', icon: Bell },
+        ],
+      },
+      {
+        title: 'CIVIC & OPERATIONAL MODULES',
+        items: [
+          { label: 'Government Seva', path: '/government', icon: Landmark },
+          { label: 'Healthcare & ICU Beds', path: '/healthcare', icon: HeartPulse },
+          { label: 'Water Utilities', path: '/water', icon: Droplets },
+          { label: 'Electricity Grid', path: '/electricity', icon: Zap },
+          { label: 'Sanitation & SWM', path: '/waste', icon: Trash2 },
+          { label: 'Agriculture & APMC', path: '/agriculture', icon: Wheat },
+          { label: 'Education Services', path: '/education', icon: GraduationCap },
+          { label: 'Transit & Charging', path: '/transport', icon: Bus },
+          { label: 'Tourism Moderation', path: '/tourism', icon: Compass },
+          { label: 'Community Feed', path: '/community', icon: Users },
+          { label: 'Citizen Grievances', path: '/complaints', icon: FileText },
+        ],
+      },
+    ];
+  } else if (roleUpper === 'DISTRICT_ADMIN') {
+    // 2. DISTRICT ADMIN NAVBAR
+    roleBadgeLabel = '📍 District Collectorate';
+    roleBadgeColor = 'text-amber-400 bg-amber-950/60 border-amber-500/40';
+    navGroups = [
+      {
+        title: 'DISTRICT OPERATIONS',
+        items: [
+          { label: '📍 District Admin Console', path: '/admin?field=DISTRICT', icon: ShieldCheck, admin: true },
+          { label: 'District Resiliency Map', path: '/map', icon: MapPin },
+          { label: 'Disaster Bulletins', path: '/alerts', icon: Bell },
+          { label: 'Collectorate Grievances', path: '/complaints', icon: FileText },
+        ],
+      },
+      {
+        title: 'DISTRICT PUBLIC UTILITIES',
+        items: [
+          { label: 'Government Seva', path: '/government', icon: Landmark },
+          { label: 'Healthcare & Beds', path: '/healthcare', icon: HeartPulse },
+          { label: 'Water Supply Tankers', path: '/water', icon: Droplets },
+          { label: 'Electricity Grid', path: '/electricity', icon: Zap },
+          { label: 'Sanitation & Waste', path: '/waste', icon: Trash2 },
+        ],
+      },
+    ];
+  } else if (hasAdminAccess && user) {
+    // 3. SPECIALIZED MODULE ADMIN NAVBAR
+    let targetField = (user.adminField || '').toUpperCase();
+    if (!targetField && roleUpper.endsWith('_ADMIN')) {
+      targetField = roleUpper.replace('_ADMIN', '');
+    } else if (!targetField && (roleUpper.endsWith('_MODERATOR') || roleUpper === 'MODERATOR')) {
+      targetField = 'COMMUNITY';
+    }
+
+    const fieldConfig: Record<string, { label: string; path: string; icon: any }> = {
+      AGRICULTURE: { label: '🌱 APMC Agriculture Console', path: '/agriculture', icon: Wheat },
+      HEALTHCARE: { label: '❤️ Healthcare Admin Console', path: '/healthcare', icon: HeartPulse },
+      EMERGENCY: { label: '🚨 Disaster EOC Console', path: '/emergency', icon: ShieldAlert },
+      WATER: { label: '💧 Water Supply Console', path: '/water', icon: Droplets },
+      ELECTRICITY: { label: '⚡ Electricity Grid Console', path: '/electricity', icon: Zap },
+      WASTE: { label: '♻️ Sanitation & Waste Console', path: '/waste', icon: Trash2 },
+      EDUCATION: { label: '🎓 Education Admin Console', path: '/education', icon: GraduationCap },
+      TRANSPORT: { label: '🚌 Transport Admin Console', path: '/transport', icon: Bus },
+      GOVERNMENT: { label: '🏛️ Welfare Schemes Console', path: '/government', icon: Landmark },
+      TOURISM: { label: '🧭 Tourism Admin Console', path: '/tourism', icon: Compass },
+      COMPLAINTS: { label: '📋 Grievances Admin Console', path: '/complaints', icon: FileText },
+      COMMUNITY: { label: '💬 Community Moderator Console', path: '/community', icon: Users },
+    };
+
+    const currentModule = fieldConfig[targetField] || {
+      label: `🛡️ ${targetField} Operational Console`,
+      path: '/dashboard',
+      icon: ShieldCheck,
+    };
+
+    roleBadgeLabel = `🛡️ ${targetField} Admin`;
+    roleBadgeColor = 'text-teal-300 bg-teal-950/60 border-teal-500/40';
+
+    navGroups = [
+      {
+        title: 'ASSIGNED OPERATIONAL CONSOLE',
+        items: [
+          { label: currentModule.label, path: `/admin?field=${targetField}`, icon: ShieldCheck, admin: true },
+          { label: 'Module Public View', path: currentModule.path, icon: currentModule.icon },
+        ],
+      },
+      {
+        title: 'OPERATIONAL SUPPORT TOOLS',
+        items: [
+          { label: 'GIS Resiliency Map', path: '/map', icon: MapPin },
+          { label: 'Emergency Alerts', path: '/alerts', icon: Bell },
+          { label: 'Civic Grievances', path: '/complaints', icon: FileText },
+        ],
+      },
+    ];
+  } else if (roleUpper === 'VOLUNTEER') {
+    // 4. VOLUNTEER NAVBAR
+    roleBadgeLabel = '🤝 Civil Defense Volunteer';
+    roleBadgeColor = 'text-emerald-400 bg-emerald-950/60 border-emerald-500/30';
+    navGroups = [
+      {
+        title: 'VOLUNTEER OPERATIONS',
+        items: [
+          { label: 'Volunteer Dashboard', path: '/dashboard', icon: LayoutDashboard },
+          { label: 'Disaster SOS Response', path: '/emergency', icon: ShieldAlert, highlight: true },
+          { label: 'Disaster Alerts Feed', path: '/alerts', icon: Bell },
+          { label: 'Community Volunteer Drives', path: '/community', icon: Users },
+          { label: 'GIS Operations Map', path: '/map', icon: MapPin },
+        ],
+      },
+      {
+        title: 'COMMUNITY ASSISTANCE',
+        items: [
+          { label: 'Healthcare & Blood Banks', path: '/healthcare', icon: HeartPulse },
+          { label: 'Sanitation Support', path: '/waste', icon: Trash2 },
+          { label: 'Assist Grievances', path: '/complaints', icon: FileText },
+        ],
+      },
+    ];
+  } else if (roleUpper === 'OFFICIAL') {
+    // 5. OFFICIAL NAVBAR
+    roleBadgeLabel = '🏛️ Municipal Official';
+    roleBadgeColor = 'text-sky-400 bg-sky-950/60 border-sky-500/30';
+    navGroups = [
+      {
+        title: 'OFFICIAL DESK',
+        items: [
+          { label: 'Officer Dashboard', path: '/dashboard', icon: LayoutDashboard },
+          { label: 'Complaints & Grievances Desk', path: '/complaints', icon: FileText },
+          { label: 'Disaster Alerts Dispatch', path: '/alerts', icon: Bell },
+          { label: 'GIS Map Operations', path: '/map', icon: MapPin },
+        ],
+      },
+      {
+        title: 'PUBLIC SERVICES',
+        items: [
+          { label: 'Welfare Schemes Review', path: '/government', icon: Landmark },
+          { label: 'Healthcare & Bed Availabilities', path: '/healthcare', icon: HeartPulse },
+          { label: 'Water Utilities', path: '/water', icon: Droplets },
+          { label: 'Electricity Grid', path: '/electricity', icon: Zap },
+          { label: 'Sanitation & Waste', path: '/waste', icon: Trash2 },
+        ],
+      },
+    ];
+  } else {
+    // 6. CITIZEN / TOURIST / GENERAL PUBLIC NAVBAR (ZERO ADMIN LINKS)
+    roleBadgeLabel = roleUpper === 'TOURIST' ? '🧭 Tourist Visitor' : 'Citizen Resident';
+    roleBadgeColor = 'text-teal-400 bg-teal-950/60 border-teal-500/30';
+    navGroups = [
+      {
+        title: 'PUBLIC CIVIC SERVICES',
+        items: [
+          { label: 'Citizen Dashboard', path: '/dashboard', icon: LayoutDashboard },
+          { label: 'Live Resiliency Map', path: '/map', icon: MapPin },
+          { label: 'Emergency SOS', path: '/emergency', icon: ShieldAlert, highlight: true },
+          { label: 'Disaster Alerts Feed', path: '/alerts', icon: Bell },
+        ],
+      },
+      {
+        title: 'GOVERNMENT & PUBLIC UTILITIES',
+        items: [
+          { label: 'Government Welfare Schemes', path: '/government', icon: Landmark },
+          { label: 'Healthcare & ICU Beds', path: '/healthcare', icon: HeartPulse },
+          { label: 'Water Supply & Tankers', path: '/water', icon: Droplets },
+          { label: 'Electricity Grid Status', path: '/electricity', icon: Zap },
+          { label: 'Sanitation & Waste Pickup', path: '/waste', icon: Trash2 },
+        ],
+      },
+      {
+        title: 'COMMUNITY & REGIONAL LIVING',
+        items: [
+          { label: 'Agriculture & APMC Mandi', path: '/agriculture', icon: Wheat },
+          { label: 'Education & Admissions', path: '/education', icon: GraduationCap },
+          { label: 'Transit & EV Charging', path: '/transport', icon: Bus },
+          { label: 'Tourism & Heritage Places', path: '/tourism', icon: Compass },
+          { label: 'Community Discussion Hub', path: '/community', icon: Users },
+          { label: 'File Complaint / Grievance', path: '/complaints', icon: FileText },
+        ],
+      },
+    ];
+  }
 
   const sidebarContent = (
     <div className="flex flex-col h-full bg-slate-900 text-slate-300 border-r border-slate-800 select-none">
@@ -108,8 +271,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <h1 className="font-extrabold text-white text-base tracking-tight leading-none">
                 MahaResilience
               </h1>
-              <span className="text-[10px] text-teal-400 font-bold uppercase tracking-wider block mt-1">
-                Maharashtra Gov Hub
+              <span className={`text-[10px] font-bold uppercase tracking-wider block mt-1 px-1.5 py-0.5 rounded border ${roleBadgeColor} truncate`}>
+                {roleBadgeLabel}
               </span>
             </div>
           )}

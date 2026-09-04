@@ -6,6 +6,7 @@ import {
 import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, addDoc } from 'firebase/firestore';
 import { db } from '../../../lib/firebase.ts';
 import { useAuth } from '../../../contexts/AuthContext.tsx';
+import { CivicFacilityBoard } from '../../../components/civic/CivicFacilityBoard.tsx';
 
 interface OutageReport {
   id: string;
@@ -33,7 +34,7 @@ interface Substation {
 
 export const ElectricityAdminPortal: React.FC = () => {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'OUTAGES' | 'SUBSTATIONS' | 'AGRI_POWER'>('OUTAGES');
+  const [activeTab, setActiveTab] = useState<'OUTAGES' | 'SUBSTATIONS' | 'AGRI_POWER' | 'FACILITIES'>('OUTAGES');
   const [outages, setOutages] = useState<OutageReport[]>([]);
   const [substations, setSubstations] = useState<Substation[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -212,6 +213,7 @@ export const ElectricityAdminPortal: React.FC = () => {
         <div className="flex gap-2 border-b border-slate-800 pb-2 text-xs">
           {[
             { id: 'OUTAGES', label: 'Feeder Trippings & Outage Log', icon: Zap },
+            { id: 'FACILITIES', label: '⚡ Facility & Asset Requests', icon: Shield },
             { id: 'SUBSTATIONS', label: 'Substation Telemetry & Load', icon: Cpu },
             { id: 'AGRI_POWER', label: 'Agricultural 3-Phase Power Shifts', icon: Activity },
           ].map((tab) => {
@@ -233,6 +235,15 @@ export const ElectricityAdminPortal: React.FC = () => {
             );
           })}
         </div>
+
+        {/* TAB: FACILITY REQUESTS */}
+        {activeTab === 'FACILITIES' && (
+          <CivicFacilityBoard
+            module="ELECTRICITY"
+            title="MSEDCL Power Grid Asset & Facility Request Queue"
+            subtitle="Review community requests for 50kVA emergency generators, transformer fuse replacements, fallen live wire cordoning, and dark streetlight feeder repairs."
+          />
+        )}
 
         {/* TAB 1: OUTAGES */}
         {activeTab === 'OUTAGES' && (
@@ -269,7 +280,7 @@ export const ElectricityAdminPortal: React.FC = () => {
                     </div>
                     <h4 className="font-bold text-white text-sm">{o.feederName} ({o.substation})</h4>
                     <p className="text-slate-300">
-                      Affected Consumers: <strong className="text-white">{o.affectedConsumers.toLocaleString()} households/units</strong>
+                      Affected Consumers: <strong className="text-white">{(o.affectedConsumers || 0).toLocaleString()} households/units</strong>
                     </p>
                     <div className="text-amber-300 font-semibold text-[11px] flex items-center gap-1">
                       <Clock className="w-3 h-3" /> ETA: {o.restorationEta}

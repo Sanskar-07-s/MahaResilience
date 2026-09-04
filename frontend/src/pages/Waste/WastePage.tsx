@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Trash2, MapPin, Camera, Send, CheckCircle2, Clock } from 'lucide-react';
 import { useLocation } from '../../contexts/LocationContext.tsx';
+import { CivicFacilityBoard } from '../../components/civic/CivicFacilityBoard.tsx';
 
 export const WastePage: React.FC = () => {
   const { ward, city, district, latitude, longitude } = useLocation();
@@ -103,6 +104,13 @@ export const WastePage: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Real-Time Municipal Sanitation & Heavy Waste Facility Board */}
+      <CivicFacilityBoard
+        module="WASTE"
+        title="Sanitation, Compactor Fleet & Hazardous Waste Facility Board"
+        subtitle="Request heavy debris compactors, hazardous chemical/e-waste pickups, and nallah unblocking crews with live public status tracking."
+      />
     </div>
   );
 };

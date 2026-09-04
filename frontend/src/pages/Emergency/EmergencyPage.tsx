@@ -6,6 +6,7 @@ import { getAllData } from '../../utils/db.ts';
 import { MapProvider } from '../../components/maps/MapProvider.tsx';
 import { LiveMap } from '../../components/maps/Maps.tsx';
 import { triggerEmergencySOS, stopEmergencySirenSound } from '../../services/sosService.ts';
+import { CivicFacilityBoard } from '../../components/civic/CivicFacilityBoard.tsx';
 
 const API_BASE = (import.meta as any).env.VITE_API_URL || '';
 
@@ -736,6 +737,13 @@ const EmergencyPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Real-time Disaster Emergency & Rescue Equipment Board */}
+      <CivicFacilityBoard
+        module="EMERGENCY"
+        title="Disaster Management & Rapid Rescue Equipment Requests"
+        subtitle="Request NDRF inflatable motorboats for flood rescues, 50HP basement de-watering pumps, and airdrop dry ration packs. Escalated instantly to disaster control room and district collectorate."
+      />
     </div>
   );
 };

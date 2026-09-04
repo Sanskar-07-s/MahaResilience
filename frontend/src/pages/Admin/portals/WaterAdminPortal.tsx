@@ -9,6 +9,7 @@ import { useAuth } from '../../../contexts/AuthContext.tsx';
 
 interface TankerRequest {
   id: string;
+  ticketNo?: string;
   applicantName: string;
   phone: string;
   district: string;
@@ -16,9 +17,12 @@ interface TankerRequest {
   capacityLitres: number;
   assignedTankerNo?: string;
   driverPhone?: string;
-  status: 'PENDING' | 'DISPATCHED' | 'DELIVERED';
-  priority: 'EMERGENCY' | 'NORMAL';
+  status: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'DISPATCHED' | 'DELIVERED';
+  priority: 'EMERGENCY' | 'NORMAL' | 'HIGH';
+  adminRemarks?: string;
+  rejectionReason?: string;
   createdAt: string;
+  updatedAt?: string;
 }
 
 interface ReservoirData {
@@ -154,23 +158,94 @@ export const WaterAdminPortal: React.FC = () => {
     }
   };
 
-  const handleMarkDelivered = async (id: string) => {
+  // Rejection Modal state
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectingRequestId, setRejectingRequestId] = useState<string | null>(null);
+  const [rejectReasonInput, setRejectReasonInput] = useState('');
+  const [filterStatus, setFilterStatus] = useState<string>('ALL');
+
+  const handleAcceptRequest = async (id: string) => {
     try {
       await updateDoc(doc(db, 'waterRequests', id), {
-        status: 'DELIVERED',
-        deliveredAt: new Date().toISOString(),
+        status: 'ACCEPTED',
+        adminRemarks: 'Accepted by Municipal Water Administration. Queued for tanker dispatch.',
+        updatedAt: new Date().toISOString(),
+      });
+      await addDoc(collection(db, 'auditLogs'), {
+        adminId: user?.uid || 'WATER_ADMIN',
+        adminRole: 'WATER_ADMIN',
+        adminField: 'WATER',
+        action: 'ACCEPT_WATER_REQUEST',
+        targetId: id,
+        timestamp: new Date().toISOString(),
+        details: `Approved water facility request ${id}`,
+      });
+    } catch (err: any) {
+      alert('Error accepting request: ' + err.message);
+    }
+  };
+
+  const handleKeepPending = async (id: string) => {
+    try {
+      await updateDoc(doc(db, 'waterRequests', id), {
+        status: 'PENDING',
+        adminRemarks: 'Request under review by field engineer.',
+        updatedAt: new Date().toISOString(),
       });
     } catch (err: any) {
       alert('Error: ' + err.message);
     }
   };
 
-  const filteredRequests = requests.filter(
-    (r) =>
+  const handleRejectRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!rejectingRequestId) return;
+    try {
+      await updateDoc(doc(db, 'waterRequests', rejectingRequestId), {
+        status: 'REJECTED',
+        rejectionReason: rejectReasonInput.trim() || 'Declined by Administrator (Pipeline supply active in sector or insufficient tanker capacity).',
+        adminRemarks: rejectReasonInput.trim() || 'Request declined.',
+        updatedAt: new Date().toISOString(),
+      });
+      await addDoc(collection(db, 'auditLogs'), {
+        adminId: user?.uid || 'WATER_ADMIN',
+        adminRole: 'WATER_ADMIN',
+        adminField: 'WATER',
+        action: 'REJECT_WATER_REQUEST',
+        targetId: rejectingRequestId,
+        timestamp: new Date().toISOString(),
+        details: `Rejected water request ${rejectingRequestId}: ${rejectReasonInput}`,
+      });
+      setShowRejectModal(false);
+      setRejectingRequestId(null);
+      setRejectReasonInput('');
+    } catch (err: any) {
+      alert('Error rejecting request: ' + err.message);
+    }
+  };
+
+  const handleMarkDelivered = async (id: string) => {
+    try {
+      await updateDoc(doc(db, 'waterRequests', id), {
+        status: 'DELIVERED',
+        deliveredAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+    } catch (err: any) {
+      alert('Error: ' + err.message);
+    }
+  };
+
+  const filteredRequests = requests.filter((r) => {
+    const matchesSearch =
       r.applicantName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       r.district?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      r.wardOrVillage?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+      r.wardOrVillage?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (r.ticketNo && r.ticketNo.toLowerCase().includes(searchQuery.toLowerCase()));
+
+    const matchesStatus = filterStatus === 'ALL' || r.status === filterStatus;
+    return matchesSearch && matchesStatus;
+  });
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 p-4 sm:p-6 lg:p-8 font-sans">
@@ -270,8 +345,8 @@ export const WaterAdminPortal: React.FC = () => {
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div>
-                <h3 className="text-base font-extrabold text-white">Drinking Water Tanker Requests</h3>
-                <p className="text-xs text-slate-400">Assign municipal tanker vehicles and track deliveries to drought-prone wards.</p>
+                <h3 className="text-base font-extrabold text-white">Drinking Water Tanker & Facility Requests</h3>
+                <p className="text-xs text-slate-400">Review incoming citizen facility requests, decide to Accept, Reject, or Keep Pending, and dispatch municipal tankers.</p>
               </div>
 
               <div className="relative w-full sm:w-64">
@@ -280,69 +355,195 @@ export const WaterAdminPortal: React.FC = () => {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search citizen, ward, district..."
+                  placeholder="Search ticket, citizen, ward, district..."
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
                 />
               </div>
             </div>
 
+            {/* Status Filter Tabs */}
+            <div className="flex flex-wrap gap-2 pt-1 border-b border-slate-800 pb-3 text-xs">
+              {[
+                { id: 'ALL', label: 'All Tickets' },
+                { id: 'PENDING', label: '⏳ Pending Review' },
+                { id: 'ACCEPTED', label: '✅ Accepted' },
+                { id: 'DISPATCHED', label: '🚚 Dispatched' },
+                { id: 'DELIVERED', label: '🏁 Delivered' },
+                { id: 'REJECTED', label: '❌ Rejected' },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setFilterStatus(tab.id)}
+                  className={`px-3 py-1 rounded-xl font-bold transition-all text-xs ${
+                    filterStatus === tab.id
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'
+                  }`}
+                >
+                  {tab.label}
+                  <span className="ml-1.5 opacity-70">
+                    ({tab.id === 'ALL' ? requests.length : requests.filter((r) => r.status === tab.id).length})
+                  </span>
+                </button>
+              ))}
+            </div>
+
             <div className="space-y-3">
-              {filteredRequests.map((r) => (
-                <div key={r.id} className="bg-slate-950 border border-slate-800 p-5 rounded-2xl flex flex-col md:flex-row justify-between gap-4 text-xs">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <span className={`text-[10px] font-black px-2 py-0.5 rounded uppercase ${
-                        r.priority === 'EMERGENCY' ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-blue-500/20 text-blue-300'
-                      }`}>
-                        {r.priority} • {r.capacityLitres.toLocaleString()} Litres
-                      </span>
-                      <span className="text-slate-400 flex items-center gap-1">
-                        <MapPin className="w-3 h-3 text-blue-400" /> {r.wardOrVillage}, {r.district}
-                      </span>
+              {filteredRequests.length === 0 ? (
+                <div className="p-8 text-center text-slate-500 bg-slate-950 rounded-2xl border border-slate-800 text-xs">
+                  No water facility requests found matching this filter.
+                </div>
+              ) : (
+                filteredRequests.map((r) => (
+                  <div key={r.id} className="bg-slate-950 border border-slate-800 p-5 rounded-2xl flex flex-col md:flex-row justify-between gap-4 text-xs">
+                    <div className="space-y-2 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {r.ticketNo && (
+                          <span className="bg-slate-900 border border-slate-700 text-cyan-300 font-mono text-[10px] font-black px-2 py-0.5 rounded">
+                            {r.ticketNo}
+                          </span>
+                        )}
+                        <span className={`text-[10px] font-black px-2 py-0.5 rounded uppercase ${
+                          r.priority === 'EMERGENCY' ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-blue-500/20 text-blue-300'
+                        }`}>
+                          {r.priority} • {(r.capacityLitres || 0).toLocaleString()} Litres
+                        </span>
+                        <span className="text-slate-400 flex items-center gap-1">
+                          <MapPin className="w-3 h-3 text-blue-400" /> {r.wardOrVillage}, {r.district}
+                        </span>
+                        <span className="text-slate-500 text-[10px]">
+                          {r.createdAt ? new Date(r.createdAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : ''}
+                        </span>
+                      </div>
+
+                      <h4 className="font-bold text-white text-sm">{r.applicantName} ({r.phone})</h4>
+
+                      {r.adminRemarks && (
+                        <div className="p-2 bg-slate-900/90 border border-slate-800 rounded-xl text-xs text-slate-300">
+                          <span className="font-bold text-amber-400">Admin Note: </span>
+                          {r.adminRemarks}
+                        </div>
+                      )}
+
+                      {r.rejectionReason && (
+                        <div className="p-2 bg-red-950/40 border border-red-900/50 rounded-xl text-xs text-red-300">
+                          <span className="font-bold text-red-400">Rejection Reason: </span>
+                          {r.rejectionReason}
+                        </div>
+                      )}
+
+                      {r.assignedTankerNo && (
+                        <div className="p-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-300 flex flex-wrap items-center gap-4">
+                          <div>Tanker: <strong className="text-white font-mono">{r.assignedTankerNo}</strong></div>
+                          <div>Driver: <strong className="text-cyan-300 font-mono">{r.driverPhone}</strong></div>
+                        </div>
+                      )}
                     </div>
 
-                    <h4 className="font-bold text-white text-sm">{r.applicantName} ({r.phone})</h4>
-
-                    {r.assignedTankerNo && (
-                      <div className="p-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-300 flex items-center gap-4">
-                        <div>Tanker: <strong className="text-white font-mono">{r.assignedTankerNo}</strong></div>
-                        <div>Driver: <strong className="text-cyan-300 font-mono">{r.driverPhone}</strong></div>
+                    <div className="flex flex-col justify-center gap-2 shrink-0 md:min-w-[200px]">
+                      <div className="text-right">
+                        <span
+                          className={`inline-block px-2.5 py-1 rounded-full font-black uppercase text-[10px] border ${
+                            r.status === 'DELIVERED'
+                              ? 'bg-emerald-950 text-emerald-300 border-emerald-500/30'
+                              : r.status === 'DISPATCHED'
+                              ? 'bg-cyan-950 text-cyan-300 border-cyan-500/30 animate-pulse'
+                              : r.status === 'ACCEPTED'
+                              ? 'bg-blue-950 text-blue-300 border-blue-500/30'
+                              : r.status === 'REJECTED'
+                              ? 'bg-red-950 text-red-300 border-red-500/30'
+                              : 'bg-amber-950 text-amber-300 border-amber-500/30'
+                          }`}
+                        >
+                          Status: {r.status}
+                        </span>
                       </div>
-                    )}
+
+                      {/* Administrative Action Controls */}
+                      <div className="flex flex-wrap gap-1.5 justify-end">
+                        {r.status === 'PENDING' && (
+                          <>
+                            <button
+                              onClick={() => handleAcceptRequest(r.id)}
+                              className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-xs shadow-xs"
+                              title="Accept request and queue for dispatch"
+                            >
+                              ✓ Accept
+                            </button>
+                            <button
+                              onClick={() => {
+                                setRejectingRequestId(r.id);
+                                setShowRejectModal(true);
+                              }}
+                              className="px-2.5 py-1.5 bg-red-900/80 hover:bg-red-800 text-red-200 border border-red-700/40 rounded-lg font-bold text-xs"
+                              title="Decline request"
+                            >
+                              ✕ Reject
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedRequestId(r.id);
+                                setShowDispatchModal(true);
+                              }}
+                              className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold text-xs"
+                            >
+                              🚚 Dispatch
+                            </button>
+                          </>
+                        )}
+
+                        {r.status === 'ACCEPTED' && (
+                          <>
+                            <button
+                              onClick={() => {
+                                setSelectedRequestId(r.id);
+                                setShowDispatchModal(true);
+                              }}
+                              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold text-xs flex-1 text-center"
+                            >
+                              🚚 Dispatch Tanker
+                            </button>
+                            <button
+                              onClick={() => handleKeepPending(r.id)}
+                              className="px-2 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-bold text-xs"
+                              title="Keep pending"
+                            >
+                              ⏳ Pending
+                            </button>
+                            <button
+                              onClick={() => {
+                                setRejectingRequestId(r.id);
+                                setShowRejectModal(true);
+                              }}
+                              className="px-2 py-1.5 bg-red-950 text-red-400 hover:bg-red-900 border border-red-800/40 rounded-lg font-bold text-xs"
+                            >
+                              Reject
+                            </button>
+                          </>
+                        )}
+
+                        {r.status === 'DISPATCHED' && (
+                          <button
+                            onClick={() => handleMarkDelivered(r.id)}
+                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-xs w-full text-center"
+                          >
+                            🏁 Confirm Delivery
+                          </button>
+                        )}
+
+                        {r.status === 'REJECTED' && (
+                          <button
+                            onClick={() => handleKeepPending(r.id)}
+                            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-bold text-xs"
+                          >
+                            ↺ Re-open to Pending
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
-
-                  <div className="flex flex-col justify-center gap-2 shrink-0">
-                    <span
-                      className={`text-right font-black uppercase text-[10px] ${
-                        r.status === 'DELIVERED' ? 'text-emerald-400' : r.status === 'DISPATCHED' ? 'text-cyan-400' : 'text-amber-400'
-                      }`}
-                    >
-                      Status: {r.status}
-                    </span>
-
-                    {r.status === 'PENDING' && (
-                      <button
-                        onClick={() => {
-                          setSelectedRequestId(r.id);
-                          setShowDispatchModal(true);
-                        }}
-                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold text-xs"
-                      >
-                        Assign & Dispatch Tanker
-                      </button>
-                    )}
-
-                    {r.status === 'DISPATCHED' && (
-                      <button
-                        onClick={() => handleMarkDelivered(r.id)}
-                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-xs"
-                      >
-                        Confirm Delivery
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
         )}
@@ -454,6 +655,64 @@ export const WaterAdminPortal: React.FC = () => {
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold"
                 >
                   Confirm Dispatch
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* REJECTION REASON MODAL */}
+      {showRejectModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-md w-full space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-red-400" /> Decline Facility Request
+              </h3>
+              <button
+                onClick={() => {
+                  setShowRejectModal(false);
+                  setRejectingRequestId(null);
+                }}
+                className="text-slate-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="text-xs text-slate-400">
+              Provide an official administrative reason for declining this request. The applicant and community will be able to view this status note in real-time.
+            </p>
+
+            <form onSubmit={handleRejectRequest} className="space-y-3 text-xs">
+              <div>
+                <label className="block text-slate-300 font-bold mb-1">Administrative Reason for Rejection</label>
+                <textarea
+                  required
+                  rows={3}
+                  value={rejectReasonInput}
+                  onChange={(e) => setRejectReasonInput(e.target.value)}
+                  placeholder="e.g. Pipeline supply resumed in this ward; or duplicate ticket submitted."
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-red-500"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowRejectModal(false);
+                    setRejectingRequestId(null);
+                  }}
+                  className="px-4 py-2 bg-slate-800 text-slate-300 rounded-xl font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold"
+                >
+                  Confirm Rejection
                 </button>
               </div>
             </form>

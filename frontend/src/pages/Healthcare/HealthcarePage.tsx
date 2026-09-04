@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { HeartPulse, Search, Phone, Navigation, MapPin, CheckCircle, ShieldAlert, Filter, Activity } from 'lucide-react';
 import { useLocation, haversineDistance } from '../../contexts/LocationContext.tsx';
 import { getApiUrl } from '../../config/api.config.ts';
+import { CivicFacilityBoard } from '../../components/civic/CivicFacilityBoard.tsx';
 
 interface Hospital {
   id: string;
@@ -179,6 +180,13 @@ const HealthcarePage: React.FC = () => {
           ))}
         </div>
       )}
+
+      {/* Real-time Healthcare Facility & Emergency Equipment Board */}
+      <CivicFacilityBoard
+        module="HEALTHCARE"
+        title="Healthcare Services & Emergency Medical Asset Requests"
+        subtitle="Request emergency ICU/ventilator beds, cardiac ambulances, mobile blood vans, and oxygen concentrators. All requests are tracked in real-time by health administrators and visible to the public."
+      />
     </div>
   );
 };

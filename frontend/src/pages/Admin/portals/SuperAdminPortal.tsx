@@ -23,12 +23,14 @@ import { TransportAdminPortal } from './TransportAdminPortal.tsx';
 import { GovernmentAdminPortal } from './GovernmentAdminPortal.tsx';
 import { ComplaintsAdminPortal } from './ComplaintsAdminPortal.tsx';
 import { CommunityModeratorPortal } from './CommunityModeratorPortal.tsx';
+import { CivicFacilityBoard } from '../../../components/civic/CivicFacilityBoard.tsx';
 
 export const SuperAdminPortal: React.FC = () => {
   const { user, updateUser } = useAuth();
   const { isEmergencyMode, activateEmergencyMode, deactivateEmergencyMode } = useEmergencyMode();
   const [activeTab, setActiveTab] = useState<
     | 'OVERVIEW'
+    | 'FACILITIES'
     | 'EMERGENCY'
     | 'TOURISM'
     | 'HEALTHCARE'
@@ -324,6 +326,7 @@ export const SuperAdminPortal: React.FC = () => {
         <div className="flex gap-2 overflow-x-auto border-b border-slate-800 pb-2 text-xs no-scrollbar">
           {[
             { id: 'OVERVIEW', label: 'Master Overview', icon: Activity },
+            { id: 'FACILITIES', label: 'Civic Facilities & Assets', icon: Shield },
             { id: 'USERS', label: 'User Directory', icon: Users },
             { id: 'ADMINS', label: 'Admin Assignment', icon: UserPlus },
             { id: 'EMERGENCY', label: 'Disaster EOC', icon: Radio },
@@ -386,6 +389,7 @@ export const SuperAdminPortal: React.FC = () => {
               </h3>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 text-xs">
                 {[
+                  { id: 'FACILITIES', label: 'Statewide Facility Requests', color: 'text-sky-400' },
                   { id: 'EMERGENCY', label: 'Disaster EOC Alert Studio', color: 'text-red-400' },
                   { id: 'TOURISM', label: 'Tourism Place Approvals', color: 'text-teal-400' },
                   { id: 'COMPLAINTS', label: 'Grievance Case Management', color: 'text-orange-400' },
@@ -409,6 +413,15 @@ export const SuperAdminPortal: React.FC = () => {
               </div>
             </div>
           </div>
+        )}
+
+        {/* STATEWIDE FACILITY REQUESTS & ASSET DESK */}
+        {activeTab === 'FACILITIES' && (
+          <CivicFacilityBoard
+            module="ALL"
+            title="Statewide Civic Facility & Asset Command Center"
+            subtitle="Super Administrator oversight across all 10 civic & municipal domains. Directly accept, decline with official reasoning, or mobilize emergency units across the state."
+          />
         )}
 
         {/* EMBEDDED SPECIALIZED PORTALS */}

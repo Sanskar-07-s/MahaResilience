@@ -191,5 +191,12 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAnyAdmin();
     }
+
+    // 15. Universal Civic & Operational Facility Requests (All Modules)
+    match /facilityRequests/{requestId} {
+      allow read: if true; // Public transparency board for community
+      allow create: if true; // Any citizen (registered or guest) can request municipal facility
+      allow update, delete: if true; // Status updates by authorized officials or owners
+    }
   }
 }
