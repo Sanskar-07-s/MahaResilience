@@ -16,8 +16,12 @@ import {
   HelpCircle,
   MapPin,
   RefreshCw,
-  ShieldAlert
+  ShieldAlert,
+  ChevronRight,
+  Activity
 } from 'lucide-react';
+import { collection, onSnapshot } from 'firebase/firestore';
+import { db } from '../../lib/firebase.ts';
 
 import { calculateLocationSafetyScore, SafetyScoreDetails } from '../../services/safetyScoreService.ts';
 
@@ -27,6 +31,45 @@ const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const [safetyDetails, setSafetyDetails] = useState<SafetyScoreDetails | null>(null);
   const [loadingScore, setLoadingScore] = useState(true);
+
+  // Real-time live stats state
+  const [complaintsData, setComplaintsData] = useState<{
+    openCount: number;
+    totalCount: number;
+    latestTitle: string | null;
+    latestStatus: string | null;
+    latestWard: string | null;
+  }>({
+    openCount: 0,
+    totalCount: 0,
+    latestTitle: null,
+    latestStatus: null,
+    latestWard: null,
+  });
+
+  const [eventsData, setEventsData] = useState<{
+    userActiveCount: number;
+    districtUpcomingCount: number;
+    latestTitle: string | null;
+    latestLocation: string | null;
+  }>({
+    userActiveCount: 0,
+    districtUpcomingCount: 0,
+    latestTitle: null,
+    latestLocation: null,
+  });
+
+  const [schemesData, setSchemesData] = useState<{
+    approvedCount: number;
+    pendingCount: number;
+    totalCount: number;
+    latestSchemeName: string | null;
+  }>({
+    approvedCount: 0,
+    pendingCount: 0,
+    totalCount: 0,
+    latestSchemeName: null,
+  });
 
   useEffect(() => {
     const fetchSafetyData = async () => {
@@ -40,10 +83,195 @@ const DashboardPage: React.FC = () => {
     fetchSafetyData();
   }, [latitude, longitude, district, city, ward]);
 
+  // Real-time listeners for user activity across platform
+  useEffect(() => {
+    // 1. Complaints Live Listener (Filtered for current user)
+    const unsubComplaints = onSnapshot(
+      collection(db, 'complaints'),
+      (snapshot) => {
+        const list: any[] = [];
+        snapshot.forEach((d) => {
+          const data = d.data();
+          const isUserComplaint =
+            user &&
+            (data.citizenId === user.uid ||
+              data.citizenId === user.id ||
+              data.userId === user.uid ||
+              (user.name && data.citizenName && data.citizenName.toLowerCase().trim() === user.name.toLowerCase().trim()) ||
+              (user.email && data.citizenEmail && data.citizenEmail.toLowerCase() === user.email.toLowerCase()) ||
+              (user.phone && data.citizenPhone && data.citizenPhone === user.phone));
+
+          if (isUserComplaint) {
+            list.push({ id: d.id, ...data });
+          }
+        });
+
+        list.sort((a, b) => {
+          const tA = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : new Date(a.createdAt || 0).getTime();
+          const tB = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : new Date(b.createdAt || 0).getTime();
+          return tB - tA;
+        });
+
+        const openList = list.filter((c) => c.status !== 'RESOLVED' && c.status !== 'CLOSED' && c.status !== 'REJECTED');
+        setComplaintsData({
+          openCount: openList.length,
+          totalCount: list.length,
+          latestTitle: openList[0]?.title || list[0]?.title || null,
+          latestStatus: openList[0]?.status || list[0]?.status || null,
+          latestWard: openList[0]?.ward || list[0]?.ward || null,
+        });
+      },
+      (err) => console.warn('Dashboard complaints live sync note:', err.message)
+    );
+
+    // 2. Events & Civic Facility Requests Live Listener
+    const unsubFacility = onSnapshot(
+      collection(db, 'facilityRequests'),
+      (snapshot) => {
+        const userReqs: any[] = [];
+        snapshot.forEach((d) => {
+          const data = d.data();
+          const isUserReq =
+            user &&
+            (data.userId === user.uid ||
+              (user.name && data.citizenName && data.citizenName.toLowerCase().trim() === user.name.toLowerCase().trim()) ||
+              (user.phone && data.phone && data.phone === user.phone));
+
+          if (isUserReq) {
+            userReqs.push({ id: d.id, ...data });
+          }
+        });
+
+        userReqs.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+        const activeReqs = userReqs.filter((r) => r.status !== 'RESOLVED' && r.status !== 'COMPLETED' && r.status !== 'REJECTED');
+
+        setEventsData((prev) => ({
+          ...prev,
+          userActiveCount: activeReqs.length,
+          latestTitle: activeReqs[0]?.facilityType || prev.latestTitle,
+          latestLocation: activeReqs[0]?.wardOrLocation || prev.latestLocation,
+        }));
+      },
+      (err) => console.warn('Dashboard facility requests note:', err.message)
+    );
+
+    // Community Events Live Listener
+    const unsubPosts = onSnapshot(
+      collection(db, 'communityPosts'),
+      (snapshot) => {
+        const eventPosts: any[] = [];
+        snapshot.forEach((d) => {
+          const data = d.data();
+          if (data.category === 'EVENT') {
+            eventPosts.push({ id: d.id, ...data });
+          }
+        });
+
+        eventPosts.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+
+        setEventsData((prev) => ({
+          ...prev,
+          districtUpcomingCount: eventPosts.length,
+          latestTitle: prev.userActiveCount > 0 ? prev.latestTitle : eventPosts[0]?.title || prev.latestTitle,
+          latestLocation: prev.userActiveCount > 0 ? prev.latestLocation : eventPosts[0]?.district || prev.latestLocation,
+        }));
+      },
+      (err) => console.warn('Dashboard community posts note:', err.message)
+    );
+
+    // 3. Government Scheme Applications & Proposals Live Listener
+    const unsubSchemes = onSnapshot(
+      collection(db, 'schemeApplications'),
+      (snapshot) => {
+        const userApps: any[] = [];
+        snapshot.forEach((d) => {
+          const data = d.data();
+          const isUserApp =
+            user &&
+            (data.userId === user.uid ||
+              (user.name && data.applicantName && data.applicantName.toLowerCase().trim() === user.name.toLowerCase().trim()) ||
+              (user.phone && (data.applicantPhone === user.phone || data.phone === user.phone)));
+
+          if (isUserApp) {
+            userApps.push({ id: d.id, ...data });
+          }
+        });
+
+        const approved = userApps.filter((a) => a.status === 'APPROVED');
+        const pending = userApps.filter((a) => a.status === 'PENDING' || a.status === 'UNDER_REVIEW');
+
+        userApps.sort((a, b) => new Date(b.appliedDate || b.createdAt || 0).getTime() - new Date(a.appliedDate || a.createdAt || 0).getTime());
+
+        setSchemesData({
+          approvedCount: approved.length,
+          pendingCount: pending.length,
+          totalCount: userApps.length,
+          latestSchemeName: userApps[0]?.schemeName || null,
+        });
+      },
+      (err) => console.warn('Dashboard schemeApplications note:', err.message)
+    );
+
+    return () => {
+      unsubComplaints();
+      unsubFacility();
+      unsubPosts();
+      unsubSchemes();
+    };
+  }, [user]);
+
+  // Compute live user stats
   const stats = [
-    { title: 'My Open Complaints', value: '1 Active', desc: `Assigned to ${district} Municipal Ward`, icon: FileSpreadsheet, color: 'text-secondary bg-secondary-light' },
-    { title: 'Registered Events', value: '2 Upcoming', desc: `Community camp in ${ward || city}`, icon: Users, color: 'text-primary bg-primary-light' },
-    { title: 'Applied Schemes', value: '3 Approved', desc: `${state} Govt & PM Schemes`, icon: Award, color: 'text-yellow-600 bg-yellow-50' },
+    {
+      title: 'My Open Complaints',
+      value:
+        complaintsData.openCount > 0
+          ? `${complaintsData.openCount} Active`
+          : complaintsData.totalCount > 0
+          ? `0 Active (${complaintsData.totalCount} Resolved)`
+          : '0 Active',
+      desc: complaintsData.latestTitle
+        ? `Latest: ${complaintsData.latestTitle.length > 28 ? complaintsData.latestTitle.slice(0, 28) + '...' : complaintsData.latestTitle} (${complaintsData.latestStatus || 'Active'})`
+        : `No pending complaints in ${district || 'your ward'}`,
+      icon: FileSpreadsheet,
+      color: 'text-amber-600 bg-amber-50 border-amber-200',
+      actionUrl: '/complaints',
+      badge: complaintsData.openCount > 0 ? 'Live Grievance' : 'Up to date',
+    },
+    {
+      title: 'Registered Events',
+      value:
+        eventsData.userActiveCount > 0
+          ? `${eventsData.userActiveCount} Active`
+          : eventsData.districtUpcomingCount > 0
+          ? `${eventsData.districtUpcomingCount} Upcoming`
+          : '0 Upcoming',
+      desc: eventsData.latestTitle
+        ? `${eventsData.latestTitle.length > 30 ? eventsData.latestTitle.slice(0, 30) + '...' : eventsData.latestTitle} in ${ward || city || district}`
+        : `Community drives in ${ward || city || district}`,
+      icon: Users,
+      color: 'text-primary bg-primary-light border-primary/20',
+      actionUrl: '/community',
+      badge: eventsData.userActiveCount > 0 ? 'Your Ticket' : 'Community',
+    },
+    {
+      title: 'Applied Schemes',
+      value:
+        schemesData.approvedCount > 0
+          ? `${schemesData.approvedCount} Approved${schemesData.pendingCount > 0 ? ` (${schemesData.pendingCount} In Review)` : ''}`
+          : schemesData.pendingCount > 0
+          ? `${schemesData.pendingCount} In Review`
+          : schemesData.totalCount > 0
+          ? `${schemesData.totalCount} Applied`
+          : '0 Applied',
+      desc: schemesData.latestSchemeName
+        ? `Latest: ${schemesData.latestSchemeName.length > 32 ? schemesData.latestSchemeName.slice(0, 32) + '...' : schemesData.latestSchemeName}`
+        : `18 active ${state} Govt & PM Schemes available`,
+      icon: Award,
+      color: 'text-yellow-600 bg-yellow-50 border-yellow-200',
+      actionUrl: '/government',
+      badge: schemesData.approvedCount > 0 ? 'DBT Verified' : schemesData.totalCount > 0 ? 'In Review' : 'Check Eligibility',
+    },
   ];
 
   return (
@@ -134,14 +362,33 @@ const DashboardPage: React.FC = () => {
         {/* Stats Summary cards */}
         <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-6">
           {stats.map((stat, idx) => (
-            <div key={idx} className="bg-white p-6 rounded-md3 border border-slate-border shadow-sm flex flex-col justify-between h-full">
-              <div className={`w-10 h-10 rounded-md3 flex items-center justify-center ${stat.color} mb-4`}>
-                <stat.icon className="w-5 h-5" />
+            <div
+              key={idx}
+              onClick={() => navigate(stat.actionUrl)}
+              className="bg-white p-6 rounded-md3 border border-slate-border shadow-sm flex flex-col justify-between h-full hover:border-primary/50 hover:shadow-md cursor-pointer transition-all duration-200 group relative overflow-hidden"
+              title={`Click to open ${stat.title}`}
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div className={`w-10 h-10 rounded-md3 flex items-center justify-center ${stat.color} border shadow-xs transition-transform group-hover:scale-105`}>
+                  <stat.icon className="w-5 h-5" />
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    {stat.badge}
+                  </span>
+                </div>
               </div>
+
               <div>
                 <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider">{stat.title}</p>
-                <p className="text-xl font-bold text-slate-800 mt-1">{stat.value}</p>
-                <p className="text-xs text-slate-500 mt-2 border-t border-slate-100 pt-2">{stat.desc}</p>
+                <p className="text-xl font-black text-slate-800 mt-1 group-hover:text-primary transition-colors">{stat.value}</p>
+                <p className="text-xs text-slate-500 mt-2 border-t border-slate-100 pt-2 line-clamp-2">{stat.desc}</p>
+              </div>
+
+              <div className="mt-3 flex items-center justify-between text-[11px] font-bold text-slate-400 group-hover:text-primary transition-colors pt-2 border-t border-slate-50">
+                <span>View Details</span>
+                <ChevronRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-1" />
               </div>
             </div>
           ))}
