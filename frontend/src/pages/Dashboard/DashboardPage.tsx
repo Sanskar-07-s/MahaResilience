@@ -15,7 +15,8 @@ import {
   CheckCircle,
   HelpCircle,
   MapPin,
-  RefreshCw
+  RefreshCw,
+  ShieldAlert
 } from 'lucide-react';
 
 import { calculateLocationSafetyScore, SafetyScoreDetails } from '../../services/safetyScoreService.ts';
@@ -72,10 +73,10 @@ const DashboardPage: React.FC = () => {
         <div className="flex gap-2">
           <button
             onClick={() => navigate('/emergency')}
-            className="bg-danger text-white px-4 py-2 rounded-md3 text-sm font-bold hover:bg-danger-hover shadow-sm flex items-center gap-1.5"
+            className="bg-red-600 text-white px-4 py-2 rounded-xl text-sm font-black hover:bg-red-700 shadow-md flex items-center gap-2 animate-pulse transition-all"
           >
-            <Flame className="w-4 h-4 animate-bounce" />
-            SOS Beacon
+            <ShieldAlert className="w-4 h-4 text-white" />
+            <span>🚨 Emergency SOS</span>
           </button>
         </div>
       </div>

@@ -73,6 +73,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         items: [
           { label: '📊 Platform Dashboard', path: '/dashboard', icon: LayoutDashboard },
           { label: '👑 Master Control Hub', path: '/admin?field=SUPER', icon: ShieldCheck, admin: true },
+          { label: '🚨 Emergency SOS', path: '/emergency', icon: ShieldAlert, highlight: true },
           { label: 'Platform Map & GIS', path: '/map', icon: MapPin },
           { label: 'Disaster Alerts Studio', path: '/alerts', icon: Bell },
         ],
@@ -104,6 +105,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         items: [
           { label: '📊 District Dashboard', path: '/dashboard', icon: LayoutDashboard },
           { label: '📍 District Admin Console', path: '/admin?field=DISTRICT', icon: ShieldCheck, admin: true },
+          { label: '🚨 Emergency SOS', path: '/emergency', icon: ShieldAlert, highlight: true },
           { label: 'District Resiliency Map', path: '/map', icon: MapPin },
           { label: 'Disaster Bulletins', path: '/alerts', icon: Bell },
           { label: 'Collectorate Grievances', path: '/complaints', icon: FileText },
@@ -165,6 +167,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {
         title: 'OPERATIONAL SUPPORT TOOLS',
         items: [
+          ...(targetField !== 'EMERGENCY'
+            ? [{ label: '🚨 Emergency SOS', path: '/emergency', icon: ShieldAlert, highlight: true }]
+            : []),
           { label: 'GIS Resiliency Map', path: '/map', icon: MapPin },
           { label: 'Emergency Alerts', path: '/alerts', icon: Bell },
           { label: 'Civic Grievances', path: '/complaints', icon: FileText },
@@ -180,7 +185,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         title: 'VOLUNTEER OPERATIONS',
         items: [
           { label: 'Volunteer Dashboard', path: '/dashboard', icon: LayoutDashboard },
-          { label: 'Disaster SOS Response', path: '/emergency', icon: ShieldAlert, highlight: true },
+          { label: '🚨 Emergency SOS', path: '/emergency', icon: ShieldAlert, highlight: true },
           { label: 'Disaster Alerts Feed', path: '/alerts', icon: Bell },
           { label: 'Community Volunteer Drives', path: '/community', icon: Users },
           { label: 'GIS Operations Map', path: '/map', icon: MapPin },
@@ -204,6 +209,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         title: 'OFFICIAL DESK',
         items: [
           { label: 'Officer Dashboard', path: '/dashboard', icon: LayoutDashboard },
+          { label: '🚨 Emergency SOS', path: '/emergency', icon: ShieldAlert, highlight: true },
           { label: 'Complaints & Grievances Desk', path: '/complaints', icon: FileText },
           { label: 'Disaster Alerts Dispatch', path: '/alerts', icon: Bell },
           { label: 'GIS Map Operations', path: '/map', icon: MapPin },
@@ -229,8 +235,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
         title: 'PUBLIC CIVIC SERVICES',
         items: [
           { label: 'Citizen Dashboard', path: '/dashboard', icon: LayoutDashboard },
+          { label: '🚨 Emergency SOS', path: '/emergency', icon: ShieldAlert, highlight: true },
           { label: 'Live Resiliency Map', path: '/map', icon: MapPin },
-          { label: 'Emergency SOS', path: '/emergency', icon: ShieldAlert, highlight: true },
           { label: 'Disaster Alerts Feed', path: '/alerts', icon: Bell },
         ],
       },
@@ -338,14 +344,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     `flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all group ${
                       isActive
                         ? 'bg-teal-600/20 text-teal-400 border border-teal-500/30'
+                        : item.highlight
+                        ? 'bg-red-500/15 text-red-400 border border-red-500/30 hover:bg-red-500/25 hover:text-red-300 animate-pulse font-bold'
                         : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
-                    } ${item.highlight ? 'text-red-400 hover:text-red-300' : ''}`
+                    }`
                   }
                   title={item.label}
                 >
                   <Icon
                     className={`w-4 h-4 shrink-0 transition-transform group-hover:scale-110 ${
-                      item.highlight ? 'text-red-500' : ''
+                      item.highlight ? 'text-red-400 animate-bounce' : ''
                     }`}
                   />
                   {!collapsed && <span className="truncate">{item.label}</span>}

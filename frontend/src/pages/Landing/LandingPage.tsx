@@ -69,7 +69,7 @@ export const LandingPage: React.FC = () => {
   const { ward, city, district } = useLocation();
   const { user } = useAuth();
   const [isAiDrawerOpen, setIsAiDrawerOpen] = useState(false);
-  const [activeNav, setActiveNav] = useState<'Home' | 'Services' | 'Alerts' | 'Resources' | 'Dashboard' | 'About Us'>('Home');
+  const [activeNav, setActiveNav] = useState<'Home' | 'Services' | 'Emergency SOS' | 'Alerts' | 'Resources' | 'Dashboard' | 'About Us'>('Home');
 
   const bottomFeatureCards = [
     {
@@ -220,6 +220,7 @@ export const LandingPage: React.FC = () => {
             {[
               { name: 'Home', action: () => navigate('/') },
               { name: 'Services', action: () => handleCardClick('#services-section') },
+              { name: 'Emergency SOS', action: () => navigate('/emergency') },
               { name: 'Alerts', action: () => handleAlertsClick() },
               { name: 'Resources', action: () => navigate('/government') },
               { name: 'Dashboard', action: () => handleCardClick('/dashboard') },
@@ -236,16 +237,30 @@ export const LandingPage: React.FC = () => {
                 className={`transition-colors relative py-1 hover:text-emerald-900 ${
                   activeNav === item.name
                     ? 'text-emerald-900 font-extrabold border-b-2 border-emerald-600'
+                    : item.name === 'Emergency SOS'
+                    ? 'text-red-700 font-extrabold'
                     : 'text-slate-800'
                 }`}
               >
-                {item.name}
+                {item.name === 'Emergency SOS' ? '🚨 Emergency SOS' : item.name}
               </motion.button>
             ))}
           </nav>
 
           {/* Right Action Buttons */}
           <div className="flex items-center gap-2.5">
+            {/* Direct Quick Emergency SOS Action Button */}
+            <motion.button
+              whileHover={{ scale: 1.08 }}
+              whileTap={{ scale: 0.94 }}
+              onClick={() => navigate('/emergency')}
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-full text-xs font-black shadow-lg transition-all animate-pulse cursor-pointer border border-red-500"
+              title="Launch Emergency SOS Console"
+            >
+              <ShieldAlert className="w-3.5 h-3.5 text-white" />
+              <span>🚨 SOS</span>
+            </motion.button>
+
             <motion.button
               whileHover={{ scale: 1.08, boxShadow: '0 10px 25px -5px rgba(16, 185, 129, 0.4)' }}
               whileTap={{ scale: 0.94 }}
