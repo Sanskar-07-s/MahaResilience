@@ -504,7 +504,7 @@ export const GovernmentAdminPortal: React.FC = () => {
                       selectedCategory === c ? 'bg-purple-600 text-white' : 'bg-slate-950 text-slate-400 hover:bg-slate-800'
                     }`}
                   >
-                    {c.replace('_', ' ')}
+                    {(c || '').replace('_', ' ')}
                   </button>
                 ))}
               </div>
@@ -527,7 +527,7 @@ export const GovernmentAdminPortal: React.FC = () => {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="bg-purple-500/20 text-purple-300 text-[10px] font-black px-2.5 py-0.5 rounded uppercase">
-                        {s.category.replace('_', ' ')}
+                        {(s.category || '').replace('_', ' ')}
                       </span>
                       <span className="text-emerald-400 font-mono font-bold text-xs bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-500/30">
                         {s.benefitAmount}

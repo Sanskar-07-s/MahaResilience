@@ -276,7 +276,7 @@ export const WasteAdminPortal: React.FC = () => {
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
                       <span className="bg-teal-500/20 text-teal-300 font-bold px-2 py-0.5 rounded text-[10px] uppercase">
-                        {r.wasteType.replace('_', ' ')}
+                        {(r.wasteType || '').replace('_', ' ')}
                       </span>
                       <span className="text-slate-400 flex items-center gap-1">
                         <MapPin className="w-3 h-3 text-teal-400" /> {r.ward}, {r.district}
@@ -294,7 +294,7 @@ export const WasteAdminPortal: React.FC = () => {
                         r.status === 'CLEARED' ? 'text-emerald-400' : r.status === 'CLEANUP_DISPATCHED' ? 'text-cyan-400' : 'text-amber-400'
                       }`}
                     >
-                      Status: {r.status.replace('_', ' ')}
+                      Status: {(r.status || '').replace('_', ' ')}
                     </span>
 
                     {r.status === 'PENDING' && (
@@ -343,15 +343,15 @@ export const WasteAdminPortal: React.FC = () => {
                       <td className="p-3 font-mono font-bold text-white">{f.vehicleNo}</td>
                       <td className="p-3 font-semibold text-slate-300">{f.driverName}</td>
                       <td className="p-3 text-slate-300">{f.ward}, {f.district}</td>
-                      <td className="p-3 text-teal-300">{f.vehicleType.replace('_', ' ')}</td>
+                      <td className="p-3 text-teal-300">{(f.vehicleType || '').replace('_', ' ')}</td>
                       <td className="p-3">
                         <span className="bg-emerald-500/20 text-emerald-300 font-bold px-2 py-0.5 rounded text-[10px]">
-                          {f.wasteCategory.replace('_', ' ')}
+                          {(f.wasteCategory || '').replace('_', ' ')}
                         </span>
                       </td>
                       <td className="p-3">
                         <span className="text-cyan-400 font-bold uppercase text-[10px] flex items-center gap-1">
-                          <CheckCircle className="w-3 h-3" /> {f.status.replace(/_/g, ' ')}
+                          <CheckCircle className="w-3 h-3" /> {(f.status || '').replace(/_/g, ' ')}
                         </span>
                       </td>
                     </tr>

@@ -139,7 +139,7 @@ export const SuperAdminPortal: React.FC = () => {
       if (newRole === 'MODULE_ADMIN' || isSpecificAdmin) {
         let fieldToSet = newField || targetUser?.adminField;
         if (!fieldToSet && isSpecificAdmin) {
-          fieldToSet = roleStr.replace('_ADMIN', '') as AdminField;
+          fieldToSet = (roleStr || '').replace('_ADMIN', '') as AdminField;
         }
         updateData.adminField = fieldToSet || 'TOURISM';
       } else if (isModerator) {
@@ -213,7 +213,7 @@ export const SuperAdminPortal: React.FC = () => {
       if (adminRole === 'MODULE_ADMIN') {
         newAdminObj.adminField = adminField;
       } else if (roleStr.endsWith('_ADMIN') && roleStr !== 'SUPER_ADMIN' && roleStr !== 'DISTRICT_ADMIN') {
-        newAdminObj.adminField = roleStr.replace('_ADMIN', '') as AdminField;
+        newAdminObj.adminField = (roleStr || '').replace('_ADMIN', '') as AdminField;
       } else if (roleStr.endsWith('_MODERATOR') || roleStr === 'MODERATOR') {
         newAdminObj.adminField = 'COMMUNITY';
       }

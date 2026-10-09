@@ -287,13 +287,13 @@ export const togglePostLike = async (postId: string, userId: string): Promise<bo
     // Unlike
     await deleteDoc(likeRef);
     const newLikes = Math.max(0, currentLikes - 1);
-    await updateDoc(postRef, { likeCount: newLikes });
+    await updateDoc(postRef, { likeCount: newLikes }).catch(() => {});
     return false;
   } else {
     // Like
     await setDoc(likeRef, { userId, createdAt: new Date().toISOString() });
     const newLikes = currentLikes + 1;
-    await updateDoc(postRef, { likeCount: newLikes });
+    await updateDoc(postRef, { likeCount: newLikes }).catch(() => {});
     return true;
   }
 };

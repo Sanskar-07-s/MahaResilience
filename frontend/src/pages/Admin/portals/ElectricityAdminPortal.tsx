@@ -280,7 +280,7 @@ export const ElectricityAdminPortal: React.FC = () => {
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
                       <span className="bg-yellow-500/20 text-yellow-300 font-bold px-2 py-0.5 rounded text-[10px] uppercase">
-                        {o.cause.replace('_', ' ')}
+                        {(o.cause||'OUTAGE').replace('_', ' ')}
                       </span>
                       <span className="text-slate-400 flex items-center gap-1">
                         <MapPin className="w-3 h-3 text-yellow-400" /> {o.wardOrTaluka}, {o.district}
@@ -301,7 +301,7 @@ export const ElectricityAdminPortal: React.FC = () => {
                         o.status === 'RESOLVED' ? 'text-emerald-400' : o.status === 'CREW_DISPATCHED' ? 'text-cyan-400' : 'text-amber-400'
                       }`}
                     >
-                      Status: {o.status.replace('_', ' ')}
+                      Status: {(o.status||'ACTIVE').replace('_', ' ')}
                     </span>
 
                     {o.status === 'ACTIVE' && (

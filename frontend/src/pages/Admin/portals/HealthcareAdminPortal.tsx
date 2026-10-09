@@ -275,7 +275,7 @@ export const HealthcareAdminPortal: React.FC = () => {
                       selectedType === t ? 'bg-red-600 text-white' : 'bg-slate-950 text-slate-400 hover:bg-slate-800'
                     }`}
                   >
-                    {t.replace('_', ' ')}
+                    {(t || '').replace('_', ' ')}
                   </button>
                 ))}
               </div>
@@ -318,7 +318,7 @@ export const HealthcareAdminPortal: React.FC = () => {
                       </td>
                       <td className="p-3">
                         <span className="bg-red-500/20 text-red-300 font-bold px-2 py-0.5 rounded text-[10px]">
-                          {hosp.type.replace('_', ' ')}
+                          {(hosp.type || '').replace('_', ' ')}
                         </span>
                       </td>
                       <td className="p-3 text-slate-300">{hosp.taluka}, {hosp.district}</td>
