@@ -7,6 +7,7 @@ import { useLocation } from '../../contexts/LocationContext.tsx';
 import { db } from '../../lib/firebase.ts';
 import { collection, addDoc, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { useAuth } from '../../contexts/AuthContext.tsx';
+import { UtilityBillFetcher } from '../../components/civic/UtilityBillFetcher.tsx';
 
 interface PublicFacilityTicket {
   id: string;
@@ -166,6 +167,13 @@ export const WaterPage: React.FC = () => {
           <Plus className="w-4 h-4" /> Request Water Tanker
         </button>
       </div>
+
+      {/* Instant Municipal Water Bill Fetcher */}
+      <UtilityBillFetcher
+        utilityType="WATER"
+        district={requestDistrict || 'Maharashtra'}
+        defaultProvider={`${requestDistrict || 'Pune'} Municipal Corporation (Water Works)`}
+      />
 
       {/* Top Stats Overview */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">

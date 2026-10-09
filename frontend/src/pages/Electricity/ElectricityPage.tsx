@@ -5,6 +5,7 @@ import { db } from '../../lib/firebase.ts';
 import { collection, addDoc } from 'firebase/firestore';
 import { useAuth } from '../../contexts/AuthContext.tsx';
 import { CivicFacilityBoard } from '../../components/civic/CivicFacilityBoard.tsx';
+import { UtilityBillFetcher } from '../../components/civic/UtilityBillFetcher.tsx';
 
 export const ElectricityPage: React.FC = () => {
   const { ward, city, district, latitude, longitude } = useLocation();
@@ -64,6 +65,13 @@ export const ElectricityPage: React.FC = () => {
           Official MSEDCL distribution announcements, toll-free support helplines, and citizen power outage reporting for {district}.
         </p>
       </div>
+
+      {/* Instant Light Bill Fetcher */}
+      <UtilityBillFetcher
+        utilityType="ELECTRICITY"
+        district={district || 'Maharashtra'}
+        defaultProvider="MSEDCL (Mahavitaran - Maharashtra)"
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="md:col-span-2 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">

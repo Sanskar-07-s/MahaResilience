@@ -13,6 +13,7 @@ import adminRoutes from './routes/adminRoutes.js';
 import recaptchaRoutes from './routes/recaptcha.routes';
 import aiRoutes from './routes/ai.routes';
 import tourismRoutes from './routes/tourismRoutes';
+import billRoutes from './routes/billRoutes.js';
 import { errorHandler } from './middleware/error.js';
 
 const app = express();
@@ -84,6 +85,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/recaptcha', recaptchaRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/tourism', tourismRoutes);
+app.use('/api/bills', billRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
