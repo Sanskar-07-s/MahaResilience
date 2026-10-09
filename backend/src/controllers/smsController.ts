@@ -184,3 +184,20 @@ export const verifyContactController = async (req: Request, res: Response) => {
     return res.status(500).json({ error: error.message || 'Failed to verify code.' });
   }
 };
+
+
+
+
+export const sendBillEmailController = async (req: Request, res: Response) => {
+  try {
+    const { email, consumerName, consumerNumber, utilityType = 'ELECTRICITY', lastMonthAmount = 1450, currentMonthAmount = 1580, penaltyAmount = 170, totalPaidAmount = 1750, transactionId = 'TXN-MSE-' + Math.floor(100000 + Math.random() * 900000) } = req.body;
+    const targetEmail = email || 'sanskardhat6@gmail.com';
+    const isWater = utilityType === 'WATER';
+    const providerName = isWater ? 'Municipal Water Authority' : 'MSEDCL (Mahavitaran Electricity)';
+    const htmlContent = '<div><h2>' + providerName + '</h2><p>OFFICIAL DIGITAL PAYMENT RECEIPT</p><p>Consumer Name: <strong>' + (consumerName||'Citizen Resident') + '</strong></p><p>Consumer CAN No: <strong>' + (consumerNumber||'012345678910') + '</strong></p><p>Transaction Ref: <strong>' + transactionId + '</strong></p><hr/><p>Last Month Status (July/Aug): Rs. ' + Number(lastMonthAmount).toFixed(2) + ' (PAID)</p><p>This Month Bill (September): Rs. ' + Number(currentMonthAmount).toFixed(2) + '</p><p>Late Payment Penalty (DPC Surcharge): + Rs. ' + Number(penaltyAmount).toFixed(2) + '</p><h3>Total Settled Paid: Rs. ' + Number(totalPaidAmount).toFixed(2) + '</h3></div>';
+    const emailSent = await sendBrevoEmail({ toEmail: targetEmail, toName: consumerName || 'Citizen', subject: '[Receipt] ' + providerName + ' - Bill Paid (Ref: ' + transactionId + ')', htmlContent });
+    return res.status(200).json({ message: 'Bill payment receipt dispatched to email.', emailSent, targetEmail, transactionId, totalPaidAmount });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message || 'Failed to dispatch bill email.' });
+  }
+};

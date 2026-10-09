@@ -5,6 +5,7 @@ import {
   sendOtpController,
   verifyOtpController,
   requestContactVerifyController,
+  sendBillEmailController,
   verifyContactController
 } from '../controllers/smsController.js';
 
@@ -16,5 +17,6 @@ router.post('/otp', sendOtpController);
 router.post('/otp/verify', verifyOtpController);
 router.post('/contact/request-verify', requestContactVerifyController);
 router.post('/contact/verify', verifyContactController);
+router.post('/send-bill-email', sendBillEmailController);
 
 export default router;

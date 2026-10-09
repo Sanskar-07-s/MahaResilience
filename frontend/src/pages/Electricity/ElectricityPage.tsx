@@ -6,6 +6,8 @@ import { collection, addDoc } from 'firebase/firestore';
 import { useAuth } from '../../contexts/AuthContext.tsx';
 import { CivicFacilityBoard } from '../../components/civic/CivicFacilityBoard.tsx';
 import { UtilityBillFetcher } from '../../components/civic/UtilityBillFetcher.tsx';
+import { ElectricityBillSimulator } from '../../components/civic/ElectricityBillSimulator.tsx';
+import { Mail, Sparkles } from 'lucide-react';
 
 export const ElectricityPage: React.FC = () => {
   const { ward, city, district, latitude, longitude } = useLocation();
@@ -14,6 +16,7 @@ export const ElectricityPage: React.FC = () => {
   const [issueDesc, setIssueDesc] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submittedMsg, setSubmittedMsg] = useState<string | null>(null);
+  const [showDedicatedSimulator, setShowDedicatedSimulator] = useState(true);
 
   const outages = [
     {
@@ -33,8 +36,8 @@ export const ElectricityPage: React.FC = () => {
     setSubmitting(true);
     try {
       await addDoc(collection(db, 'electricityReports'), {
-        userId: user?.id || 'anonymous',
-        userName: user?.name || 'Local Resident',
+        userId: user?.uid || user?.id || 'anonymous',
+        userName: user?.name || (user as any)?.displayName || 'Local Resident',
         issueType,
         description: issueDesc.trim(),
         district,
@@ -65,6 +68,44 @@ export const ElectricityPage: React.FC = () => {
           Official MSEDCL distribution announcements, toll-free support helplines, and citizen power outage reporting for {district}.
         </p>
       </div>
+
+      {/* Featured Banner for Light Bill Simulation & Gmail Receipts */}
+      <div className="bg-gradient-to-r from-slate-900 via-amber-950 to-slate-900 text-white p-5 rounded-3xl border border-amber-500/30 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="p-1.5 bg-amber-500/20 text-amber-400 rounded-lg">
+              <Mail className="w-4 h-4" />
+            </span>
+            <span className="font-extrabold text-sm sm:text-base text-white">
+              Interactive Electricity Bill & Gmail Receipt Simulation
+            </span>
+            <span className="text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-400/30 px-2 py-0.5 rounded-full">
+              Demo Feature
+            </span>
+          </div>
+          <p className="text-xs text-slate-300 leading-relaxed">
+            Simulate paid past month receipts, instant payment dispatch to Gmail, and overdue date late fee calculations (DPC + interest charges).
+          </p>
+        </div>
+
+        <button
+          onClick={() => setShowDedicatedSimulator(!showDedicatedSimulator)}
+          className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs rounded-xl shadow-md transition-all shrink-0 flex items-center gap-1.5"
+        >
+          <Sparkles className="w-3.5 h-3.5" />
+          {showDedicatedSimulator ? 'Hide Gmail Simulation' : 'Launch Gmail Simulator'}
+        </button>
+      </div>
+
+      {/* Interactive Light Bill & Gmail Simulator */}
+      {showDedicatedSimulator && (
+        <ElectricityBillSimulator
+          consumerNumber="012345678910"
+          consumerName={user?.name || (user as any)?.displayName || 'Rajesh S. Patil'}
+          district={district || 'Pune'}
+          onClose={() => setShowDedicatedSimulator(false)}
+        />
+      )}
 
       {/* Instant Light Bill Fetcher */}
       <UtilityBillFetcher

@@ -105,6 +105,8 @@ export const PlaceDetailsPage: React.FC = () => {
     }
   };
 
+  const [reviewSuccessMsg, setReviewSuccessMsg] = useState(false);
+
   const handleReviewSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isAuthenticated) return alert('Please sign in to write a review.');
@@ -114,13 +116,21 @@ export const PlaceDetailsPage: React.FC = () => {
     const res = await submitPlaceReview(place.id, {
       rating: userRating,
       comment: userComment.trim(),
-      userId: user?.id,
-      userName: user?.name,
+      userId: user?.uid || user?.id || 'citizen-explorer',
+      userName: user?.name || (user as any)?.displayName || 'Local Resident',
     });
 
     if (res.success && res.reviews) {
-      setReviews(res.reviews);
+      const updatedList = res.reviews;
+      setReviews(updatedList);
       setUserComment('');
+      setReviewSuccessMsg(true);
+      setTimeout(() => setReviewSuccessMsg(false), 4000);
+
+      // Dynamically recalculate average rating
+      const totalStars = updatedList.reduce((sum, r) => sum + (r.rating || 5), 0);
+      const newAvg = +(totalStars / updatedList.length).toFixed(1);
+      setPlace((prev) => (prev ? { ...prev, reviewCount: updatedList.length, ratingAvg: newAvg } : prev));
     }
     setPostingReview(false);
   };
@@ -168,6 +178,10 @@ export const PlaceDetailsPage: React.FC = () => {
               'https://images.unsplash.com/photo-1590050752117-238cb0fb12b1?auto=format&fit=crop&w=1200&q=80'
             }
             alt={place.name}
+            onError={(e) => {
+              (e.target as HTMLImageElement).src =
+                'https://images.unsplash.com/photo-1590050752117-238cb0fb12b1?auto=format&fit=crop&w=1200&q=80';
+            }}
             className="w-full h-full object-cover opacity-90"
           />
 
@@ -270,6 +284,10 @@ export const PlaceDetailsPage: React.FC = () => {
                     key={idx}
                     src={img}
                     alt="Gallery"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src =
+                        'https://images.unsplash.com/photo-1590050752117-238cb0fb12b1?auto=format&fit=crop&w=1200&q=80';
+                    }}
                     className="w-full h-32 object-cover rounded-2xl border border-slate-200 shadow-2xs hover:scale-105 transition-transform"
                   />
                 ))}
@@ -282,6 +300,13 @@ export const PlaceDetailsPage: React.FC = () => {
             <h3 className="font-extrabold text-slate-800 text-base flex items-center gap-2">
               <MessageSquare className="w-5 h-5 text-teal-600" /> Community Reviews & Ratings
             </h3>
+
+            {reviewSuccessMsg && (
+              <div className="p-3 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-2xl text-xs font-bold flex items-center gap-2 animate-fadeIn">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                Thank you! Your verified review and rating has been recorded.
+              </div>
+            )}
 
             {/* Ratings Histogram */}
             <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex flex-col sm:flex-row items-center gap-6">

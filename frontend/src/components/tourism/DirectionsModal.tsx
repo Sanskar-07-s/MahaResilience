@@ -202,16 +202,17 @@ export const DirectionsModal: React.FC<DirectionsModalProps> = ({
             Close Route
           </button>
 
-          {routeResult?.externalGoogleMapsUrl && (
-            <a
-              href={routeResult.externalGoogleMapsUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl text-xs flex items-center gap-2 shadow-sm transition-all"
-            >
-              <ExternalLink className="w-4 h-4" /> Open in Google Maps
-            </a>
-          )}
+          <a
+            href={
+              routeResult?.externalGoogleMapsUrl ||
+              `https://www.google.com/maps/dir/?api=1&origin=${startLat},${startLng}&destination=${destLat},${destLng}&travelmode=${mode}`
+            }
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl text-xs flex items-center gap-2 shadow-sm transition-all"
+          >
+            <ExternalLink className="w-4 h-4" /> Open in Google Maps
+          </a>
         </div>
       </div>
     </div>

@@ -11,6 +11,8 @@ import {
   saveConsumerNumber,
   markBillAsPaidLocally
 } from '../../services/billService.ts';
+import { ElectricityBillSimulator } from './ElectricityBillSimulator.tsx';
+import { Mail } from 'lucide-react';
 
 interface UtilityBillFetcherProps {
   utilityType: 'ELECTRICITY' | 'WATER';
@@ -36,6 +38,7 @@ export const UtilityBillFetcher: React.FC<UtilityBillFetcherProps> = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [showBreakdown, setShowBreakdown] = useState(false);
   const [paidSuccess, setPaidSuccess] = useState(false);
+  const [showSimulator, setShowSimulator] = useState(false);
 
   // Load remembered connections or auto-load first demo sample for instant presentation
   useEffect(() => {
@@ -454,6 +457,17 @@ export const UtilityBillFetcher: React.FC<UtilityBillFetcherProps> = ({
                     Simulate Quick Pay
                   </button>
                 )}
+                {!isWater && (
+                  <button
+                    type="button"
+                    onClick={() => setShowSimulator(!showSimulator)}
+                    className="px-4 py-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all shadow-xs"
+                    title="Simulate past months, email receipts, and late overdue surcharges"
+                  >
+                    <Mail className="w-3.5 h-3.5" />
+                    {showSimulator ? 'Close Gmail Simulator' : '⚡ Simulate Past Bills & Gmail Receipts'}
+                  </button>
+                )}
               </div>
 
               {/* Direct Deep-link to real government portal */}
@@ -475,6 +489,16 @@ export const UtilityBillFetcher: React.FC<UtilityBillFetcherProps> = ({
             )}
           </div>
         </div>
+      )}
+
+      {/* Embedded Interactive Light Bill & Gmail Simulator */}
+      {showSimulator && !isWater && (
+        <ElectricityBillSimulator
+          consumerNumber={bill?.consumerNumber || consumerNumber}
+          consumerName={bill?.consumerName || 'Rajesh S. Patil'}
+          district={district}
+          onClose={() => setShowSimulator(false)}
+        />
       )}
     </div>
   );

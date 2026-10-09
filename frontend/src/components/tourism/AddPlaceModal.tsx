@@ -155,8 +155,8 @@ export const AddPlaceModal: React.FC<AddPlaceModalProps> = ({ isOpen, onClose, o
         website: website.trim() || undefined,
         bestTimeToVisit: bestTimeToVisit.trim() || undefined,
         safetyInfo: safetyInfo.trim() || undefined,
-        userId: user?.id || 'community-resident',
-        userName: user?.name || 'Local Resident',
+        userId: user?.uid || user?.id || 'community-resident',
+        userName: user?.name || (user as any)?.displayName || 'Local Resident',
         bypassDuplicateCheck: bypass,
       });
 
