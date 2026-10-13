@@ -6,6 +6,7 @@ import { collection, addDoc } from 'firebase/firestore';
 import { useAuth } from '../../contexts/AuthContext.tsx';
 import { CivicFacilityBoard } from '../../components/civic/CivicFacilityBoard.tsx';
 import { UtilityBillFetcher } from '../../components/civic/UtilityBillFetcher.tsx';
+import { BillingWorkflowSimulator } from '../../components/civic/BillingWorkflowSimulator.tsx';
 
 export const ElectricityPage: React.FC = () => {
   const { ward, city, district, latitude, longitude } = useLocation();
@@ -65,6 +66,12 @@ export const ElectricityPage: React.FC = () => {
           Official MSEDCL distribution announcements, toll-free support helplines, instant bill lookup, and live email receipt dispatch for {district}.
         </p>
       </div>
+
+      {/* Interactive Billing Workflow Simulator & Real Email Dispatch */}
+      <BillingWorkflowSimulator
+        defaultEmail="sanskardhat6@gmail.com"
+        defaultConsumerName={user?.name || (user as any)?.displayName || 'Sanskar Dhat'}
+      />
 
       {/* Instant Light Bill Fetcher & Live Brevo Email Dispatch */}
       <UtilityBillFetcher
