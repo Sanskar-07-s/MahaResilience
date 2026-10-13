@@ -97,7 +97,7 @@ export const calculateFallbackBill = (
       billNumber: `WTR-${currentMonth.toUpperCase()}-${hash % 90000 + 10000}`,
       billDate,
       dueDate,
-      amountDue: isLocallyPaid ? 0 : amountDue,
+      amountDue: amountDue,
       unitsConsumed: volumeKL,
       unitLabel: 'kL (Kilolitres)',
       meterNumber: `WM-${cleanNumber.slice(-4)}-${hash % 800 + 100}`,
@@ -137,7 +137,7 @@ export const calculateFallbackBill = (
     billNumber: `MSE-${currentMonth.toUpperCase()}-${hash % 90000 + 10000}`,
     billDate,
     dueDate,
-    amountDue: isLocallyPaid ? 0 : totalPayable,
+    amountDue: totalPayable,
     unitsConsumed: units,
     unitLabel: 'kWh (Units)',
     meterNumber: `EM-${cleanNumber.slice(-4)}-${hash % 900 + 100}`,
@@ -189,7 +189,6 @@ export const fetchBillFromService = async (params: {
           return {
             ...result.data,
             status: 'PAID',
-            amountDue: 0,
           };
         }
         return result.data;
@@ -228,5 +227,11 @@ export const saveConsumerNumber = (utilityType: 'ELECTRICITY' | 'WATER', consume
 export const markBillAsPaidLocally = (consumerNo: string): void => {
   try {
     localStorage.setItem(`bill_paid_${consumerNo.trim().toUpperCase()}`, 'true');
+  } catch (_) {}
+};
+
+export const clearBillPaidLocally = (consumerNo: string): void => {
+  try {
+    localStorage.removeItem(`bill_paid_${consumerNo.trim().toUpperCase()}`);
   } catch (_) {}
 };

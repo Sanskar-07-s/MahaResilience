@@ -1,3 +1,4 @@
+import { getApiUrl } from '../../config/api.config.ts';
 import React, { useState } from 'react';
 import {
   Zap,
@@ -162,7 +163,7 @@ export const ElectricityBillSimulator: React.FC<ElectricityBillSimulatorProps> =
   // Handlers for simulation
   const handleSimulatePayCurrent = async (wasOverdue = false) => {
   try {
-    await fetch('/api/sms/send-bill-email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: recipientEmail, consumerName, consumerNumber, utilityType: 'ELECTRICITY', lastMonthAmount: 1450, currentMonthAmount: 1580, penaltyAmount: 170, totalPaidAmount: 1750 }) });
+    await fetch(getApiUrl('/api/sms/send-bill-email'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: recipientEmail, consumerName, consumerNumber, utilityType: 'ELECTRICITY', lastMonthAmount: 1450, currentMonthAmount: 1580, penaltyAmount: 170, totalPaidAmount: 1750 }) });
   } catch (_) {}
 
     const newTxn = `TXN-MSE-${Math.floor(100000 + Math.random() * 900000)}`;
