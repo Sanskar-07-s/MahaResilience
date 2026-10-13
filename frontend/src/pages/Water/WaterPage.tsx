@@ -8,6 +8,7 @@ import { db } from '../../lib/firebase.ts';
 import { collection, addDoc, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { useAuth } from '../../contexts/AuthContext.tsx';
 import { UtilityBillFetcher } from '../../components/civic/UtilityBillFetcher.tsx';
+import { BillingWorkflowSimulator } from '../../components/civic/BillingWorkflowSimulator.tsx';
 
 interface PublicFacilityTicket {
   id: string;
@@ -167,6 +168,12 @@ export const WaterPage: React.FC = () => {
           <Plus className="w-4 h-4" /> Request Water Tanker
         </button>
       </div>
+
+      {/* Interactive Billing Workflow Simulator & Real Email Dispatch */}
+      <BillingWorkflowSimulator
+        defaultEmail="sanskardhat6@gmail.com"
+        defaultConsumerName={user?.name || (user as any)?.displayName || 'Sanskar Dhat'}
+      />
 
       {/* Instant Municipal Water Bill Fetcher */}
       <UtilityBillFetcher

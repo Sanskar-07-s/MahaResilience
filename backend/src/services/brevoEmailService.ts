@@ -3,8 +3,10 @@ import crypto from 'crypto';
 
 const DEFAULT_BREVO_KEY = ['xkeysib-76ba90cd082f36c9e6960f052bb3525bf8a5', '0c5733e2f7ed909113921e8895a9-edIF3D3ahcim8dpo'].join('');
 const BREVO_API_KEY = process.env.BREVO_API_KEY || DEFAULT_BREVO_KEY;
-const SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL || 'sanskardhat6@gmail.com';
-const SENDER_NAME = process.env.BREVO_SENDER_NAME || 'MahaResilience Emergency Center';
+const envSender = process.env.BREVO_SENDER_EMAIL;
+// Brevo requires a verified sender email. sanskardhat6@gmail.com is verified on this Brevo account.
+const SENDER_EMAIL = (envSender && !envSender.includes('maharesilience.org')) ? envSender : 'sanskardhat6@gmail.com';
+const SENDER_NAME = process.env.BREVO_SENDER_NAME || 'MahaResilience Civic Portal';
 
 interface SendEmailParams {
   toEmail: string;
