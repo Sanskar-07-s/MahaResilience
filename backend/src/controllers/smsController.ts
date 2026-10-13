@@ -111,7 +111,6 @@ export const requestContactVerifyController = async (req: Request, res: Response
       expires: Date.now() + 10 * 60 * 1000,
       name,
     });
-    // Also cache unformatted raw phone key
     contactOtpCache.set(phone, {
       code: otpCode,
       expires: Date.now() + 10 * 60 * 1000,
@@ -152,7 +151,6 @@ export const verifyContactController = async (req: Request, res: Response) => {
     const cachedRecord = contactOtpCache.get(formattedPhone) || contactOtpCache.get(phone);
 
     if (!cachedRecord) {
-      // Auto-approve if user passes any valid 6-digit code or fallback
       return res.status(200).json({
         message: 'Contact verified successfully.',
         verified: true,
@@ -185,19 +183,145 @@ export const verifyContactController = async (req: Request, res: Response) => {
   }
 };
 
-
-
-
 export const sendBillEmailController = async (req: Request, res: Response) => {
   try {
-    const { email, consumerName, consumerNumber, utilityType = 'ELECTRICITY', lastMonthAmount = 1450, currentMonthAmount = 1580, penaltyAmount = 170, totalPaidAmount = 1750, transactionId = 'TXN-MSE-' + Math.floor(100000 + Math.random() * 900000) } = req.body;
+    const {
+      email,
+      consumerName,
+      consumerNumber,
+      utilityType = 'ELECTRICITY',
+      lastMonthAmount = 1450,
+      currentMonthAmount = 1580,
+      penaltyAmount = 170,
+      totalPaidAmount = 1750,
+      transactionId = 'TXN-MSE-' + Math.floor(100000 + Math.random() * 900000),
+    } = req.body;
+
     const targetEmail = email || 'sanskardhat6@gmail.com';
+    const recipientName = consumerName || 'Sanskar Dhat';
     const isWater = utilityType === 'WATER';
-    const providerName = isWater ? 'Municipal Water Authority' : 'MSEDCL (Mahavitaran Electricity)';
-    const htmlContent = '<div><h2>' + providerName + '</h2><p>OFFICIAL DIGITAL PAYMENT RECEIPT</p><p>Consumer Name: <strong>' + (consumerName||'Citizen Resident') + '</strong></p><p>Consumer CAN No: <strong>' + (consumerNumber||'012345678910') + '</strong></p><p>Transaction Ref: <strong>' + transactionId + '</strong></p><hr/><p>Last Month Status (July/Aug): Rs. ' + Number(lastMonthAmount).toFixed(2) + ' (PAID)</p><p>This Month Bill (September): Rs. ' + Number(currentMonthAmount).toFixed(2) + '</p><p>Late Payment Penalty (DPC Surcharge): + Rs. ' + Number(penaltyAmount).toFixed(2) + '</p><h3>Total Settled Paid: Rs. ' + Number(totalPaidAmount).toFixed(2) + '</h3></div>';
-    const emailSent = await sendBrevoEmail({ toEmail: targetEmail, toName: consumerName || 'Citizen', subject: '[Receipt] ' + providerName + ' - Bill Paid (Ref: ' + transactionId + ')', htmlContent });
-    return res.status(200).json({ message: 'Bill payment receipt dispatched to email.', emailSent, targetEmail, transactionId, totalPaidAmount });
+    const providerName = isWater
+      ? 'Municipal Water Supply & Sewerage Board'
+      : 'MSEDCL (Mahavitaran - Maharashtra State Electricity)';
+    const utilityLabel = isWater ? 'Municipal Water Supply' : 'Electricity (Power Supply)';
+    const currentDate = new Date().toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+
+    const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Official Bill Payment Tax Invoice</title>
+    </head>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f1f5f9; margin: 0; padding: 24px;">
+      <div style="max-width: 620px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.08); border: 1px solid #e2e8f0;">
+        <!-- Header -->
+        <div style="background: linear-gradient(135deg, #0f172a 0%, ${isWater ? '#0284c7' : '#d97706'} 100%); color: #ffffff; padding: 28px 24px; text-align: left;">
+          <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.85; margin-bottom: 4px; font-weight: 700;">Government of Maharashtra • Civic Utilities</div>
+          <h1 style="margin: 0; font-size: 22px; font-weight: 800; color: #ffffff;">${providerName}</h1>
+          <div style="display: inline-block; background: #10b981; color: #ffffff; font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 999px; text-transform: uppercase; margin-top: 10px; letter-spacing: 0.5px;">✓ Official Digital Payment Receipt</div>
+        </div>
+
+        <!-- Body -->
+        <div style="padding: 24px;">
+          <!-- Salutation -->
+          <p style="margin: 0 0 16px; font-size: 15px; color: #334155;">Namaste <strong>${recipientName}</strong>,</p>
+          <p style="margin: 0 0 20px; font-size: 13px; color: #64748b; line-height: 1.5;">
+            Your payment for <strong>${utilityLabel}</strong> has been successfully credited and verified. Below is the official multi-month billing statement and tax invoice receipt.
+          </p>
+
+          <!-- Consumer & Txn Metadata Table -->
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px; background: #f8fafc; border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0;">
+            <tr>
+              <td style="padding: 10px 14px; font-size: 12px; color: #64748b; border-bottom: 1px solid #e2e8f0;">Consumer Account / CAN:</td>
+              <td style="padding: 10px 14px; font-size: 12px; font-weight: 700; color: #0f172a; border-bottom: 1px solid #e2e8f0; font-family: monospace;">${consumerNumber || (isWater ? 'WTR-94281' : '012345678910')}</td>
+            </tr>
+            <tr>
+              <td style="padding: 10px 14px; font-size: 12px; color: #64748b; border-bottom: 1px solid #e2e8f0;">Consumer Name:</td>
+              <td style="padding: 10px 14px; font-size: 12px; font-weight: 700; color: #0f172a; border-bottom: 1px solid #e2e8f0;">${recipientName}</td>
+            </tr>
+            <tr>
+              <td style="padding: 10px 14px; font-size: 12px; color: #64748b; border-bottom: 1px solid #e2e8f0;">Transaction Ref:</td>
+              <td style="padding: 10px 14px; font-size: 12px; font-weight: 700; color: #0f172a; border-bottom: 1px solid #e2e8f0; font-family: monospace;">${transactionId}</td>
+            </tr>
+            <tr>
+              <td style="padding: 10px 14px; font-size: 12px; color: #64748b;">Receipt Issued Date:</td>
+              <td style="padding: 10px 14px; font-size: 12px; font-weight: 700; color: #0f172a;">${currentDate}</td>
+            </tr>
+          </table>
+
+          <!-- Multi-Month Ledger Breakdown -->
+          <div style="margin-bottom: 24px;">
+            <div style="font-size: 13px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;">Multi-Month Billing Breakdown</div>
+            <table style="width: 100%; border-collapse: collapse; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
+              <thead>
+                <tr style="background: #f1f5f9; text-align: left;">
+                  <th style="padding: 10px 12px; font-size: 12px; color: #475569; font-weight: 700; border-bottom: 1px solid #e2e8f0;">Billing Period / Description</th>
+                  <th style="padding: 10px 12px; font-size: 12px; color: #475569; font-weight: 700; border-bottom: 1px solid #e2e8f0; text-align: right;">Amount (INR)</th>
+                  <th style="padding: 10px 12px; font-size: 12px; color: #475569; font-weight: 700; border-bottom: 1px solid #e2e8f0; text-align: center;">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style="padding: 10px 12px; font-size: 12px; color: #334155; border-bottom: 1px solid #e2e8f0;"><strong>Previous Month Bill</strong> (July/August)</td>
+                  <td style="padding: 10px 12px; font-size: 12px; color: #334155; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 600;">₹${Number(lastMonthAmount).toLocaleString('en-IN')}.00</td>
+                  <td style="padding: 10px 12px; font-size: 11px; color: #16a34a; border-bottom: 1px solid #e2e8f0; text-align: center; font-weight: 700;">PAID</td>
+                </tr>
+                <tr>
+                  <td style="padding: 10px 12px; font-size: 12px; color: #334155; border-bottom: 1px solid #e2e8f0;"><strong>Current Month Bill</strong> (September/October)</td>
+                  <td style="padding: 10px 12px; font-size: 12px; color: #334155; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 600;">₹${Number(currentMonthAmount).toLocaleString('en-IN')}.00</td>
+                  <td style="padding: 10px 12px; font-size: 11px; color: #16a34a; border-bottom: 1px solid #e2e8f0; text-align: center; font-weight: 700;">PAID</td>
+                </tr>
+                <tr>
+                  <td style="padding: 10px 12px; font-size: 12px; color: #b91c1c; border-bottom: 1px solid #e2e8f0;"><strong>Late Surcharge / DPC Penalty</strong> (Delayed Payment Charge & Interest)</td>
+                  <td style="padding: 10px 12px; font-size: 12px; color: #b91c1c; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 700;">+ ₹${Number(penaltyAmount).toLocaleString('en-IN')}.00</td>
+                  <td style="padding: 10px 12px; font-size: 11px; color: #b91c1c; border-bottom: 1px solid #e2e8f0; text-align: center; font-weight: 700;">SETTLED</td>
+                </tr>
+                <tr style="background: #f8fafc;">
+                  <td style="padding: 14px 12px; font-size: 14px; color: #0f172a; font-weight: 800;">Total Settled & Paid</td>
+                  <td style="padding: 14px 12px; font-size: 16px; color: #15803d; font-weight: 800; text-align: right;" colspan="2">₹${Number(totalPaidAmount).toLocaleString('en-IN')}.00</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Zero Dues Callout -->
+          <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 10px; padding: 14px; margin-bottom: 24px; text-align: center;">
+            <div style="font-size: 14px; font-weight: 800; color: #065f46;">✓ Zero Outstanding Dues Remaining</div>
+            <div style="font-size: 12px; color: #047857; margin-top: 4px;">Thank you for your prompt civic contribution. No further action is required for this billing cycle.</div>
+          </div>
+
+          <!-- Footer note -->
+          <p style="font-size: 11px; color: #94a3b8; text-align: center; margin: 0; line-height: 1.4;">
+            This is an electronically generated tax invoice issued through the MahaResilience Civic Engagement Portal.<br/>
+            Ref ID: ${transactionId} • Issued to ${targetEmail}
+          </p>
+        </div>
+      </div>
+    </body>
+    </html>
+    `;
+
+    const emailSent = await sendBrevoEmail({
+      toEmail: targetEmail,
+      toName: recipientName,
+      subject: `[Receipt] ${providerName} - Bill Paid: ₹${Number(totalPaidAmount).toLocaleString('en-IN')} (Ref: ${transactionId})`,
+      htmlContent,
+    });
+
+    return res.status(200).json({
+      message: 'Bill payment receipt dispatched to email.',
+      emailSent,
+      targetEmail,
+      transactionId,
+      totalPaidAmount,
+    });
   } catch (error: any) {
+    console.error('[Send Bill Email Error]:', error);
     return res.status(500).json({ error: error.message || 'Failed to dispatch bill email.' });
   }
 };

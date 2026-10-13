@@ -6,8 +6,6 @@ import { collection, addDoc } from 'firebase/firestore';
 import { useAuth } from '../../contexts/AuthContext.tsx';
 import { CivicFacilityBoard } from '../../components/civic/CivicFacilityBoard.tsx';
 import { UtilityBillFetcher } from '../../components/civic/UtilityBillFetcher.tsx';
-import { ElectricityBillSimulator } from '../../components/civic/ElectricityBillSimulator.tsx';
-import { Mail, Sparkles } from 'lucide-react';
 
 export const ElectricityPage: React.FC = () => {
   const { ward, city, district, latitude, longitude } = useLocation();
@@ -16,7 +14,6 @@ export const ElectricityPage: React.FC = () => {
   const [issueDesc, setIssueDesc] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submittedMsg, setSubmittedMsg] = useState<string | null>(null);
-  const [showDedicatedSimulator, setShowDedicatedSimulator] = useState(true);
 
   const outages = [
     {
@@ -65,49 +62,11 @@ export const ElectricityPage: React.FC = () => {
         </div>
         <h1 className="text-2xl md:text-3xl font-extrabold">MSEDCL Power Outages & Grid Alerts</h1>
         <p className="text-amber-100 text-sm mt-1 max-w-2xl leading-relaxed">
-          Official MSEDCL distribution announcements, toll-free support helplines, and citizen power outage reporting for {district}.
+          Official MSEDCL distribution announcements, toll-free support helplines, instant bill lookup, and live email receipt dispatch for {district}.
         </p>
       </div>
 
-      {/* Featured Banner for Light Bill Simulation & Gmail Receipts */}
-      <div className="bg-gradient-to-r from-slate-900 via-amber-950 to-slate-900 text-white p-5 rounded-3xl border border-amber-500/30 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="p-1.5 bg-amber-500/20 text-amber-400 rounded-lg">
-              <Mail className="w-4 h-4" />
-            </span>
-            <span className="font-extrabold text-sm sm:text-base text-white">
-              Interactive Electricity Bill & Gmail Receipt Simulation
-            </span>
-            <span className="text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-400/30 px-2 py-0.5 rounded-full">
-              Demo Feature
-            </span>
-          </div>
-          <p className="text-xs text-slate-300 leading-relaxed">
-            Simulate paid past month receipts, instant payment dispatch to Gmail, and overdue date late fee calculations (DPC + interest charges).
-          </p>
-        </div>
-
-        <button
-          onClick={() => setShowDedicatedSimulator(!showDedicatedSimulator)}
-          className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs rounded-xl shadow-md transition-all shrink-0 flex items-center gap-1.5"
-        >
-          <Sparkles className="w-3.5 h-3.5" />
-          {showDedicatedSimulator ? 'Hide Gmail Simulation' : 'Launch Gmail Simulator'}
-        </button>
-      </div>
-
-      {/* Interactive Light Bill & Gmail Simulator */}
-      {showDedicatedSimulator && (
-        <ElectricityBillSimulator
-          consumerNumber="012345678910"
-          consumerName={user?.name || (user as any)?.displayName || 'Rajesh S. Patil'}
-          district={district || 'Pune'}
-          onClose={() => setShowDedicatedSimulator(false)}
-        />
-      )}
-
-      {/* Instant Light Bill Fetcher */}
+      {/* Instant Light Bill Fetcher & Live Brevo Email Dispatch */}
       <UtilityBillFetcher
         utilityType="ELECTRICITY"
         district={district || 'Maharashtra'}
@@ -139,63 +98,85 @@ export const ElectricityPage: React.FC = () => {
             </div>
           ))}
 
-          <form onSubmit={handleSubmitOutage} className="pt-3 border-t border-slate-100 space-y-3 text-xs">
-            <h4 className="font-bold text-slate-800 uppercase tracking-wider text-[11px]">Report Power Outage or Transformer Hazard</h4>
-            {submittedMsg && (
-              <div className="p-2.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl font-semibold">
-                {submittedMsg}
-              </div>
-            )}
-            <select
-              value={issueType}
-              onChange={(e) => setIssueType(e.target.value)}
-              className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-semibold outline-none"
-            >
-              <option value="OUTAGE">Unscheduled Power Outage</option>
-              <option value="VOLTAGE_FLVCTUATION">High / Low Voltage Fluctuation</option>
-              <option value="TRANSFORMER_SPARK">Transformer Spark / Wire Hazard</option>
-              <option value="STREETLIGHT_OUT">Streetlight Inoperative</option>
-            </select>
-            <textarea
-              rows={2}
-              value={issueDesc}
-              onChange={(e) => setIssueDesc(e.target.value)}
-              placeholder="Provide exact street location or pole number..."
-              className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl outline-none"
-            />
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl transition-all shadow-xs"
-            >
-              {submitting ? 'Submitting...' : 'Log Outage Report to Firestore'}
-            </button>
-          </form>
-        </div>
-
-        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-          <h3 className="font-extrabold text-slate-800 text-base flex items-center gap-2">
-            <PhoneCall className="w-5 h-5 text-amber-600" /> MSEDCL Official Support
-          </h3>
-
-          <div className="space-y-3 text-xs text-slate-600">
-            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200">
-              <div className="font-bold text-slate-800">Toll-Free Outage Helpline</div>
-              <div className="text-amber-700 font-mono text-sm font-bold mt-1">1912 / 1800-233-3435</div>
+          {/* Quick Helpline Numbers */}
+          <div className="p-5 bg-slate-900 text-white rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div>
+              <div className="text-xs text-amber-400 font-bold uppercase tracking-wider">MSEDCL 24x7 Emergency Helplines</div>
+              <div className="text-base font-extrabold mt-0.5">Report Sparks, Transformer Failure, or Hanging Wires</div>
             </div>
-            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200">
-              <div className="font-bold text-slate-800">{district} MSEDCL Division Desk</div>
-              <div className="text-slate-700 font-mono text-xs mt-1">Official Toll-Free Portal</div>
+            <div className="flex items-center gap-3">
+              <a
+                href="tel:1912"
+                className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-md"
+              >
+                <PhoneCall className="w-3.5 h-3.5" /> Call 1912
+              </a>
+              <a
+                href="tel:18002333435"
+                className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all border border-white/15"
+              >
+                1800-233-3435
+              </a>
             </div>
           </div>
         </div>
+
+        {/* Citizen Report Form */}
+        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+          <h3 className="font-extrabold text-slate-800 text-base">Report Local Electricity Problem</h3>
+          <p className="text-xs text-slate-500">
+            Log outages or damaged street power infrastructure in {ward || city}.
+          </p>
+
+          <form onSubmit={handleSubmitOutage} className="space-y-3 text-xs">
+            <div>
+              <label className="block text-slate-600 font-bold mb-1">Issue Category</label>
+              <select
+                value={issueType}
+                onChange={(e) => setIssueType(e.target.value)}
+                className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-medium outline-none focus:ring-2 focus:ring-amber-500"
+              >
+                <option value="OUTAGE">Complete Power Outage</option>
+                <option value="LOW_VOLTAGE">Low Voltage / Fluctuations</option>
+                <option value="STREET_LIGHT">Street Lights Not Working</option>
+                <option value="TRANSFORMER">Transformer Sparking / Noise</option>
+                <option value="METER">Meter Damage / Sparking</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-slate-600 font-bold mb-1">Incident Details</label>
+              <textarea
+                value={issueDesc}
+                onChange={(e) => setIssueDesc(e.target.value)}
+                rows={4}
+                placeholder="Describe exact street/building and how long power has been out..."
+                className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-medium outline-none focus:ring-2 focus:ring-amber-500"
+                required
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={submitting}
+              className="w-full py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-black rounded-xl transition-all shadow-md disabled:opacity-50"
+            >
+              {submitting ? 'Submitting Report...' : 'Broadcast Outage Report'}
+            </button>
+
+            {submittedMsg && (
+              <div className="p-3 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl font-semibold text-center">
+                {submittedMsg}
+              </div>
+            )}
+          </form>
+        </div>
       </div>
 
-      {/* Real-time MSEDCL Emergency Facilities & Public Transparency Board */}
       <CivicFacilityBoard
         module="ELECTRICITY"
-        title="MSEDCL Power Grid & Emergency Facilities Board"
-        subtitle="Request emergency diesel generators, transformer fuse replacements, and hazardous live wire crews with real-time public status tracking."
+        title="Nearby MSEDCL Sub-Stations & Billing Counters"
+        subtitle={`Verified power maintenance centers and cash counters in ${district}`}
       />
     </div>
   );

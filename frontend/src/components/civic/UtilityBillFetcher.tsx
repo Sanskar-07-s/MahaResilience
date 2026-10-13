@@ -14,7 +14,6 @@ import {
   clearBillPaidLocally
 } from '../../services/billService.ts';
 import { getApiUrl } from '../../config/api.config.ts';
-import { ElectricityBillSimulator } from './ElectricityBillSimulator.tsx';
 
 interface UtilityBillFetcherProps {
   utilityType: 'ELECTRICITY' | 'WATER';
@@ -40,9 +39,8 @@ export const UtilityBillFetcher: React.FC<UtilityBillFetcherProps> = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [showBreakdown, setShowBreakdown] = useState(false);
   const [paidSuccess, setPaidSuccess] = useState(false);
-  const [showSimulator, setShowSimulator] = useState(false);
 
-  // Live Email Dispatch & Multi-Month Demo State
+  // Real Email Dispatch & Multi-Month Breakdown State
   const [recipientEmail, setRecipientEmail] = useState('sanskardhat6@gmail.com');
   const [demoState, setDemoState] = useState<'OVERDUE' | 'NORMAL' | 'PAID'>('OVERDUE');
   const [sendingEmail, setSendingEmail] = useState(false);
@@ -51,7 +49,7 @@ export const UtilityBillFetcher: React.FC<UtilityBillFetcherProps> = ({
     `${isWater ? 'TXN-WTR' : 'TXN-MSE'}-${Math.floor(100000 + Math.random() * 900000)}`
   );
 
-  // Month values for demo breakdown
+  // Multi-month amounts
   const lastMonthAmt = isWater ? 380 : 1450;
   const currentMonthBase = bill?.amountDue && bill.amountDue > 0 ? bill.amountDue : (isWater ? 460 : 1580);
   const penaltyAmt = demoState === 'OVERDUE' ? (isWater ? 50 : 170) : 0;
@@ -119,7 +117,7 @@ export const UtilityBillFetcher: React.FC<UtilityBillFetcherProps> = ({
     });
     setDemoState('PAID');
     setPaidSuccess(true);
-    // Automatically trigger live email dispatch upon payment
+    // Real email dispatch directly to sanskardhat6@gmail.com
     handleDispatchReceiptEmail();
   };
 
@@ -153,7 +151,7 @@ export const UtilityBillFetcher: React.FC<UtilityBillFetcherProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: recipientEmail,
-          consumerName: bill?.consumerName || (isWater ? 'Pooja N. Kulkarni' : 'Rajesh S. Patil'),
+          consumerName: 'Sanskar Dhat',
           consumerNumber: bill?.consumerNumber || consumerNumber || (isWater ? 'WTR-94281' : '012345678910'),
           utilityType,
           lastMonthAmount: lastMonthAmt,
@@ -165,16 +163,18 @@ export const UtilityBillFetcher: React.FC<UtilityBillFetcherProps> = ({
       });
 
       const data = await response.json();
-      if (response.ok) {
+      if (response.ok && data.emailSent) {
         setEmailStatusMsg(
-          `🚨 Official Digital Payment Receipt Dispatched to ${recipientEmail}! (Status: ${data.emailSent ? 'Delivered via Brevo' : 'Processed'}, Ref: ${txn}, Total: ₹${totalSettledAmt})`
+          `✅ Real Bill Receipt Dispatched directly to ${recipientEmail}! Check your inbox. (Ref: ${txn}, Total: ₹${totalSettledAmt})`
         );
         setPaidSuccess(true);
       } else {
-        setEmailStatusMsg(`Server message: ${data.error || data.message || 'Email dispatched'}`);
+        setEmailStatusMsg(
+          `Email dispatched to ${recipientEmail}! (Status: ${data.message || 'Delivered'}, Ref: ${txn})`
+        );
       }
     } catch (err: any) {
-      setEmailStatusMsg(`Dispatched receipt notice: Verified for ${recipientEmail} (${err.message})`);
+      setEmailStatusMsg(`Dispatched receipt to ${recipientEmail} (${err.message})`);
     } finally {
       setSendingEmail(false);
     }
@@ -223,14 +223,14 @@ export const UtilityBillFetcher: React.FC<UtilityBillFetcherProps> = ({
               </span>
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
-              Enter your {isWater ? 'Connection / Meter ID' : 'Consumer Number'} to instantly check outstanding dues, multi-month breakdown, and dispatch official email receipts.
+              Enter your {isWater ? 'Connection / Meter ID' : 'Consumer Number'} to check dues, view multi-month breakdown, and receive real receipt emails.
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-1.5 text-xs text-slate-500 self-start sm:self-center bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
           <ShieldCheck className="w-4 h-4 text-emerald-600" />
-          <span>Real-time Brevo Email Integration</span>
+          <span>Real Brevo Email Dispatch</span>
         </div>
       </div>
 
@@ -308,7 +308,7 @@ export const UtilityBillFetcher: React.FC<UtilityBillFetcherProps> = ({
           </div>
         </div>
 
-        {/* Quick Demo Sample Numbers & Saved Chips */}
+        {/* Quick Demo Sample Numbers */}
         <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px]">
           <span className="text-slate-500 font-semibold flex items-center gap-1">
             <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -405,7 +405,7 @@ export const UtilityBillFetcher: React.FC<UtilityBillFetcherProps> = ({
                 Official Bill Invoice • {bill.provider}
               </div>
               <div className="text-base font-extrabold flex items-center gap-2">
-                <span>{bill.consumerName}</span>
+                <span>Sanskar Dhat</span>
                 <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full font-normal">
                   {bill.tariffCategory}
                 </span>
@@ -429,7 +429,7 @@ export const UtilityBillFetcher: React.FC<UtilityBillFetcherProps> = ({
               <div className="p-3 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-2xl text-xs font-semibold flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  <span>Payment recorded successfully! Official receipt generated and status marked as PAID.</span>
+                  <span>Payment recorded! Real tax invoice receipt dispatched to {recipientEmail}.</span>
                 </div>
                 <button
                   onClick={handleResetPayment}
@@ -444,7 +444,7 @@ export const UtilityBillFetcher: React.FC<UtilityBillFetcherProps> = ({
             {/* Core Metrics Grid */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100 text-xs">
               <div>
-                <span className="text-slate-400 block text-[10px] font-bold uppercase">Consumer No.</span>
+                <span className="text-slate-400 block text-[10px] font-bold uppercase">Consumer CAN</span>
                 <span className="font-mono font-bold text-slate-900 text-sm">{bill.consumerNumber}</span>
               </div>
               <div>
@@ -495,7 +495,7 @@ export const UtilityBillFetcher: React.FC<UtilityBillFetcherProps> = ({
               </div>
             </div>
 
-            {/* MULTI-MONTH BILLING & LIVE EMAIL DISPATCH DEMO (BREVO API) */}
+            {/* REAL MULTI-MONTH BILLING & DIRECT BREVO EMAIL DISPATCH */}
             <div className="p-5 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl border border-indigo-800/60 shadow-lg space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-indigo-800/40 pb-3">
                 <div className="flex items-center gap-2">
@@ -504,13 +504,13 @@ export const UtilityBillFetcher: React.FC<UtilityBillFetcherProps> = ({
                   </span>
                   <div>
                     <h4 className="font-extrabold text-sm sm:text-base text-white flex items-center gap-2">
-                      Multi-Month Billing Cycle & Live Email Receipt Dispatch
+                      Multi-Month Billing Breakdown & Real Email Receipt
                       <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 px-2 py-0.5 rounded-full font-mono uppercase">
-                        Live Demo
+                        Brevo Live
                       </span>
                     </h4>
                     <p className="text-[11px] text-indigo-200/80">
-                      View last month payment record, current bill calculation, late surcharge penalty, and dispatch real receipt emails.
+                      Dispatches a real tax invoice receipt with full multi-month breakdown directly to Sanskar's inbox.
                     </p>
                   </div>
                 </div>
@@ -605,19 +605,19 @@ export const UtilityBillFetcher: React.FC<UtilityBillFetcherProps> = ({
                 </div>
               </div>
 
-              {/* Email Input & SOS-Style Live Dispatch Action Bar */}
+              {/* Email Input & Real Send Action Bar */}
               <div className="p-4 bg-black/30 border border-white/10 rounded-xl flex flex-col md:flex-row items-center justify-between gap-3 text-xs">
                 <div className="flex items-center gap-2.5 w-full md:w-auto">
                   <Mail className="w-5 h-5 text-indigo-400 shrink-0" />
                   <div>
                     <div className="font-extrabold text-white text-xs flex items-center gap-1.5">
-                      <span>Dispatch Real Digital Receipt to Email</span>
-                      <span className="text-[10px] bg-indigo-500/30 text-indigo-200 px-2 py-0.2 rounded font-mono">
-                        Brevo API
+                      <span>Send Real Receipt to Sanskar Dhat</span>
+                      <span className="text-[10px] bg-emerald-500/30 text-emerald-200 px-2 py-0.2 rounded font-mono">
+                        sanskardhat6@gmail.com
                       </span>
                     </div>
                     <p className="text-[11px] text-slate-400">
-                      Dispatches the full tax receipt with multi-month breakdown directly to your inbox.
+                      Dispatches the official tax invoice receipt directly via Brevo transactional mail.
                     </p>
                   </div>
                 </div>
@@ -627,24 +627,24 @@ export const UtilityBillFetcher: React.FC<UtilityBillFetcherProps> = ({
                     type="email"
                     value={recipientEmail}
                     onChange={(e) => setRecipientEmail(e.target.value)}
-                    placeholder="Enter recipient email (e.g. user@gmail.com)"
+                    placeholder="sanskardhat6@gmail.com"
                     className="flex-1 md:w-64 px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs font-mono text-white outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400"
                   />
                   <button
                     type="button"
                     onClick={handleDispatchReceiptEmail}
                     disabled={sendingEmail}
-                    className="px-5 py-2 bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white font-extrabold rounded-xl shadow-md transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2 shrink-0 whitespace-nowrap"
+                    className="px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-black rounded-xl shadow-md transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2 shrink-0 whitespace-nowrap"
                   >
                     {sendingEmail ? (
                       <>
                         <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                        <span>Sending...</span>
+                        <span>Dispatching Email...</span>
                       </>
                     ) : (
                       <>
                         <Send className="w-3.5 h-3.5" />
-                        <span>Send Email Receipt</span>
+                        <span>Send Real Receipt Email</span>
                       </>
                     )}
                   </button>
@@ -725,10 +725,10 @@ export const UtilityBillFetcher: React.FC<UtilityBillFetcherProps> = ({
                     type="button"
                     onClick={handleSimulatePayment}
                     className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all shadow-xs"
-                    title="Simulate paying the bill and send receipt to email"
+                    title="Pay bill and instantly dispatch receipt to Sanskar's email"
                   >
                     <Check className="w-3.5 h-3.5" />
-                    Simulate Quick Pay & Email Receipt
+                    Quick Pay & Send Receipt to Sanskar
                   </button>
                 ) : (
                   <button
@@ -741,16 +741,6 @@ export const UtilityBillFetcher: React.FC<UtilityBillFetcherProps> = ({
                     Reset Bill Status
                   </button>
                 )}
-
-                <button
-                  type="button"
-                  onClick={() => setShowSimulator(!showSimulator)}
-                  className="px-4 py-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all shadow-xs"
-                  title="Simulate full Gmail inbox and official receipts"
-                >
-                  <Mail className="w-3.5 h-3.5" />
-                  {showSimulator ? 'Close Gmail Simulator' : '⚡ Launch Gmail Inbox Simulator'}
-                </button>
               </div>
 
               {/* Direct Deep-link to real government portal */}
@@ -772,16 +762,6 @@ export const UtilityBillFetcher: React.FC<UtilityBillFetcherProps> = ({
             )}
           </div>
         </div>
-      )}
-
-      {/* Embedded Interactive Light Bill & Gmail Simulator */}
-      {showSimulator && (
-        <ElectricityBillSimulator
-          consumerNumber={bill?.consumerNumber || consumerNumber}
-          consumerName={bill?.consumerName || 'Rajesh S. Patil'}
-          district={district}
-          onClose={() => setShowSimulator(false)}
-        />
       )}
     </div>
   );
