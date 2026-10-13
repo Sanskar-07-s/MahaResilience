@@ -5,16 +5,18 @@ import {
   Send,
   CheckCircle2,
   AlertTriangle,
-  Clock,
   RefreshCw,
   ShieldCheck,
-  Receipt,
-  Sparkles,
-  ArrowRight,
   Droplets,
-  Check
+  Check,
+  Coins,
+  SunMedium,
+  Layers,
+  ChevronDown
 } from 'lucide-react';
 import { getApiUrl } from '../../config/api.config.ts';
+
+export type BillingCategory = 'OVERDUE' | 'NORMAL' | 'OVERPAY' | 'SUBSIDIZED';
 
 interface BillingWorkflowSimulatorProps {
   defaultEmail?: string;
@@ -28,7 +30,7 @@ export const BillingWorkflowSimulator: React.FC<BillingWorkflowSimulatorProps> =
   const [recipientEmail, setRecipientEmail] = useState(defaultEmail);
   const [consumerName, setConsumerName] = useState(defaultConsumerName);
   const [selectedUtility, setSelectedUtility] = useState<'ELECTRICITY' | 'WATER'>('ELECTRICITY');
-  const [scenario, setScenario] = useState<'OVERDUE' | 'NORMAL'>('OVERDUE');
+  const [scenario, setScenario] = useState<BillingCategory>('OVERDUE');
 
   // Simulation Workflow Execution State
   const [workflowStep, setWorkflowStep] = useState<0 | 1 | 2 | 3 | 4>(0);
@@ -37,18 +39,71 @@ export const BillingWorkflowSimulator: React.FC<BillingWorkflowSimulatorProps> =
     success: boolean;
     txnId: string;
     totalAmount: number;
+    category: string;
     emailSent: boolean;
     timestamp: string;
     message: string;
   } | null>(null);
 
-  // Computed values
+  // Computed values based on utility and category
   const isWater = selectedUtility === 'WATER';
   const lastMonthAmt = isWater ? 380 : 1450;
   const currentMonthBase = isWater ? 460 : 1580;
-  const penaltyAmt = scenario === 'OVERDUE' ? (isWater ? 50 : 170) : 0;
-  const totalPayable = currentMonthBase + penaltyAmt;
   const consumerNumber = isWater ? 'WTR-94281' : '012345678910';
+
+  // Category specific calculations
+  let adjustmentAmt = 0;
+  let adjustmentLabel = 'No Surcharge';
+  let adjustmentColor = 'text-slate-400';
+  let totalPayable = currentMonthBase;
+
+  if (scenario === 'OVERDUE') {
+    adjustmentAmt = isWater ? 50 : 170;
+    adjustmentLabel = 'Late Surcharge (+DPC)';
+    adjustmentColor = 'text-red-400';
+    totalPayable = currentMonthBase + adjustmentAmt;
+  } else if (scenario === 'OVERPAY') {
+    adjustmentAmt = isWater ? 140 : 420;
+    adjustmentLabel = 'Advance Deposit (+Credit)';
+    adjustmentColor = 'text-sky-400';
+    totalPayable = currentMonthBase + adjustmentAmt;
+  } else if (scenario === 'SUBSIDIZED') {
+    adjustmentAmt = isWater ? 100 : 300;
+    adjustmentLabel = 'Solar / Green Subsidy';
+    adjustmentColor = 'text-emerald-400';
+    totalPayable = Math.max(0, currentMonthBase - adjustmentAmt);
+  } else {
+    // NORMAL
+    adjustmentAmt = 0;
+    adjustmentLabel = 'Timely Payment Rebate';
+    adjustmentColor = 'text-emerald-400';
+    totalPayable = currentMonthBase;
+  }
+
+  const categoryDescriptions: Record<BillingCategory, { name: string; desc: string; icon: any }> = {
+    OVERDUE: {
+      name: 'Overdue Bill (+Late Surcharge)',
+      desc: `Bill is 30 days overdue. Includes +₹${isWater ? 50 : 170} Delayed Payment Charge (DPC) & statutory interest.`,
+      icon: AlertTriangle,
+    },
+    NORMAL: {
+      name: 'Normal Bill (On-Time Due)',
+      desc: 'Standard monthly billing cycle settled within due date with ₹0 late penalty.',
+      icon: Check,
+    },
+    OVERPAY: {
+      name: 'Overpay / Advance Deposit',
+      desc: `Citizen pays an excess advance of +₹${isWater ? 140 : 420}. Surplus is credited to next month's consumer ledger.`,
+      icon: Coins,
+    },
+    SUBSIDIZED: {
+      name: 'Subsidized Bill (Solar / Green)',
+      desc: `PM Surya Ghar & Green Generation tariff credit of -₹${isWater ? 100 : 300} applied directly.`,
+      icon: SunMedium,
+    },
+  };
+
+  const currentCategoryInfo = categoryDescriptions[scenario];
 
   const handleRunWorkflow = async () => {
     if (!recipientEmail || !recipientEmail.includes('@')) {
@@ -80,9 +135,12 @@ export const BillingWorkflowSimulator: React.FC<BillingWorkflowSimulatorProps> =
             consumerName,
             consumerNumber,
             utilityType: selectedUtility,
+            category: scenario,
             lastMonthAmount: lastMonthAmt,
             currentMonthAmount: currentMonthBase,
-            penaltyAmount: penaltyAmt,
+            penaltyAmount: scenario === 'OVERDUE' ? adjustmentAmt : 0,
+            overpayAmount: scenario === 'OVERPAY' ? adjustmentAmt : 0,
+            subsidyAmount: scenario === 'SUBSIDIZED' ? adjustmentAmt : 0,
             totalPaidAmount: totalPayable,
             transactionId: txn,
           }),
@@ -102,6 +160,7 @@ export const BillingWorkflowSimulator: React.FC<BillingWorkflowSimulatorProps> =
           success: response.ok,
           txnId: txn,
           totalAmount: totalPayable,
+          category: scenario,
           emailSent: !!data.emailSent,
           timestamp: now,
           message: data.message || 'Official digital receipt dispatched via Brevo Server',
@@ -113,6 +172,7 @@ export const BillingWorkflowSimulator: React.FC<BillingWorkflowSimulatorProps> =
           success: false,
           txnId: txn,
           totalAmount: totalPayable,
+          category: scenario,
           emailSent: false,
           timestamp: 'Just now',
           message: err.message || 'Dispatch error',
@@ -144,24 +204,24 @@ export const BillingWorkflowSimulator: React.FC<BillingWorkflowSimulatorProps> =
             </h2>
           </div>
           <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
-            Run an end-to-end civic billing workflow: inspect multi-month ledger amounts, compute late surcharge penalties, simulate digital settlement, and dispatch an official tax receipt straight to Sanskar's email.
+            Run an end-to-end civic billing workflow: choose your demo billing category (Overdue, Normal, Overpay, Subsidized), inspect multi-month ledger adjustments, simulate digital settlement, and dispatch an official tax receipt straight to Sanskar's email.
           </p>
         </div>
 
         <div className="flex items-center gap-2 self-start lg:self-center">
           <span className="flex items-center gap-1.5 text-xs text-slate-300 bg-white/5 px-3 py-1.5 rounded-xl border border-white/10">
             <ShieldCheck className="w-4 h-4 text-emerald-400" />
-            Direct Brevo API Integration
+            Verified Brevo Delivery
           </span>
         </div>
       </div>
 
-      {/* Control Deck: Utility Type, Scenario, and Recipient Email */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white/5 p-4 rounded-2xl border border-white/10 text-xs">
-        {/* 1. Utility Selector */}
-        <div>
-          <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-            1. Select Civic Utility
+      {/* Control Deck: Utility Type, Dropdown Category List, and Recipient Email */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 bg-white/5 p-4 rounded-2xl border border-white/10 text-xs">
+        {/* 1. Utility Selector (Col 3) */}
+        <div className="lg:col-span-3 space-y-1.5">
+          <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+            1. Civic Utility
           </label>
           <div className="grid grid-cols-2 gap-2">
             <button
@@ -195,46 +255,86 @@ export const BillingWorkflowSimulator: React.FC<BillingWorkflowSimulatorProps> =
           </div>
         </div>
 
-        {/* 2. Billing Scenario */}
-        <div>
-          <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-            2. Choose Billing Scenario
+        {/* 2. DEMO DROP LIST: Category Selector (Col 5) */}
+        <div className="lg:col-span-5 space-y-1.5">
+          <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+            <span className="flex items-center gap-1.5">
+              <Layers className="w-3.5 h-3.5 text-indigo-400" />
+              2. Demo Drop List: Billing Category
+            </span>
+            <span className="text-[10px] text-amber-400 font-bold uppercase">Select Scenario</span>
           </label>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setScenario('OVERDUE');
+
+          {/* Interactive Styled Select Dropdown */}
+          <div className="relative">
+            <select
+              value={scenario}
+              onChange={(e) => {
+                setScenario(e.target.value as BillingCategory);
                 handleReset();
               }}
-              className={`p-2.5 rounded-xl font-bold flex items-center justify-center gap-1.5 transition-all ${
+              className="w-full pl-3.5 pr-10 py-2.5 bg-slate-900 border border-slate-700 hover:border-indigo-400 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/40 rounded-xl font-bold text-xs text-white outline-none cursor-pointer shadow-inner appearance-none transition-all"
+            >
+              <option value="OVERDUE">⚠️ Overdue Category — Late Surcharge Penalty (+₹{isWater ? 50 : 170})</option>
+              <option value="NORMAL">✅ Normal Category — Regular On-Time Due (₹0 Surcharge)</option>
+              <option value="OVERPAY">💎 Overpay Category — Advance Deposit Credit (+₹{isWater ? 140 : 420})</option>
+              <option value="SUBSIDIZED">☀️ Subsidized Category — Solar / Green Rebate (-₹{isWater ? 100 : 300})</option>
+            </select>
+            <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-3 pointer-events-none" />
+          </div>
+
+          {/* Quick Category Chips for Single-Click Selection */}
+          <div className="grid grid-cols-4 gap-1.5 pt-1">
+            <button
+              type="button"
+              onClick={() => { setScenario('OVERDUE'); handleReset(); }}
+              className={`px-2 py-1.5 rounded-lg text-[10px] font-extrabold flex items-center justify-center gap-1 transition-all ${
                 scenario === 'OVERDUE'
-                  ? 'bg-red-600 text-white shadow-md font-black'
-                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                  ? 'bg-red-600 text-white shadow-md'
+                  : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
               }`}
             >
-              <AlertTriangle className="w-3.5 h-3.5 text-amber-300" /> Overdue (+Late Fee)
+              <AlertTriangle className="w-3 h-3 text-amber-300" /> Overdue
             </button>
             <button
               type="button"
-              onClick={() => {
-                setScenario('NORMAL');
-                handleReset();
-              }}
-              className={`p-2.5 rounded-xl font-bold flex items-center justify-center gap-1.5 transition-all ${
+              onClick={() => { setScenario('NORMAL'); handleReset(); }}
+              className={`px-2 py-1.5 rounded-lg text-[10px] font-extrabold flex items-center justify-center gap-1 transition-all ${
                 scenario === 'NORMAL'
-                  ? 'bg-emerald-600 text-white shadow-md font-black'
-                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                  ? 'bg-emerald-600 text-white shadow-md'
+                  : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
               }`}
             >
-              <Check className="w-3.5 h-3.5" /> Normal (On-Time)
+              <Check className="w-3 h-3" /> Normal
+            </button>
+            <button
+              type="button"
+              onClick={() => { setScenario('OVERPAY'); handleReset(); }}
+              className={`px-2 py-1.5 rounded-lg text-[10px] font-extrabold flex items-center justify-center gap-1 transition-all ${
+                scenario === 'OVERPAY'
+                  ? 'bg-sky-600 text-white shadow-md'
+                  : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <Coins className="w-3 h-3 text-sky-200" /> Overpay
+            </button>
+            <button
+              type="button"
+              onClick={() => { setScenario('SUBSIDIZED'); handleReset(); }}
+              className={`px-2 py-1.5 rounded-lg text-[10px] font-extrabold flex items-center justify-center gap-1 transition-all ${
+                scenario === 'SUBSIDIZED'
+                  ? 'bg-amber-600 text-white shadow-md'
+                  : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <SunMedium className="w-3 h-3 text-amber-200" /> Subsidy
             </button>
           </div>
         </div>
 
-        {/* 3. Recipient Email Customizer */}
-        <div>
-          <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+        {/* 3. Recipient Email Customizer (Col 4) */}
+        <div className="lg:col-span-4 space-y-1.5">
+          <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
             <span>3. Recipient Email</span>
             <span className="text-[10px] text-emerald-400 font-mono">Live Target</span>
           </label>
@@ -247,6 +347,27 @@ export const BillingWorkflowSimulator: React.FC<BillingWorkflowSimulatorProps> =
               placeholder="sanskardhat6@gmail.com"
               className="w-full pl-9 pr-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs font-mono text-white outline-none focus:border-indigo-400"
             />
+          </div>
+          <div className="text-[10px] text-slate-400 truncate">
+            Target Citizen: <span className="text-white font-semibold">{consumerName}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Selected Category Banner Details */}
+      <div className="p-3.5 bg-indigo-950/60 border border-indigo-500/30 rounded-2xl flex items-center gap-3 text-xs">
+        <div className="p-2 bg-indigo-900/60 rounded-xl text-amber-400 shrink-0">
+          <currentCategoryInfo.icon className="w-4 h-4" />
+        </div>
+        <div className="flex-1">
+          <div className="font-bold text-white flex items-center gap-2">
+            <span>Active Demo Category: {currentCategoryInfo.name}</span>
+            <span className="text-[10px] bg-indigo-800 text-indigo-200 px-2 py-0.5 rounded font-mono uppercase">
+              {scenario}
+            </span>
+          </div>
+          <div className="text-slate-300 text-[11px] mt-0.5">
+            {currentCategoryInfo.desc}
           </div>
         </div>
       </div>
@@ -270,33 +391,43 @@ export const BillingWorkflowSimulator: React.FC<BillingWorkflowSimulatorProps> =
             <span className="text-amber-400 font-bold">Base Tariff</span>
           </div>
           <div className="text-lg sm:text-xl font-black text-amber-300">₹{currentMonthBase.toLocaleString('en-IN')}.00</div>
-          <div className="text-[10px] text-slate-400">Domestic LT-1 Tiered Units</div>
+          <div className="text-[10px] text-slate-400">{isWater ? 'Standard Water Consumption' : 'Domestic LT-1 Tiered Units'}</div>
         </div>
 
-        {/* Late Surcharge / Penalty */}
+        {/* Dynamic Category Adjustment */}
         <div
           className={`p-3.5 rounded-2xl border space-y-1 ${
-            penaltyAmt > 0
+            scenario === 'OVERDUE'
               ? 'bg-red-500/10 border-red-500/30 text-red-200'
+              : scenario === 'OVERPAY'
+              ? 'bg-sky-500/10 border-sky-500/30 text-sky-200'
+              : scenario === 'SUBSIDIZED'
+              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200'
               : 'bg-white/5 border-white/10 text-slate-300'
           }`}
         >
           <div className="flex items-center justify-between text-[10px] uppercase font-bold">
-            <span>Late Surcharge</span>
-            <span>{penaltyAmt > 0 ? 'DPC (2%) + Arrears' : 'None (₹0)'}</span>
+            <span>Category Adjustment</span>
+            <span>{scenario}</span>
           </div>
-          <div className={`text-lg sm:text-xl font-black ${penaltyAmt > 0 ? 'text-red-400' : 'text-slate-400'}`}>
-            {penaltyAmt > 0 ? `+ ₹${penaltyAmt}.00` : '₹0.00'}
+          <div className={`text-lg sm:text-xl font-black ${adjustmentColor}`}>
+            {scenario === 'OVERDUE'
+              ? `+ ₹${adjustmentAmt}.00`
+              : scenario === 'OVERPAY'
+              ? `+ ₹${adjustmentAmt}.00`
+              : scenario === 'SUBSIDIZED'
+              ? `- ₹${adjustmentAmt}.00`
+              : '₹0.00'}
           </div>
           <div className="text-[10px] text-slate-400">
-            {penaltyAmt > 0 ? 'Overdue fee applied' : 'Paid within due date'}
+            {adjustmentLabel}
           </div>
         </div>
 
-        {/* Net Total */}
+        {/* Net Total Payable / Settled */}
         <div className="p-3.5 bg-gradient-to-br from-indigo-900 to-indigo-950 rounded-2xl border border-indigo-400/40 space-y-1">
           <div className="text-[10px] font-bold text-indigo-300 uppercase">
-            Total Payable / Settled
+            Total Settled on Receipt
           </div>
           <div className="text-xl sm:text-2xl font-black text-white">₹{totalPayable.toLocaleString('en-IN')}.00</div>
           <div className="text-[10px] text-indigo-200/80 font-mono">
@@ -309,9 +440,9 @@ export const BillingWorkflowSimulator: React.FC<BillingWorkflowSimulatorProps> =
       {isRunning && (
         <div className="bg-indigo-950/80 border border-indigo-500/40 p-4 rounded-2xl space-y-3 animate-fadeIn">
           <div className="flex items-center justify-between text-xs font-bold text-indigo-300">
-            <span>Simulation Execution Workflow in Progress...</span>
+            <span>Executing Workflow for Category: {scenario}...</span>
             <span className="flex items-center gap-1 text-emerald-400 font-mono">
-              <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Processing Step {workflowStep}/3
+              <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Step {workflowStep}/3
             </span>
           </div>
 
@@ -321,14 +452,14 @@ export const BillingWorkflowSimulator: React.FC<BillingWorkflowSimulatorProps> =
                 workflowStep >= 1 ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-500'
               }`}
             >
-              1. MERC Tariff & Penalty
+              1. Compute Category Tariff
             </div>
             <div
               className={`p-2 rounded-xl text-center font-bold transition-all ${
                 workflowStep >= 2 ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-500'
               }`}
             >
-              2. BBPS Settlement Auth
+              2. Settlement Ledger Entry
             </div>
             <div
               className={`p-2 rounded-xl text-center font-bold transition-all ${
@@ -345,11 +476,11 @@ export const BillingWorkflowSimulator: React.FC<BillingWorkflowSimulatorProps> =
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-black/40 p-4 rounded-2xl border border-white/10">
         <div className="space-y-0.5">
           <div className="text-sm font-extrabold text-white flex items-center gap-2">
-            <span>Ready to Dispatch Official Invoice</span>
+            <span>Ready to Dispatch Category Receipt</span>
             <span className="text-xs text-amber-400 font-mono font-bold">Total: ₹{totalPayable}.00</span>
           </div>
           <p className="text-[11px] text-slate-400">
-            Clicking the button will execute the real workflow and deliver an official tax invoice directly to <strong>{recipientEmail}</strong>.
+            Dispatches an official tax invoice receipt ({currentCategoryInfo.name}) straight to <strong>{recipientEmail}</strong> via Brevo.
           </p>
         </div>
 
@@ -367,7 +498,7 @@ export const BillingWorkflowSimulator: React.FC<BillingWorkflowSimulatorProps> =
           ) : (
             <>
               <Send className="w-4 h-4 text-slate-950" />
-              <span>🚀 Simulate Workflow & Send Email to Sanskar</span>
+              <span>🚀 Simulate Workflow & Send {scenario} Receipt</span>
             </>
           )}
         </button>
@@ -380,7 +511,7 @@ export const BillingWorkflowSimulator: React.FC<BillingWorkflowSimulatorProps> =
             <div className="flex items-center gap-2">
               <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
               <span className="font-extrabold text-sm text-emerald-200">
-                Official Bill Receipt Delivered Successfully!
+                Official {deliveryResult.category} Bill Receipt Delivered Successfully!
               </span>
             </div>
             <span className="text-[11px] text-emerald-400 font-mono bg-emerald-900/60 px-2 py-0.5 rounded">
@@ -394,21 +525,21 @@ export const BillingWorkflowSimulator: React.FC<BillingWorkflowSimulatorProps> =
               <span className="font-bold text-white font-mono">{recipientEmail}</span>
             </div>
             <div>
-              <span className="text-[10px] text-emerald-400 font-bold uppercase block">Transaction Ref</span>
-              <span className="font-bold text-white font-mono">{deliveryResult.txnId}</span>
+              <span className="text-[10px] text-emerald-400 font-bold uppercase block">Category Sent</span>
+              <span className="font-bold text-white uppercase">{deliveryResult.category}</span>
             </div>
             <div>
-              <span className="text-[10px] text-emerald-400 font-bold uppercase block">Amount Credited</span>
+              <span className="text-[10px] text-emerald-400 font-bold uppercase block">Amount Settled</span>
               <span className="font-extrabold text-emerald-300">₹{deliveryResult.totalAmount}.00</span>
             </div>
             <div>
               <span className="text-[10px] text-emerald-400 font-bold uppercase block">Brevo Delivery</span>
-              <span className="font-extrabold text-emerald-300">✓ Sent to Inbox</span>
+              <span className="font-extrabold text-emerald-300">✓ Delivered to Inbox</span>
             </div>
           </div>
 
           <p className="text-[11px] text-emerald-300/80 italic pt-1">
-            {deliveryResult.message}. Please check your Gmail inbox (or promotions/spam) for the official tax receipt from MahaResilience.
+            {deliveryResult.message}. Please check your Gmail inbox (`{recipientEmail}`) for the official tax invoice receipt from MahaResilience.
           </p>
 
           <div className="pt-2 flex items-center gap-2">
@@ -417,7 +548,7 @@ export const BillingWorkflowSimulator: React.FC<BillingWorkflowSimulatorProps> =
               onClick={handleReset}
               className="px-3 py-1.5 bg-emerald-800/60 hover:bg-emerald-700 text-emerald-200 rounded-xl font-bold text-xs transition-all"
             >
-              Run Another Simulation
+              Test Another Category
             </button>
           </div>
         </div>

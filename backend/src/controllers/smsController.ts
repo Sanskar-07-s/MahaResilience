@@ -190,10 +190,13 @@ export const sendBillEmailController = async (req: Request, res: Response) => {
       consumerName,
       consumerNumber,
       utilityType = 'ELECTRICITY',
+      category = 'OVERDUE',
       lastMonthAmount = 1450,
       currentMonthAmount = 1580,
       penaltyAmount = 170,
-      totalPaidAmount = 1750,
+      overpayAmount = 420,
+      subsidyAmount = 300,
+      totalPaidAmount,
       transactionId = 'TXN-MSE-' + Math.floor(100000 + Math.random() * 900000),
     } = req.body;
 
@@ -210,6 +213,89 @@ export const sendBillEmailController = async (req: Request, res: Response) => {
       year: 'numeric',
     });
 
+    // Category Specific Calculation
+    const normalizedCategory = String(category).toUpperCase();
+    let computedTotal = Number(currentMonthAmount);
+    let categoryBadgeText = 'Standard On-Time';
+    let categoryRowHtml = '';
+    let calloutHtml = '';
+    let subjectCategoryTag = 'Bill Paid';
+
+    if (normalizedCategory === 'OVERDUE') {
+      const penalty = Number(penaltyAmount) || (isWater ? 50 : 170);
+      computedTotal += penalty;
+      categoryBadgeText = 'Overdue Settled (+Late Fee)';
+      subjectCategoryTag = 'Overdue Bill Settled';
+      categoryRowHtml = `
+        <tr>
+          <td style="padding: 10px 12px; font-size: 12px; color: #b91c1c; border-bottom: 1px solid #e2e8f0;"><strong>Late Surcharge / DPC Penalty</strong> (Delayed Payment Surcharge)</td>
+          <td style="padding: 10px 12px; font-size: 12px; color: #b91c1c; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 700;">+ ₹${penalty.toLocaleString('en-IN')}.00</td>
+          <td style="padding: 10px 12px; font-size: 11px; color: #b91c1c; border-bottom: 1px solid #e2e8f0; text-align: center; font-weight: 700;">SETTLED</td>
+        </tr>
+      `;
+      calloutHtml = `
+        <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 10px; padding: 14px; margin-bottom: 24px; text-align: center;">
+          <div style="font-size: 14px; font-weight: 800; color: #065f46;">✓ Zero Outstanding Dues Remaining</div>
+          <div style="font-size: 12px; color: #047857; margin-top: 4px;">All previous arrears and delayed payment surcharge charges have been cleared.</div>
+        </div>
+      `;
+    } else if (normalizedCategory === 'OVERPAY') {
+      const advance = Number(overpayAmount) || (isWater ? 140 : 420);
+      computedTotal += advance;
+      categoryBadgeText = 'Overpayment / Advance Credit';
+      subjectCategoryTag = 'Advance Overpayment Received';
+      categoryRowHtml = `
+        <tr>
+          <td style="padding: 10px 12px; font-size: 12px; color: #0284c7; border-bottom: 1px solid #e2e8f0;"><strong>Advance Credit Deposit / Overpayment</strong> (Credited to Next Billing Cycle)</td>
+          <td style="padding: 10px 12px; font-size: 12px; color: #0284c7; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 700;">+ ₹${advance.toLocaleString('en-IN')}.00</td>
+          <td style="padding: 10px 12px; font-size: 11px; color: #0284c7; border-bottom: 1px solid #e2e8f0; text-align: center; font-weight: 700;">ADVANCE</td>
+        </tr>
+      `;
+      calloutHtml = `
+        <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 10px; padding: 14px; margin-bottom: 24px; text-align: center;">
+          <div style="font-size: 14px; font-weight: 800; color: #0369a1;">💎 Advance Balance Surplus Recorded</div>
+          <div style="font-size: 12px; color: #0284c7; margin-top: 4px;">An excess overpayment credit of ₹${advance.toLocaleString('en-IN')} has been credited to your consumer ledger for subsequent month deduction.</div>
+        </div>
+      `;
+    } else if (normalizedCategory === 'SUBSIDIZED') {
+      const discount = Number(subsidyAmount) || (isWater ? 100 : 300);
+      computedTotal = Math.max(0, computedTotal - discount);
+      categoryBadgeText = 'Govt Solar / Green Subsidy Rebate';
+      subjectCategoryTag = 'Subsidized Bill Settled';
+      categoryRowHtml = `
+        <tr>
+          <td style="padding: 10px 12px; font-size: 12px; color: #16a34a; border-bottom: 1px solid #e2e8f0;"><strong>PM Surya Ghar / Green Energy Tariff Rebate</strong></td>
+          <td style="padding: 10px 12px; font-size: 12px; color: #16a34a; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 700;">- ₹${discount.toLocaleString('en-IN')}.00</td>
+          <td style="padding: 10px 12px; font-size: 11px; color: #16a34a; border-bottom: 1px solid #e2e8f0; text-align: center; font-weight: 700;">REBATE</td>
+        </tr>
+      `;
+      calloutHtml = `
+        <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 10px; padding: 14px; margin-bottom: 24px; text-align: center;">
+          <div style="font-size: 14px; font-weight: 800; color: #065f46;">✓ Zero Outstanding Dues • Green Subsidy Applied</div>
+          <div style="font-size: 12px; color: #047857; margin-top: 4px;">Renewable energy government rebate of ₹${discount.toLocaleString('en-IN')} successfully deducted from your civic tariff.</div>
+        </div>
+      `;
+    } else {
+      // NORMAL
+      categoryBadgeText = 'Normal On-Time';
+      subjectCategoryTag = 'Regular Bill Paid';
+      categoryRowHtml = `
+        <tr>
+          <td style="padding: 10px 12px; font-size: 12px; color: #64748b; border-bottom: 1px solid #e2e8f0;"><strong>Timely Payment Rebate / Surcharge</strong></td>
+          <td style="padding: 10px 12px; font-size: 12px; color: #64748b; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 600;">₹0.00</td>
+          <td style="padding: 10px 12px; font-size: 11px; color: #16a34a; border-bottom: 1px solid #e2e8f0; text-align: center; font-weight: 700;">ON-TIME</td>
+        </tr>
+      `;
+      calloutHtml = `
+        <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 10px; padding: 14px; margin-bottom: 24px; text-align: center;">
+          <div style="font-size: 14px; font-weight: 800; color: #065f46;">✓ Zero Outstanding Dues Remaining</div>
+          <div style="font-size: 12px; color: #047857; margin-top: 4px;">Thank you for your timely on-time payment. No further action is required for this cycle.</div>
+        </div>
+      `;
+    }
+
+    const finalPaid = totalPaidAmount !== undefined ? Number(totalPaidAmount) : computedTotal;
+
     const htmlContent = `
     <!DOCTYPE html>
     <html>
@@ -223,7 +309,10 @@ export const sendBillEmailController = async (req: Request, res: Response) => {
         <div style="background: linear-gradient(135deg, #0f172a 0%, ${isWater ? '#0284c7' : '#d97706'} 100%); color: #ffffff; padding: 28px 24px; text-align: left;">
           <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.85; margin-bottom: 4px; font-weight: 700;">Government of Maharashtra • Civic Utilities</div>
           <h1 style="margin: 0; font-size: 22px; font-weight: 800; color: #ffffff;">${providerName}</h1>
-          <div style="display: inline-block; background: #10b981; color: #ffffff; font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 999px; text-transform: uppercase; margin-top: 10px; letter-spacing: 0.5px;">✓ Official Digital Payment Receipt</div>
+          <div style="display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap;">
+            <span style="display: inline-block; background: #10b981; color: #ffffff; font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.5px;">✓ Official Digital Receipt</span>
+            <span style="display: inline-block; background: rgba(255,255,255,0.2); color: #ffffff; font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.5px;">Category: ${categoryBadgeText}</span>
+          </div>
         </div>
 
         <!-- Body -->
@@ -231,7 +320,7 @@ export const sendBillEmailController = async (req: Request, res: Response) => {
           <!-- Salutation -->
           <p style="margin: 0 0 16px; font-size: 15px; color: #334155;">Namaste <strong>${recipientName}</strong>,</p>
           <p style="margin: 0 0 20px; font-size: 13px; color: #64748b; line-height: 1.5;">
-            Your payment for <strong>${utilityLabel}</strong> has been successfully credited and verified. Below is the official multi-month billing statement and tax invoice receipt.
+            Your payment for <strong>${utilityLabel}</strong> (${categoryBadgeText}) has been successfully processed and verified. Below is your official billing statement and tax invoice receipt.
           </p>
 
           <!-- Consumer & Txn Metadata Table -->
@@ -245,6 +334,10 @@ export const sendBillEmailController = async (req: Request, res: Response) => {
               <td style="padding: 10px 14px; font-size: 12px; font-weight: 700; color: #0f172a; border-bottom: 1px solid #e2e8f0;">${recipientName}</td>
             </tr>
             <tr>
+              <td style="padding: 10px 14px; font-size: 12px; color: #64748b; border-bottom: 1px solid #e2e8f0;">Billing Category:</td>
+              <td style="padding: 10px 14px; font-size: 12px; font-weight: 700; color: #0f172a; border-bottom: 1px solid #e2e8f0;">${categoryBadgeText}</td>
+            </tr>
+            <tr>
               <td style="padding: 10px 14px; font-size: 12px; color: #64748b; border-bottom: 1px solid #e2e8f0;">Transaction Ref:</td>
               <td style="padding: 10px 14px; font-size: 12px; font-weight: 700; color: #0f172a; border-bottom: 1px solid #e2e8f0; font-family: monospace;">${transactionId}</td>
             </tr>
@@ -256,7 +349,7 @@ export const sendBillEmailController = async (req: Request, res: Response) => {
 
           <!-- Multi-Month Ledger Breakdown -->
           <div style="margin-bottom: 24px;">
-            <div style="font-size: 13px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;">Multi-Month Billing Breakdown</div>
+            <div style="font-size: 13px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;">Billing Ledger & Settlement Breakdown</div>
             <table style="width: 100%; border-collapse: collapse; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
               <thead>
                 <tr style="background: #f1f5f9; text-align: left;">
@@ -272,33 +365,26 @@ export const sendBillEmailController = async (req: Request, res: Response) => {
                   <td style="padding: 10px 12px; font-size: 11px; color: #16a34a; border-bottom: 1px solid #e2e8f0; text-align: center; font-weight: 700;">PAID</td>
                 </tr>
                 <tr>
-                  <td style="padding: 10px 12px; font-size: 12px; color: #334155; border-bottom: 1px solid #e2e8f0;"><strong>Current Month Bill</strong> (September/October)</td>
+                  <td style="padding: 10px 12px; font-size: 12px; color: #334155; border-bottom: 1px solid #e2e8f0;"><strong>Current Month Bill</strong> (September/October Base)</td>
                   <td style="padding: 10px 12px; font-size: 12px; color: #334155; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 600;">₹${Number(currentMonthAmount).toLocaleString('en-IN')}.00</td>
                   <td style="padding: 10px 12px; font-size: 11px; color: #16a34a; border-bottom: 1px solid #e2e8f0; text-align: center; font-weight: 700;">PAID</td>
                 </tr>
-                <tr>
-                  <td style="padding: 10px 12px; font-size: 12px; color: #b91c1c; border-bottom: 1px solid #e2e8f0;"><strong>Late Surcharge / DPC Penalty</strong> (Delayed Payment Charge & Interest)</td>
-                  <td style="padding: 10px 12px; font-size: 12px; color: #b91c1c; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 700;">+ ₹${Number(penaltyAmount).toLocaleString('en-IN')}.00</td>
-                  <td style="padding: 10px 12px; font-size: 11px; color: #b91c1c; border-bottom: 1px solid #e2e8f0; text-align: center; font-weight: 700;">SETTLED</td>
-                </tr>
+                ${categoryRowHtml}
                 <tr style="background: #f8fafc;">
-                  <td style="padding: 14px 12px; font-size: 14px; color: #0f172a; font-weight: 800;">Total Settled & Paid</td>
-                  <td style="padding: 14px 12px; font-size: 16px; color: #15803d; font-weight: 800; text-align: right;" colspan="2">₹${Number(totalPaidAmount).toLocaleString('en-IN')}.00</td>
+                  <td style="padding: 14px 12px; font-size: 14px; color: #0f172a; font-weight: 800;">Total Settled & Credited</td>
+                  <td style="padding: 14px 12px; font-size: 16px; color: #15803d; font-weight: 800; text-align: right;" colspan="2">₹${finalPaid.toLocaleString('en-IN')}.00</td>
                 </tr>
               </tbody>
             </table>
           </div>
 
-          <!-- Zero Dues Callout -->
-          <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 10px; padding: 14px; margin-bottom: 24px; text-align: center;">
-            <div style="font-size: 14px; font-weight: 800; color: #065f46;">✓ Zero Outstanding Dues Remaining</div>
-            <div style="font-size: 12px; color: #047857; margin-top: 4px;">Thank you for your prompt civic contribution. No further action is required for this billing cycle.</div>
-          </div>
+          <!-- Zero Dues or Advance Callout -->
+          ${calloutHtml}
 
           <!-- Footer note -->
           <p style="font-size: 11px; color: #94a3b8; text-align: center; margin: 0; line-height: 1.4;">
             This is an electronically generated tax invoice issued through the MahaResilience Civic Engagement Portal.<br/>
-            Ref ID: ${transactionId} • Issued to ${targetEmail}
+            Ref ID: ${transactionId} • Category: ${categoryBadgeText} • Issued to ${targetEmail}
           </p>
         </div>
       </div>
@@ -309,16 +395,17 @@ export const sendBillEmailController = async (req: Request, res: Response) => {
     const emailSent = await sendBrevoEmail({
       toEmail: targetEmail,
       toName: recipientName,
-      subject: `[Receipt] ${providerName} - Bill Paid: ₹${Number(totalPaidAmount).toLocaleString('en-IN')} (Ref: ${transactionId})`,
+      subject: `[Receipt] ${providerName} - ${subjectCategoryTag}: ₹${finalPaid.toLocaleString('en-IN')} (Ref: ${transactionId})`,
       htmlContent,
     });
 
     return res.status(200).json({
-      message: 'Bill payment receipt dispatched to email.',
+      message: `Bill payment receipt (${categoryBadgeText}) dispatched to email.`,
       emailSent,
+      category: normalizedCategory,
       targetEmail,
       transactionId,
-      totalPaidAmount,
+      totalPaidAmount: finalPaid,
     });
   } catch (error: any) {
     console.error('[Send Bill Email Error]:', error);

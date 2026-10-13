@@ -42,7 +42,7 @@ export const UtilityBillFetcher: React.FC<UtilityBillFetcherProps> = ({
 
   // Real Email Dispatch & Multi-Month Breakdown State
   const [recipientEmail, setRecipientEmail] = useState('sanskardhat6@gmail.com');
-  const [demoState, setDemoState] = useState<'OVERDUE' | 'NORMAL' | 'PAID'>('OVERDUE');
+  const [demoState, setDemoState] = useState<'OVERDUE' | 'NORMAL' | 'OVERPAY' | 'SUBSIDIZED'>('OVERDUE');
   const [sendingEmail, setSendingEmail] = useState(false);
   const [emailStatusMsg, setEmailStatusMsg] = useState<string | null>(null);
   const [lastTxnId, setLastTxnId] = useState<string>(
@@ -52,8 +52,28 @@ export const UtilityBillFetcher: React.FC<UtilityBillFetcherProps> = ({
   // Multi-month amounts
   const lastMonthAmt = isWater ? 380 : 1450;
   const currentMonthBase = bill?.amountDue && bill.amountDue > 0 ? bill.amountDue : (isWater ? 460 : 1580);
-  const penaltyAmt = demoState === 'OVERDUE' ? (isWater ? 50 : 170) : 0;
-  const totalSettledAmt = currentMonthBase + penaltyAmt;
+  let adjustmentAmt = 0;
+  let adjustmentLabel = 'None (₹0)';
+  let totalSettledAmt = currentMonthBase;
+
+  if (demoState === 'OVERDUE') {
+    adjustmentAmt = isWater ? 50 : 170;
+    adjustmentLabel = 'Delayed Payment Charge';
+    totalSettledAmt = currentMonthBase + adjustmentAmt;
+  } else if (demoState === 'OVERPAY') {
+    adjustmentAmt = isWater ? 140 : 420;
+    adjustmentLabel = 'Advance Deposit Surplus';
+    totalSettledAmt = currentMonthBase + adjustmentAmt;
+  } else if (demoState === 'SUBSIDIZED') {
+    adjustmentAmt = isWater ? 100 : 300;
+    adjustmentLabel = 'PM Surya Ghar Rebate';
+    totalSettledAmt = Math.max(0, currentMonthBase - adjustmentAmt);
+  } else {
+    adjustmentAmt = 0;
+    adjustmentLabel = 'Paid on-time (₹0)';
+    totalSettledAmt = currentMonthBase;
+  }
+  const penaltyAmt = demoState === 'OVERDUE' ? adjustmentAmt : 0;
 
   // Load remembered connections or auto-load first demo sample for instant presentation
   useEffect(() => {
@@ -90,7 +110,7 @@ export const UtilityBillFetcher: React.FC<UtilityBillFetcherProps> = ({
 
       setBill(result);
       if (result.status === 'PAID') {
-        setDemoState('PAID');
+        setDemoState('NORMAL');
       } else {
         setDemoState('OVERDUE');
       }
@@ -115,7 +135,7 @@ export const UtilityBillFetcher: React.FC<UtilityBillFetcherProps> = ({
       ...bill,
       status: 'PAID',
     });
-    setDemoState('PAID');
+    setDemoState('NORMAL');
     setPaidSuccess(true);
     // Real email dispatch directly to sanskardhat6@gmail.com
     handleDispatchReceiptEmail();
@@ -154,9 +174,12 @@ export const UtilityBillFetcher: React.FC<UtilityBillFetcherProps> = ({
           consumerName: 'Sanskar Dhat',
           consumerNumber: bill?.consumerNumber || consumerNumber || (isWater ? 'WTR-94281' : '012345678910'),
           utilityType,
+          category: demoState,
           lastMonthAmount: lastMonthAmt,
           currentMonthAmount: currentMonthBase,
-          penaltyAmount: penaltyAmt,
+          penaltyAmount: demoState === 'OVERDUE' ? adjustmentAmt : 0,
+          overpayAmount: demoState === 'OVERPAY' ? adjustmentAmt : 0,
+          subsidyAmount: demoState === 'SUBSIDIZED' ? adjustmentAmt : 0,
           totalPaidAmount: totalSettledAmt,
           transactionId: txn,
         }),
@@ -515,41 +538,19 @@ export const UtilityBillFetcher: React.FC<UtilityBillFetcherProps> = ({
                   </div>
                 </div>
 
-                {/* State Switcher Tabs */}
-                <div className="flex items-center gap-1 bg-black/40 p-1 rounded-xl border border-white/10 text-[11px]">
-                  <button
-                    type="button"
-                    onClick={() => setDemoState('NORMAL')}
-                    className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
-                      demoState === 'NORMAL'
-                        ? 'bg-indigo-600 text-white shadow-xs'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
+                {/* Demo Drop List for Receipt Category */}
+                <div className="flex items-center gap-2 bg-black/50 p-1.5 rounded-xl border border-white/10 text-xs">
+                  <span className="text-[10px] text-slate-300 font-bold uppercase pl-1.5">Category:</span>
+                  <select
+                    value={demoState}
+                    onChange={(e) => setDemoState(e.target.value as any)}
+                    className="px-2.5 py-1 bg-slate-900 border border-slate-700 hover:border-indigo-400 rounded-lg text-xs font-bold text-white outline-none cursor-pointer"
                   >
-                    On-Time Due
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setDemoState('OVERDUE')}
-                    className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
-                      demoState === 'OVERDUE'
-                        ? 'bg-amber-600 text-white shadow-xs'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    Overdue (+Penalty)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setDemoState('PAID')}
-                    className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
-                      demoState === 'PAID'
-                        ? 'bg-emerald-600 text-white shadow-xs'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    Paid / Settled
-                  </button>
+                    <option value="OVERDUE">⚠️ Overdue (+Late Surcharge)</option>
+                    <option value="NORMAL">✅ Normal (On-Time Due)</option>
+                    <option value="OVERPAY">💎 Overpay (+Advance Credit)</option>
+                    <option value="SUBSIDIZED">☀️ Subsidized (-Green Rebate)</option>
+                  </select>
                 </div>
               </div>
 
@@ -575,28 +576,46 @@ export const UtilityBillFetcher: React.FC<UtilityBillFetcherProps> = ({
                   <div className="text-[10px] text-slate-400">{bill.unitsConsumed} {bill.unitLabel} consumed</div>
                 </div>
 
-                {/* 3. Penalty / Surcharge */}
+                {/* 3. Category Adjustment */}
                 <div className={`p-3 rounded-xl space-y-1 border ${
-                  penaltyAmt > 0
+                  demoState === 'OVERDUE'
                     ? 'bg-red-500/10 border-red-500/30 text-red-200'
+                    : demoState === 'OVERPAY'
+                    ? 'bg-sky-500/10 border-sky-500/30 text-sky-200'
+                    : demoState === 'SUBSIDIZED'
+                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200'
                     : 'bg-white/5 border-white/10 text-slate-300'
                 }`}>
                   <div className="flex items-center justify-between text-[10px] font-bold uppercase">
-                    <span>Late Surcharge</span>
-                    <span>{penaltyAmt > 0 ? 'DPC & Interest' : 'None (₹0)'}</span>
+                    <span>Category Adjustment</span>
+                    <span>{demoState}</span>
                   </div>
-                  <div className={`text-lg font-black ${penaltyAmt > 0 ? 'text-red-400' : 'text-slate-400'}`}>
-                    {penaltyAmt > 0 ? `+ ₹${penaltyAmt}.00` : '₹0.00'}
+                  <div className={`text-lg font-black ${
+                    demoState === 'OVERDUE'
+                      ? 'text-red-400'
+                      : demoState === 'OVERPAY'
+                      ? 'text-sky-400'
+                      : demoState === 'SUBSIDIZED'
+                      ? 'text-emerald-400'
+                      : 'text-slate-400'
+                  }`}>
+                    {demoState === 'OVERDUE'
+                      ? `+ ₹${adjustmentAmt}.00`
+                      : demoState === 'OVERPAY'
+                      ? `+ ₹${adjustmentAmt}.00`
+                      : demoState === 'SUBSIDIZED'
+                      ? `- ₹${adjustmentAmt}.00`
+                      : '₹0.00'}
                   </div>
                   <div className="text-[10px] text-slate-400">
-                    {penaltyAmt > 0 ? 'Delayed Payment Charge' : 'Paid before due date'}
+                    {adjustmentLabel}
                   </div>
                 </div>
 
                 {/* 4. Total Payable / Settled */}
                 <div className="p-3 bg-gradient-to-br from-indigo-900 to-indigo-950 border border-indigo-500/40 rounded-xl space-y-1">
                   <div className="text-[10px] font-bold text-indigo-300 uppercase">
-                    {demoState === 'PAID' ? 'Total Settled' : 'Total Payable'}
+                    'Total Settled on Receipt'
                   </div>
                   <div className="text-xl font-black text-white">₹{totalSettledAmt.toLocaleString('en-IN')}.00</div>
                   <div className="text-[10px] text-indigo-200/80 font-mono">
