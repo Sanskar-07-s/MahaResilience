@@ -24,7 +24,7 @@ export const getAllUsersController = async (req: AuthenticatedRequest, res: Resp
         district: true,
         isVerified: true,
         createdAt: true,
-      },
+      } as any,
       orderBy: { createdAt: 'desc' },
     });
 
@@ -53,7 +53,7 @@ export const updateUserRoleController = async (req: AuthenticatedRequest, res: R
         adminField: adminField || null,
         district: district || null,
         isVerified: true,
-      },
+      } as any,
     });
 
     await logAuditAction(req.user?.id || 'admin', 'UPDATE_ROLE', userId, `Assigned role ${role} (Field: ${adminField || 'NONE'}, District: ${district || 'ALL'})`);

@@ -30,3 +30,4 @@ Thumbs.db
 # Subagent/agent metadata folders
 .gemini/
 .git/index.lock
+.firebase/
