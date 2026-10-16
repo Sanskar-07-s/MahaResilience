@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Project Verification & Approval Certificate - MahaResilience</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 8mm 10mm;
+    }
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    body {
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+      color: #0f172a;
+      background-color: #ffffff;
+      margin: 0;
+      padding: 0;
+      font-size: 11px;
+      line-height: 1.5;
+    }
+    .sheet {
+      position: relative;
+      width: 100%;
+      height: 280mm;
+      max-height: 280mm;
+      padding: 18px 22px 14px 22px;
+      border: 2.5px solid #0f172a;
+      outline: 1.5px solid #64748b;
+      outline-offset: -5px;
+      background: #ffffff;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      overflow: hidden;
+      page-break-inside: avoid;
+    }
+    
+    /* Header Section */
+    .header {
+      text-align: center;
+      border-bottom: 2px solid #0f172a;
+      padding-bottom: 10px;
+      margin-bottom: 12px;
+    }
+    .national-tag {
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: #b45309;
+      margin-bottom: 3px;
+    }
+    .title {
+      font-size: 21px;
+      font-weight: 900;
+      color: #0f172a;
+      letter-spacing: 0.5px;
+      margin: 3px 0;
+      text-transform: uppercase;
+    }
+    .subtitle {
+      font-size: 11.5px;
+      font-weight: 700;
+      color: #475569;
+      margin: 0;
+    }
+    .platform-tag {
+      display: inline-block;
+      margin-top: 6px;
+      font-size: 9.5px;
+      font-weight: 800;
+      background-color: #0f172a;
+      color: #ffffff;
+      padding: 3px 16px;
+      border-radius: 999px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    /* Reference & Date strip */
+    .meta-strip {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background-color: #f8fafc;
+      border: 1px solid #cbd5e1;
+      padding: 7px 14px;
+      border-radius: 6px;
+      font-size: 10px;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+
+    /* Salutation */
+    .salutation {
+      text-align: center;
+      font-size: 13px;
+      font-weight: 900;
+      letter-spacing: 1.8px;
+      color: #0f172a;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+      text-decoration: underline;
+      text-underline-offset: 4px;
+    }
+
+    /* Project Summary Card with QR */
+    .project-card {
+      display: flex;
+      background-color: #f1f5f9;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 12px;
+      align-items: center;
+      gap: 18px;
+    }
+    .project-card .desc {
+      flex: 1;
+    }
+    .project-card .qr {
+      width: 90px;
+      height: 90px;
+      background: #ffffff;
+      border: 1.5px solid #94a3b8;
+      border-radius: 6px;
+      padding: 4px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .project-card .qr img {
+      width: 72px;
+      height: 72px;
+      display: block;
+    }
+    .project-card .qr span {
+      font-size: 7.5px;
+      font-weight: 800;
+      color: #475569;
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+
+    /* Verified Modules Grid */
+    .section-heading {
+      font-size: 11px;
+      font-weight: 800;
+      color: #0f172a;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      border-bottom: 1.5px solid #0f172a;
+      padding-bottom: 3px;
+      margin: 10px 0 8px 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .section-heading::before {
+      content: "";
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      background-color: #b45309;
+      border-radius: 2px;
+    }
+
+    .modules-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .module-item {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 8px 12px;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+    .badge-check {
+      background: #ecfdf5;
+      color: #047857;
+      border: 1px solid #a7f3d0;
+      font-size: 9px;
+      font-weight: 800;
+      padding: 2px 7px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      white-space: nowrap;
+      margin-top: 1px;
+    }
+
+    /* Formal Verification & Approval Box */
+    .approval-box {
+      background-color: #ecfdf5;
+      border: 1.5px solid #059669;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 12px;
+      color: #064e3b;
+      line-height: 1.55;
+    }
+    .approval-title {
+      font-size: 11.5px;
+      font-weight: 900;
+      color: #047857;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 5px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Visiting Person / Officer Details Form */
+    .approver-details-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 12px;
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .approver-details-table td {
+      padding: 6.5px 12px;
+      font-size: 10.5px;
+      border-bottom: 1px solid #e2e8f0;
+      vertical-align: middle;
+    }
+    .approver-details-table .lbl {
+      width: 32%;
+      font-weight: 700;
+      color: #334155;
+      background: #f8fafc;
+    }
+    .approver-details-table .val {
+      width: 68%;
+      color: #0f172a;
+      font-weight: 600;
+    }
+
+    /* Signatures & Seal Section */
+    .sign-section {
+      display: flex;
+      justify-content: space-between;
+      align-items: stretch;
+      gap: 16px;
+      margin-top: 8px;
+    }
+    .sign-box {
+      flex: 1;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 10px 14px;
+      background: #ffffff;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .sign-title {
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      color: #0f172a;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 4px;
+      margin-bottom: 8px;
+    }
+    .sign-line {
+      height: 42px;
+      border-bottom: 1px dashed #94a3b8;
+      margin-bottom: 8px;
+      position: relative;
+    }
+    .sign-line span {
+      position: absolute;
+      bottom: 2px;
+      right: 0;
+      font-size: 8.5px;
+      color: #94a3b8;
+      font-style: italic;
+    }
+    .stamp-container {
+      width: 125px;
+      height: 105px;
+      border: 2px dashed #94a3b8;
+      border-radius: 6px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 6px;
+      background: #f8fafc;
+      font-size: 8px;
+      font-weight: 700;
+      color: #64748b;
+      text-transform: uppercase;
+      flex-shrink: 0;
+    }
+
+    .footer {
+      margin-top: 10px;
+      padding-top: 5px;
+      border-top: 1px solid #cbd5e1;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 8.5px;
+      color: #64748b;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="sheet">
+    <div>
+      <!-- Header -->
+      <div class="header">
+        <div class="national-tag">Civic-Tech & Disaster Resilience Innovation • Government of Maharashtra Domain</div>
+        <div class="title">Project Verification & Approval Certificate</div>
+        <div class="subtitle">प्रकल्प सादरीकरण, पडताळणी आणि अधिकृत मंजुरी प्रमाणपत्र (Official Demonstration & Endorsement)</div>
+        <div class="platform-tag">MahaResilience — Smart Community Hub & Civic Management Engine</div>
+      </div>
+
+      <!-- Ref & Date Bar -->
+      <div class="meta-strip">
+        <span><strong>Certificate Ref No:</strong> MR/DEMO-ACK/2026/____________</span>
+        <span><strong>Demonstration Date:</strong> _____ / _____ / 2026</span>
+        <span><strong>Host Location / City:</strong> _____________________________</span>
+      </div>
+
+      <div class="salutation">To Whomsoever It May Concern</div>
+
+      <!-- Project & Presenter Summary Card -->
+      <div class="project-card">
+        <div class="desc">
+          <div style="font-size: 13.5px; font-weight: 800; color: #0f172a; margin-bottom: 3px;">
+            MahaResilience (CommunityHUB Engine)
+          </div>
+          <div style="font-size: 10px; color: #334155; margin-bottom: 5px; line-height: 1.45;">
+            A unified, cloud-native civic engagement, emergency disaster resilience, public grievance redressal, and automated municipal utility billing system engineered for citizens, municipal corporations, and utility boards across Maharashtra.
+          </div>
+          <div style="font-size: 9.5px; color: #0f172a; line-height: 1.55;">
+            <strong>Lead Innovator & Presenter:</strong> Sanskar Dhat &nbsp;|&nbsp; <strong>Contact:</strong> sanskardhat6@gmail.com<br/>
+            <strong>Technology Stack:</strong> React, TypeScript, Node.js, Express, Firebase Firestore, PostgreSQL (Prisma), Twilio, Brevo API<br/>
+            <strong>Live Verified Portal URL:</strong> <a href="https://mahareilience.web.app" style="color: #0284c7; text-decoration: none; font-weight: 700;">https://mahareilience.web.app</a>
+          </div>
+        </div>
+        <div class="qr">
+          <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJYAAACWAQMAAAAGz+OhAAAABlBMVEX///8AAABVwtN+AAAACXBIWXMAAA7EAAAOxAGVKw4bAAABIUlEQVRIib2WQY7DIAxFjbJgyRFyFC5WTcrNOApHyJJFNe63TaXOqMvmW1EUHhvnf2wj8iEORXR8TElzt8X8OrthWfqjdIC53wU7HFYUwHLZf2Vvqo3JIEPWO59tZ80D2hOZa6+nqEKDdz+uZXHW3PP29/xdyyI27dh+rRgMuTyKQgN4nscPHg7boPpZpairDkBiZrgq3nkcKC97U9hNKgSIms5meOIwkQrt4blCe7Xj9n1m9Ssutevs/nJY974hnsWhrjOFWS7oV2JzYWlPYlZHFVlY07CWxWAR1qfs75MO4bDVJw23aJWTwmIubKuCUnjOYK/5qx42/YkMtosNo+bziMf8voEsJP+7g1zHZN3rJObvSBwWZ01X73T5KexDPAEzdveVPQ2WNQAAAABJRU5ErkJggg==" alt="Live Project QR" />
+          <span>Scan to Open</span>
+        </div>
+      </div>
+
+      <!-- Demonstrated & Verified Core Modules -->
+      <div class="section-heading">Demonstrated Core Capabilities & Verified Modules</div>
+      <div class="modules-grid">
+        <div class="module-item">
+          <span class="badge-check">✓ Verified</span>
+          <div>
+            <strong style="color: #0f172a; font-size: 10.5px;">1. Real-Time Disaster & Weather Alerts</strong>
+            <div style="font-size: 9px; color: #475569; margin-top: 1px;">Live meteorological advisories (AQI, Rain, Floods), MSEDCL power grid outage warnings, and administrative disaster broadcast feeds.</div>
+          </div>
+        </div>
+
+        <div class="module-item">
+          <span class="badge-check">✓ Verified</span>
+          <div>
+            <strong style="color: #0f172a; font-size: 10.5px;">2. One-Touch Emergency SOS & GPS Dispatch</strong>
+            <div style="font-size: 9px; color: #475569; margin-top: 1px;">Instant distress transmission with exact latitude/longitude GPS coordinates via Twilio SMS and Brevo transactional email with Google Maps navigation.</div>
+          </div>
+        </div>
+
+        <div class="module-item">
+          <span class="badge-check">✓ Verified</span>
+          <div>
+            <strong style="color: #0f172a; font-size: 10.5px;">3. Public Grievance Redressal System</strong>
+            <div style="font-size: 9px; color: #475569; margin-top: 1px;">Citizen reporting for road potholes, waste dumping, water leaks, and streetlights with photo uploads and real-time administrative status tracking.</div>
+          </div>
+        </div>
+
+        <div class="module-item">
+          <span class="badge-check">✓ Verified</span>
+          <div>
+            <strong style="color: #0f172a; font-size: 10.5px;">4. Automated Utility Billing & Tax Invoice Engine</strong>
+            <div style="font-size: 9px; color: #475569; margin-top: 1px;">Instant MSEDCL light & water bill lookup, multi-month ledger calculation, dynamic late surcharge / advance credit / solar subsidy, and live email tax receipts.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Formal Verification & Approval Statement -->
+      <div class="approval-box">
+        <div class="approval-title">
+          <span>🏛️</span> Official Verification & Project Approval Endorsement
+        </div>
+        <div style="font-size: 10px; text-align: justify; line-height: 1.5;">
+          "This is to formally certify and acknowledge that <strong>Sanskar Dhat</strong> has presented a comprehensive live demonstration of the <strong>MahaResilience</strong> platform before the undersigned authority. We have witnessed the functional modules in operation, inspected the real-time emergency dispatch and automated billing engine, and hereby <strong>VERIFY AND APPROVE</strong> the project as a fully operational, technically robust, and highly impactful civic-technology solution. The project demonstrates exceptional practical value and is recommended for municipal and administrative evaluation."
+        </div>
+      </div>
+
+      <!-- Information of Person / Officer Who Witnessed & Approved Demonstration -->
+      <div class="section-heading">Demonstration Witnessed, Verified & Approved By</div>
+      <table class="approver-details-table">
+        <tr>
+          <td class="lbl">Officer / Evaluator Name:</td>
+          <td class="val">____________________________________________________________________________________</td>
+        </tr>
+        <tr>
+          <td class="lbl">Designation & Department:</td>
+          <td class="val">____________________________________________________________________________________</td>
+        </tr>
+        <tr>
+          <td class="lbl">Organization / Authority / College:</td>
+          <td class="val">____________________________________________________________________________________</td>
+        </tr>
+        <tr>
+          <td class="lbl">Official Evaluation Status:</td>
+          <td class="val" style="font-weight: 700; color: #047857;">
+            [ &nbsp; ] DEMONSTRATION VERIFIED & APPROVED &nbsp;&nbsp;&nbsp;&nbsp; [ &nbsp; ] RECOMMENDED FOR PILOT / ADOPTION
+          </td>
+        </tr>
+        <tr>
+          <td class="lbl">Remarks / Observations:</td>
+          <td class="val" style="font-style: italic; color: #64748b;">
+            ____________________________________________________________________________________
+          </td>
+        </tr>
+      </table>
+
+      <!-- Formal Signature, Seal & Attestation Blocks -->
+      <div class="sign-section">
+        <!-- Presenter Block -->
+        <div class="sign-box">
+          <div class="sign-title">Presented & Demonstrated By</div>
+          <div class="sign-line">
+            <span>(Signature of Presenter)</span>
+          </div>
+          <div style="font-size: 9.5px; color: #334155; line-height: 1.5;">
+            <strong>Sanskar Dhat</strong><br/>
+            Lead Developer & Innovator<br/>
+            Project: MahaResilience (CommunityHUB)<br/>
+            Date: _____ / _____ / 2026
+          </div>
+        </div>
+
+        <!-- Official Seal Box -->
+        <div class="stamp-container">
+          <div style="font-size: 18px; margin-bottom: 2px;">🏛️</div>
+          <div style="font-weight: 800; font-size: 8.5px;">OFFICIAL STAMP</div>
+          <div style="font-size: 7px; margin-top: 3px; color: #94a3b8; line-height: 1.2;">Department / Institution / Authority Seal</div>
+        </div>
+
+        <!-- Approver Block -->
+        <div class="sign-box">
+          <div class="sign-title">Verified & Approved By</div>
+          <div class="sign-line">
+            <span>(Signature of Inspecting Authority)</span>
+          </div>
+          <div style="font-size: 9.5px; color: #334155; line-height: 1.5;">
+            <strong>Officer Signature:</strong> _______________________<br/>
+            <strong>Officer Name:</strong> ____________________________<br/>
+            <strong>Date:</strong> _____ / _____ / 2026
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer Bar -->
+    <div class="footer">
+      <span>MahaResilience Official Project Verification & Approval Certificate • 1-Page Executive Record</span>
+      <span>Live Verified Platform: mahareilience.web.app</span>
+      <span>Ref ID: MR/DEMO-ACK/2026</span>
+    </div>
+  </div>
+
+</body>
+</html>

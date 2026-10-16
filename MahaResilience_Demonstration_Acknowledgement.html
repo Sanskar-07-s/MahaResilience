@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>MahaResilience - Project Demonstration & Official Acknowledgement</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 10mm 12mm;
+    }
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    body {
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+      color: #0f172a;
+      background-color: #ffffff;
+      margin: 0;
+      padding: 0;
+      font-size: 11px;
+      line-height: 1.45;
+    }
+    .page {
+      position: relative;
+      width: 100%;
+      min-height: 275mm;
+      padding: 10px 14px;
+      border: 2px solid #1e293b;
+      outline: 1px solid #94a3b8;
+      outline-offset: -5px;
+      page-break-after: always;
+      background: #ffffff;
+    }
+    .page:last-child {
+      page-break-after: avoid;
+    }
+    
+    /* Header Bar */
+    .header-bar {
+      text-align: center;
+      border-bottom: 2px solid #0f172a;
+      padding-bottom: 8px;
+      margin-bottom: 12px;
+      position: relative;
+    }
+    .national-emblem {
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: #b45309;
+      margin-bottom: 3px;
+    }
+    .main-title {
+      font-size: 19px;
+      font-weight: 900;
+      color: #0f172a;
+      letter-spacing: 0.5px;
+      margin: 2px 0;
+      text-transform: uppercase;
+    }
+    .sub-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: #475569;
+      margin: 0;
+    }
+    .header-tagline {
+      display: inline-block;
+      margin-top: 5px;
+      font-size: 9.5px;
+      font-weight: 800;
+      background-color: #0f172a;
+      color: #ffffff;
+      padding: 3px 12px;
+      border-radius: 999px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    /* Reference & Date strip */
+    .ref-strip {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background-color: #f8fafc;
+      border: 1px solid #cbd5e1;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 10px;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+    .ref-strip span strong {
+      color: #0f172a;
+      font-weight: 800;
+    }
+
+    /* Section Headings */
+    .section-title {
+      font-size: 11.5px;
+      font-weight: 800;
+      color: #0f172a;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      border-bottom: 1.5px solid #0f172a;
+      padding-bottom: 3px;
+      margin: 12px 0 8px 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .section-title::before {
+      content: "";
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      background-color: #b45309;
+      border-radius: 2px;
+    }
+
+    /* Metadata Table */
+    .info-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 10px;
+    }
+    .info-table td {
+      padding: 5px 8px;
+      font-size: 10.5px;
+      border: 1px solid #e2e8f0;
+      vertical-align: middle;
+    }
+    .info-table .label-cell {
+      width: 25%;
+      font-weight: 700;
+      color: #334155;
+      background-color: #f8fafc;
+    }
+    .info-table .value-cell {
+      width: 75%;
+      font-weight: 600;
+      color: #0f172a;
+    }
+
+    /* QR Code Card */
+    .project-hero-card {
+      display: flex;
+      background-color: #f1f5f9;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-bottom: 12px;
+      align-items: center;
+      gap: 16px;
+    }
+    .project-hero-card .details {
+      flex: 1;
+    }
+    .project-hero-card .qr-box {
+      width: 85px;
+      height: 85px;
+      background: #ffffff;
+      border: 1px solid #94a3b8;
+      border-radius: 6px;
+      padding: 4px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .project-hero-card .qr-box img {
+      width: 70px;
+      height: 70px;
+      display: block;
+    }
+    .project-hero-card .qr-box span {
+      font-size: 7.5px;
+      font-weight: 700;
+      color: #475569;
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+
+    /* Module Checklist Table */
+    .module-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 6px;
+      font-size: 10px;
+    }
+    .module-table th {
+      background-color: #0f172a;
+      color: #ffffff;
+      padding: 6px 8px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border: 1px solid #0f172a;
+    }
+    .module-table td {
+      padding: 5.5px 8px;
+      border: 1px solid #cbd5e1;
+      vertical-align: middle;
+    }
+    .module-table tr:nth-child(even) {
+      background-color: #f8fafc;
+    }
+    .chk-box {
+      display: inline-block;
+      width: 13px;
+      height: 13px;
+      border: 1.5px solid #0f172a;
+      border-radius: 3px;
+      vertical-align: middle;
+      margin-right: 4px;
+      background: #ffffff;
+    }
+    .status-pill {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 8.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+    .status-live {
+      background-color: #ecfdf5;
+      color: #047857;
+      border: 1px solid #a7f3d0;
+    }
+
+    /* Evaluation Grid on Page 2 */
+    .eval-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 6px;
+      font-size: 10px;
+    }
+    .eval-table th {
+      background-color: #1e293b;
+      color: #ffffff;
+      padding: 6px 8px;
+      font-weight: 700;
+      text-transform: uppercase;
+      border: 1px solid #1e293b;
+    }
+    .eval-table td {
+      padding: 7px 8px;
+      border: 1px solid #cbd5e1;
+      vertical-align: middle;
+    }
+    .eval-table tr:nth-child(even) {
+      background-color: #f8fafc;
+    }
+    .rating-opt {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-right: 8px;
+      font-size: 9.5px;
+      font-weight: 600;
+    }
+
+    /* Written Remarks Box */
+    .remarks-box {
+      border: 1px solid #94a3b8;
+      background-color: #fcfcfc;
+      border-radius: 6px;
+      padding: 8px 12px;
+      min-height: 85px;
+      margin-top: 6px;
+      position: relative;
+    }
+    .remarks-line {
+      border-bottom: 1px dashed #cbd5e1;
+      height: 22px;
+      width: 100%;
+    }
+
+    /* Declaration block */
+    .declaration-box {
+      background-color: #f1f5f9;
+      border-left: 3.5px solid #0f172a;
+      padding: 8px 12px;
+      margin: 12px 0;
+      font-size: 10px;
+      font-weight: 500;
+      color: #334155;
+      line-height: 1.5;
+    }
+
+    /* Signature & Seal Block */
+    .sign-container {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      margin-top: 14px;
+    }
+    .sign-card {
+      flex: 1;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 10px 12px;
+      background-color: #ffffff;
+    }
+    .sign-card-title {
+      font-size: 10.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #0f172a;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 4px;
+      margin-bottom: 8px;
+    }
+    .sign-space {
+      height: 48px;
+      border-bottom: 1px dashed #94a3b8;
+      margin-bottom: 8px;
+      position: relative;
+    }
+    .sign-space span {
+      position: absolute;
+      bottom: 2px;
+      right: 0;
+      font-size: 8.5px;
+      color: #94a3b8;
+      font-style: italic;
+    }
+    .sign-details {
+      font-size: 9.5px;
+      color: #334155;
+      line-height: 1.6;
+    }
+    .seal-box {
+      width: 120px;
+      height: 95px;
+      border: 2px dashed #94a3b8;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 6px;
+      background-color: #f8fafc;
+      font-size: 8px;
+      font-weight: 700;
+      color: #64748b;
+      text-transform: uppercase;
+      margin: 0 auto;
+    }
+
+    .footer-bar {
+      margin-top: 10px;
+      padding-top: 6px;
+      border-top: 1px solid #cbd5e1;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 8px;
+      color: #64748b;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ==================== PAGE 1 ==================== -->
+  <div class="page">
+    <div class="header-bar">
+      <div class="national-emblem">Government of Maharashtra Civic-Tech & Disaster Resilience Initiative</div>
+      <div class="main-title">Project Demonstration & Official Acknowledgement</div>
+      <div class="sub-title">प्रकल्प सादरीकरण व तांत्रिक मूल्यमापन पोचपावती (Technical Demonstration Record)</div>
+      <div class="header-tagline">MahaResilience — Smart Community Hub & Emergency Response Platform</div>
+    </div>
+
+    <div class="ref-strip">
+      <span><strong>Reference ID:</strong> MR/DEMO-ACK/2026/____________</span>
+      <span><strong>Date:</strong> _____ / _____ / 2026</span>
+      <span><strong>Location:</strong> _____________________________</span>
+    </div>
+
+    <!-- Project Hero & Presenter Summary -->
+    <div class="project-hero-card">
+      <div class="details">
+        <div style="font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 3px;">
+          MahaResilience (CommunityHUB Engine)
+        </div>
+        <div style="font-size: 10px; color: #475569; margin-bottom: 6px; line-height: 1.4;">
+          A unified, cloud-native civic engagement, emergency management, public complaint redressal, and automated utility tax invoice billing portal engineered for citizens and municipal administrative bodies across Maharashtra.
+        </div>
+        <div style="font-size: 9.5px; color: #0f172a; line-height: 1.5;">
+          <strong>Lead Innovator / Presenter:</strong> Sanskar Dhat<br/>
+          <strong>Contact / Credentials:</strong> sanskardhat6@gmail.com | Student / Software Innovator<br/>
+          <strong>Live Verified Portal URL:</strong> <a href="https://mahareilience.web.app" style="color: #0284c7; text-decoration: none; font-weight: 700;">https://mahareilience.web.app</a>
+        </div>
+      </div>
+      <div class="qr-box">
+        <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJYAAACWAQMAAAAGz+OhAAAABlBMVEX///8AAABVwtN+AAAACXBIWXMAAA7EAAAOxAGVKw4bAAABIUlEQVRIib2WQY7DIAxFjbJgyRFyFC5WTcrNOApHyJJFNe63TaXOqMvmW1EUHhvnf2wj8iEORXR8TElzt8X8OrthWfqjdIC53wU7HFYUwHLZf2Vvqo3JIEPWO59tZ80D2hOZa6+nqEKDdz+uZXHW3PP29/xdyyI27dh+rRgMuTyKQgN4nscPHg7boPpZpairDkBiZrgq3nkcKC97U9hNKgSIms5meOIwkQrt4blCe7Xj9n1m9Ssutevs/nJY974hnsWhrjOFWS7oV2JzYWlPYlZHFVlY07CWxWAR1qfs75MO4bDVJw23aJWTwmIubKuCUnjOYK/5qx42/YkMtosNo+bziMf8voEsJP+7g1zHZN3rJObvSBwWZ01X73T5KexDPAEzdveVPQ2WNQAAAABJRU5ErkJggg==" alt="QR Code" />
+        <span>Scan to Verify</span>
+      </div>
+    </div>
+
+    <!-- Section 1: Demonstration Target Information -->
+    <div class="section-title">1. Demonstration & Visiting Authority Details</div>
+    <table class="info-table">
+      <tr>
+        <td class="label-cell">Host Authority / Organization:</td>
+        <td class="value-cell" style="font-weight: 700;">
+          __________________________________________________________________________________________
+        </td>
+      </tr>
+      <tr>
+        <td class="label-cell">Department / Division:</td>
+        <td class="value-cell">
+          [ &nbsp; ] Municipal Corporation (PMC / BMC / PCMC) &nbsp;&nbsp;&nbsp; [ &nbsp; ] MSEDCL (Mahavitaran)<br/>
+          [ &nbsp; ] District Disaster Management Cell &nbsp;&nbsp;&nbsp; [ &nbsp; ] Academic / Innovation Evaluation Cell
+        </td>
+      </tr>
+      <tr>
+        <td class="label-cell">Inspecting Officer Name:</td>
+        <td class="value-cell">__________________________________________________________________________________________</td>
+      </tr>
+      <tr>
+        <td class="label-cell">Officer Designation & Post:</td>
+        <td class="value-cell">__________________________________________________________________________________________</td>
+      </tr>
+    </table>
+
+    <!-- Section 2: Technical Demonstration Checklist -->
+    <div class="section-title">2. Functional Capabilities & Module Demonstration Record</div>
+    <table class="module-table">
+      <thead>
+        <tr>
+          <th style="width: 26%; text-align: left;">Core Module</th>
+          <th style="width: 52%; text-align: left;">Demonstrated Capabilities & Features</th>
+          <th style="width: 10%; text-align: center;">Live State</th>
+          <th style="width: 12%; text-align: center;">Officer Check</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>1. Disaster Alerts & Early Warning Feed</strong></td>
+          <td>
+            Real-time disaster advisories, meteorological weather extremes (AQI, Rain, Floods), MSEDCL power grid feeder outages, and administrative broadcast notifications with district-level filtering.
+          </td>
+          <td style="text-align: center;"><span class="status-pill status-live">Live Verified</span></td>
+          <td style="text-align: center;"><span class="chk-box"></span> Yes</td>
+        </tr>
+        <tr>
+          <td><strong>2. Emergency SOS Distress Dispatch</strong></td>
+          <td>
+            One-touch citizen SOS emergency broadcast transmitting precise live GPS coordinates (latitude/longitude), automated Twilio SMS alert, and high-priority Brevo email with direct Google Maps route navigation to designated contacts and emergency responders.
+          </td>
+          <td style="text-align: center;"><span class="status-pill status-live">Live Verified</span></td>
+          <td style="text-align: center;"><span class="chk-box"></span> Yes</td>
+        </tr>
+        <tr>
+          <td><strong>3. Municipal Grievance Redressal</strong></td>
+          <td>
+            Citizen reporting of civic defects (road potholes, illegal dumping, pipeline leaks, defunct streetlights) with photographic evidence, location tagging, and cloud-synced status progression.
+          </td>
+          <td style="text-align: center;"><span class="status-pill status-live">Live Verified</span></td>
+          <td style="text-align: center;"><span class="chk-box"></span> Yes</td>
+        </tr>
+        <tr>
+          <td><strong>4. Automated Utility Billing Engine</strong></td>
+          <td>
+            Instant consumer bill lookup (MSEDCL Electricity & Municipal Water Boards), multi-month billing calculation, dynamic category handler (Overdue with DPC Late Penalty, Normal On-Time, Overpay Advance Credit, Solar Subsidy Rebate), and transactional email tax receipt delivery.
+          </td>
+          <td style="text-align: center;"><span class="status-pill status-live">Live Verified</span></td>
+          <td style="text-align: center;"><span class="chk-box"></span> Yes</td>
+        </tr>
+        <tr>
+          <td><strong>5. Municipal Water Tanker Hub</strong></td>
+          <td>
+            Emergency community water tanker booking, capacity allocation (5,000L - 10,000L), tanker vehicle ID & driver phone assignment, priority queue status, and ward-level distribution schedule.
+          </td>
+          <td style="text-align: center;"><span class="status-pill status-live">Live Verified</span></td>
+          <td style="text-align: center;"><span class="chk-box"></span> Yes</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="footer-bar">
+      <span>MahaResilience Official Demonstration Record • Page 1 of 2</span>
+      <span>Confidential & Academic/Administrative Evaluation</span>
+      <span>Live URL: mahareilience.web.app</span>
+    </div>
+  </div>
+
+  <!-- ==================== PAGE 2 ==================== -->
+  <div class="page">
+    <div class="header-bar" style="border-bottom: 1.5px solid #0f172a; padding-bottom: 4px; margin-bottom: 8px;">
+      <div class="national-emblem" style="font-size: 9px; letter-spacing: 1.5px;">Official Evaluation & Endorsement Dossier</div>
+      <div class="main-title" style="font-size: 16px;">Technical Assessment & Formal Acknowledgement</div>
+    </div>
+
+    <!-- Section 3: Assessment Matrix -->
+    <div class="section-title">3. Official Evaluation & Performance Assessment Matrix</div>
+    <table class="eval-table">
+      <thead>
+        <tr>
+          <th style="width: 38%; text-align: left;">Evaluation Parameter</th>
+          <th style="width: 42%; text-align: left;">Assessment Grade / Rating (Officer to Tick)</th>
+          <th style="width: 20%; text-align: center;">Verified Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Civic Relevance & Problem Solving</strong><br/><span style="color:#64748b; font-size:8.5px;">Relevance to Maharashtra civic & disaster requirements</span></td>
+          <td>
+            <span class="rating-opt"><span class="chk-box"></span> Outstanding</span>
+            <span class="rating-opt"><span class="chk-box"></span> Very Good</span>
+            <span class="rating-opt"><span class="chk-box"></span> Satisfactory</span>
+          </td>
+          <td style="text-align: center; font-weight:700; color:#047857;">[ &nbsp;&nbsp; ] Approved</td>
+        </tr>
+        <tr>
+          <td><strong>Technical Architecture & Cloud Integration</strong><br/><span style="color:#64748b; font-size:8.5px;">React, Node/Express, Firebase, PostgreSQL Prisma, Brevo</span></td>
+          <td>
+            <span class="rating-opt"><span class="chk-box"></span> Outstanding</span>
+            <span class="rating-opt"><span class="chk-box"></span> Very Good</span>
+            <span class="rating-opt"><span class="chk-box"></span> Satisfactory</span>
+          </td>
+          <td style="text-align: center; font-weight:700; color:#047857;">[ &nbsp;&nbsp; ] Approved</td>
+        </tr>
+        <tr>
+          <td><strong>Emergency SOS Dispatch & GPS Precision</strong><br/><span style="color:#64748b; font-size:8.5px;">Speed of Twilio SMS / Brevo email broadcast with map link</span></td>
+          <td>
+            <span class="rating-opt"><span class="chk-box"></span> Excellent (&lt;5s)</span>
+            <span class="rating-opt"><span class="chk-box"></span> Good</span>
+            <span class="rating-opt"><span class="chk-box"></span> Acceptable</span>
+          </td>
+          <td style="text-align: center; font-weight:700; color:#047857;">[ &nbsp;&nbsp; ] Approved</td>
+        </tr>
+        <tr>
+          <td><strong>Utility Billing Accuracy & Invoice Delivery</strong><br/><span style="color:#64748b; font-size:8.5px;">Ledger computations, penalty/surcharges, and live email receipts</span></td>
+          <td>
+            <span class="rating-opt"><span class="chk-box"></span> 100% Accurate</span>
+            <span class="rating-opt"><span class="chk-box"></span> Satisfactory</span>
+            <span class="rating-opt"><span class="chk-box"></span> Functional</span>
+          </td>
+          <td style="text-align: center; font-weight:700; color:#047857;">[ &nbsp;&nbsp; ] Approved</td>
+        </tr>
+        <tr>
+          <td><strong>Deployment Feasibility for Public Bodies</strong><br/><span style="color:#64748b; font-size:8.5px;">Scalability for district municipal / government adoption</span></td>
+          <td>
+            <span class="rating-opt"><span class="chk-box"></span> Ready for Pilot</span>
+            <span class="rating-opt"><span class="chk-box"></span> Recommended</span>
+            <span class="rating-opt"><span class="chk-box"></span> Prototype Phase</span>
+          </td>
+          <td style="text-align: center; font-weight:700; color:#047857;">[ &nbsp;&nbsp; ] Approved</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Section 4: Officer's Remarks -->
+    <div class="section-title">4. Remarks, Observations & Recommendations by Visiting Authority</div>
+    <div class="remarks-box">
+      <div style="font-size: 8.5px; color: #94a3b8; font-style: italic; margin-bottom: 4px;">
+        (Officer may write handwritten feedback, pilot recommendations, or specific feature appreciation below)
+      </div>
+      <div class="remarks-line"></div>
+      <div class="remarks-line"></div>
+      <div class="remarks-line"></div>
+      <div class="remarks-line"></div>
+    </div>
+
+    <!-- Section 5: Formal Acknowledgement Declaration -->
+    <div class="declaration-box">
+      <strong>OFFICIAL DECLARATION & ACKNOWLEDGEMENT:</strong><br/>
+      "This is to certify that <strong>Sanskar Dhat</strong> has personally visited and presented a comprehensive technical demonstration of the <strong>MahaResilience (Smart Community Hub)</strong> project. The demonstrated systems, including real-time disaster early warnings, GPS emergency SOS dispatch, municipal complaint tracking, and automated utility billing tax invoice delivery, have been reviewed and demonstrated live. The platform exhibits high civic relevance, engineering rigor, and practical value for citizens and administrative authorities across Maharashtra."
+    </div>
+
+    <!-- Section 6: Signature, Seal & Attestation Blocks -->
+    <div class="sign-container">
+      <!-- Presenter Block -->
+      <div class="sign-card">
+        <div class="sign-card-title">Presented & Demonstrated By</div>
+        <div class="sign-space">
+          <span>(Signature of Presenter)</span>
+        </div>
+        <div class="sign-details">
+          <strong>Sanskar Dhat</strong><br/>
+          Lead Developer & System Architect<br/>
+          Project: MahaResilience<br/>
+          Email: sanskardhat6@gmail.com<br/>
+          Date: _____ / _____ / 2026
+        </div>
+      </div>
+
+      <!-- Seal Box in Middle -->
+      <div style="display: flex; flex-direction: column; justify-content: center; align-items: center;">
+        <div class="seal-box">
+          <div style="font-size: 16px; margin-bottom: 4px;">🏛️</div>
+          <div>OFFICIAL STAMP</div>
+          <div style="font-size: 6.5px; margin-top: 2px; color: #94a3b8;">Department / Institution / Authority Seal</div>
+        </div>
+      </div>
+
+      <!-- Inspecting Authority Block -->
+      <div class="sign-card">
+        <div class="sign-card-title">Acknowledged & Verified By</div>
+        <div class="sign-space">
+          <span>(Signature & Official Stamp)</span>
+        </div>
+        <div class="sign-details">
+          <strong>Name:</strong> ___________________________________<br/>
+          <strong>Designation:</strong> ____________________________<br/>
+          <strong>Department:</strong> _____________________________<br/>
+          <strong>Office / City:</strong> ____________________________<br/>
+          <strong>Date:</strong> _____ / _____ / 2026
+        </div>
+      </div>
+    </div>
+
+    <div class="footer-bar">
+      <span>MahaResilience Official Demonstration Record • Page 2 of 2</span>
+      <span>Official Government / Municipal / Academic Submission Copy</span>
+      <span>Ref: MR/DEMO-ACK/2026</span>
+    </div>
+  </div>
+
+</body>
+</html>
