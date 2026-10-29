@@ -29,6 +29,7 @@ import CommunityPage from '../pages/Community/CommunityPage.tsx';
 import MapPage from '../pages/Map/MapPage.tsx';
 import WaterPage from '../pages/Water/WaterPage.tsx';
 import ElectricityPage from '../pages/Electricity/ElectricityPage.tsx';
+import RechargePage from '../pages/Recharge/RechargePage.tsx';
 import WastePage from '../pages/Waste/WastePage.tsx';
 import AgriculturePage from '../pages/Agriculture/AgriculturePage.tsx';
 import EducationPage from '../pages/Education/EducationPage.tsx';
@@ -120,6 +121,7 @@ const App: React.FC = () => {
                     <Route path="/complaints" element={<MainLayout><ComplaintsPage /></MainLayout>} />
                     <Route path="/water" element={<MainLayout><WaterPage /></MainLayout>} />
                     <Route path="/electricity" element={<MainLayout><ElectricityPage /></MainLayout>} />
+                    <Route path="/recharge" element={<MainLayout><RechargePage /></MainLayout>} />
                     <Route path="/waste" element={<MainLayout><WastePage /></MainLayout>} />
                     <Route path="/agriculture" element={<MainLayout><AgriculturePage /></MainLayout>} />
                     <Route path="/education" element={<MainLayout><EducationPage /></MainLayout>} />

@@ -133,6 +133,7 @@ model User {
   volunteerProfile  Volunteer?
   ratings           Rating[]
   communityPosts    CommunityPost[]
+  rechargeOrders    RechargeOrder[]
 }
 
 model Volunteer {
@@ -352,4 +353,72 @@ model CommunityPost {
   isAnnouncement Boolean  @default(false)
   status         String   @default("APPROVED") // APPROVED, SPAM
   createdAt      DateTime @default(now())
+}
+
+enum RechargeStatus {
+  CREATED
+  PAYMENT_PENDING
+  PAYMENT_VERIFIED
+  PAYMENT_FAILED
+  RECHARGE_PENDING
+  SUCCESS
+  RECHARGE_FAILED
+  REFUND_INITIATED
+  REFUND_COMPLETED
+  CANCELLED
+}
+
+model RechargeOrder {
+  id                  String         @id @default(uuid())
+  transactionId       String         @unique
+  idempotencyKey      String         @unique
+  userId              String?
+  mobileNumber        String
+  operator            String
+  operatorCircle      String
+  planId              String
+  planType            String?
+  amount              Float
+  talktime            String?
+  validity            String
+  dataBenefit         String?
+  smsBenefit          String?
+  description         String?
+  
+  // Payment Gateway fields
+  paymentGateway      String         @default("RAZORPAY")
+  paymentOrderId      String?        @unique
+  paymentId           String?        @unique
+  paymentSignature    String?
+  paymentStatus       String         @default("PENDING")
+  paymentAmount       Float?
+  
+  // Telecom Recharge Provider fields
+  rechargeProvider    String         @default("TELECOM_API")
+  providerReference   String?
+  providerOperatorRef String?
+  providerResponseMsg String?
+  
+  // State Machine Status
+  status              RechargeStatus @default(CREATED)
+  
+  // Refund fields
+  refundId            String?
+  refundStatus        String?
+  refundAmount        Float?
+  
+  // Timestamps & Audit
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  paymentCompletedAt  DateTime?
+  rechargeCompletedAt DateTime?
+  failureReason       String?
+  
+  // Relations
+  user                User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([mobileNumber])
+  @@index([status])
+  @@index([transactionId])
 }

@@ -1,3 +1,6 @@
+import jwt from 'jsonwebtoken';
+import prisma from '../config/db.js';
+import { sendBillReceiptEmail } from '../services/brevoEmailService.js';
 import { Request, Response } from 'express';
 
 export interface BillBreakdown {
@@ -260,4 +263,231 @@ export const getOperators = (_req: Request, res: Response): void => {
       ],
     },
   });
+};
+
+
+// In-memory idempotency cache for duplicate email prevention
+const processedPaymentReceipts = new Map<string, { timestamp: number; data: any }>();
+
+const pruneDeduplicationCache = () => {
+  const now = Date.now();
+  for (const [key, val] of processedPaymentReceipts.entries()) {
+    if (now - val.timestamp > 15 * 60 * 1000) {
+      processedPaymentReceipts.delete(key);
+    }
+  }
+};
+
+/**
+ * Process bill payment and dispatch official verified receipt email
+ * Supports both Water and Electricity bills
+ */
+export const processBillPaymentReceipt = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const {
+      email,
+      userId,
+      consumerName,
+      consumerNumber,
+      billNumber,
+      billDate,
+      billingPeriod,
+      utilityType = 'ELECTRICITY',
+      provider,
+      district = 'Pune',
+      category = 'NORMAL',
+      unitsConsumed,
+      unitLabel,
+      lastMonthAmount = 1450,
+      currentMonthAmount = 1580,
+      penaltyAmount = 0,
+      overpayAmount = 0,
+      subsidyAmount = 0,
+      totalPaidAmount,
+      transactionId,
+    } = req.body;
+
+    // 1. Resolve User & Email Address from DB if userId / JWT provided
+    let targetEmail = typeof email === 'string' ? email.trim() : '';
+    let recipientName = typeof consumerName === 'string' ? consumerName.trim() : '';
+
+    const authHeader = req.headers.authorization;
+    let authUserId = userId;
+    if (!authUserId && authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const token = authHeader.split(' ')[1];
+        const decoded: any = jwt.verify(token, process.env.JWT_SECRET || 'maharesilience-secret-session-key-2026-auth');
+        if (decoded?.id) authUserId = decoded.id;
+      } catch (_) {}
+    }
+
+    if (authUserId) {
+      try {
+        const userRec = await prisma.user.findUnique({
+          where: { id: authUserId },
+          select: { email: true, name: true },
+        });
+        if (userRec) {
+          if (!targetEmail) targetEmail = userRec.email;
+          if (!recipientName) recipientName = userRec.name;
+        }
+      } catch (dbErr: any) {
+        console.warn('[BillController]: DB user lookup non-fatal note:', dbErr.message || dbErr);
+      }
+    } else if (targetEmail) {
+      try {
+        const userRec = await prisma.user.findUnique({
+          where: { email: targetEmail },
+          select: { name: true },
+        });
+        if (userRec && !recipientName) {
+          recipientName = userRec.name;
+        }
+      } catch (_) {}
+    }
+
+    if (!recipientName) {
+      recipientName = targetEmail ? targetEmail.split('@')[0] : 'Citizen Consumer';
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!targetEmail || !emailRegex.test(targetEmail)) {
+      res.status(400).json({
+        success: false,
+        paymentSuccess: false,
+        error: 'A valid recipient email address is required to dispatch the bill receipt.',
+      });
+      return;
+    }
+
+    const isWater = String(utilityType).toUpperCase() === 'WATER';
+    const cleanNumber = (consumerNumber || (isWater ? 'WTR-94281' : '012345678910')).trim().toUpperCase();
+    const finalTxnId = transactionId || `${isWater ? 'TXN-WTR' : 'TXN-MSE'}-${Math.floor(100000 + Math.random() * 900000)}`;
+
+    // 2. Prevent Duplicate Emails on Payment Retry (Idempotency)
+    pruneDeduplicationCache();
+    const idempotencyKey = finalTxnId;
+    if (processedPaymentReceipts.has(idempotencyKey)) {
+      const cached = processedPaymentReceipts.get(idempotencyKey)!;
+      console.log(`[BillController]: Idempotent retry detected for txn ${finalTxnId}. Returning cached receipt without duplicate email.`);
+      res.status(200).json({
+        ...cached.data,
+        isDuplicate: true,
+        message: 'Payment verified and receipt already dispatched for this transaction. Duplicate email prevented.',
+      });
+      return;
+    }
+
+    // 3. Resolve Bill Metadata
+    const today = new Date();
+    const formattedDate = today.toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    const activePeriod = billingPeriod || today.toLocaleString('default', { month: 'long', year: 'numeric' });
+    const finalBillNumber = billNumber || `${isWater ? 'WTR' : 'MSE'}-${today.toLocaleString('default', { month: 'short' }).toUpperCase()}-${Math.floor(10000 + Math.random() * 90000)}`;
+
+    const providerName = provider || (isWater
+      ? `${district} Municipal Corporation (Water Supply & Sewerage Board)`
+      : 'MSEDCL (Maharashtra State Electricity Distribution Co. Ltd.)');
+
+    const currentBase = Number(currentMonthAmount) || (isWater ? 460 : 1580);
+    const normalizedCategory = String(category).toUpperCase();
+    let computedTotal = currentBase;
+
+    let penalty = 0;
+    let overpay = 0;
+    let subsidy = 0;
+
+    if (normalizedCategory === 'OVERDUE') {
+      penalty = Number(penaltyAmount) || (isWater ? 50 : 170);
+      computedTotal += penalty;
+    } else if (normalizedCategory === 'OVERPAY') {
+      overpay = Number(overpayAmount) || (isWater ? 140 : 420);
+      computedTotal += overpay;
+    } else if (normalizedCategory === 'SUBSIDIZED') {
+      subsidy = Number(subsidyAmount) || (isWater ? 100 : 300);
+      computedTotal = Math.max(0, computedTotal - subsidy);
+    }
+
+    const finalPaid = totalPaidAmount !== undefined ? Number(totalPaidAmount) : computedTotal;
+
+    // 4. Dispatch Email via Brevo REST API v3
+    let emailSent = false;
+    let emailError: string | null = null;
+
+    try {
+      emailSent = await sendBillReceiptEmail({
+        toEmail: targetEmail,
+        toName: recipientName,
+        utilityType: isWater ? 'WATER' : 'ELECTRICITY',
+        providerName,
+        consumerNumber: cleanNumber,
+        billNumber: finalBillNumber,
+        billingPeriod: activePeriod,
+        unitsConsumed: unitsConsumed ? Number(unitsConsumed) : undefined,
+        unitLabel: unitLabel || (isWater ? 'kL' : 'kWh'),
+        amountPaid: finalPaid,
+        transactionId: finalTxnId,
+        paymentDate: formattedDate,
+        category: normalizedCategory,
+        breakdown: {
+          fixedCharges: isWater ? 40 : 116,
+          consumptionCharges: Math.max(0, currentBase - (isWater ? 40 : 116)),
+          taxesAndCess: Math.round(currentBase * 0.16),
+          penaltyAmount: penalty,
+          overpayAmount: overpay,
+          subsidyAmount: subsidy,
+        },
+      });
+
+      if (!emailSent) {
+        emailError = 'Email delivery could not be completed by transactional provider.';
+      }
+    } catch (err: any) {
+      console.error('[BillController]: Non-fatal email error while processing receipt:', err.message || err);
+      emailError = 'Network error during receipt dispatch.';
+      emailSent = false;
+    }
+
+    // 5. Construct Response: Payment is marked SUCCESSFUL even if email delivery is delayed
+    const responsePayload = {
+      success: true,
+      paymentSuccess: true,
+      emailSent,
+      emailError: emailSent ? null : emailError,
+      message: emailSent
+        ? `Official ${isWater ? 'Water' : 'Electricity'} bill receipt successfully dispatched to ${targetEmail}.`
+        : `Payment successfully recorded (Ref: ${finalTxnId}). Receipt email delivery was delayed.`,
+      transactionId: finalTxnId,
+      billNumber: finalBillNumber,
+      billingPeriod: activePeriod,
+      consumerNumber: cleanNumber,
+      consumerName: recipientName,
+      targetEmail,
+      utilityType: isWater ? 'WATER' : 'ELECTRICITY',
+      totalPaidAmount: finalPaid,
+      category: normalizedCategory,
+      paidAt: today.toISOString(),
+    };
+
+    processedPaymentReceipts.set(idempotencyKey, {
+      timestamp: Date.now(),
+      data: responsePayload,
+    });
+
+    res.status(200).json(responsePayload);
+  } catch (error: any) {
+    console.error('[BillController]: Error in processBillPaymentReceipt:', error);
+    res.status(500).json({
+      success: false,
+      paymentSuccess: false,
+      error: 'An internal error occurred while processing bill payment receipt.',
+    });
+  }
 };

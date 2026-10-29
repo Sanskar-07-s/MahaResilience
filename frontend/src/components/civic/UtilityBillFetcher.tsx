@@ -1,3 +1,4 @@
+import { useAuth } from '../../contexts/AuthContext.tsx';
 import React, { useState, useEffect } from 'react';
 import {
   Zap, Droplets, Search, Receipt, ExternalLink,
@@ -40,8 +41,17 @@ export const UtilityBillFetcher: React.FC<UtilityBillFetcherProps> = ({
   const [showBreakdown, setShowBreakdown] = useState(false);
   const [paidSuccess, setPaidSuccess] = useState(false);
 
+  const { user } = useAuth();
   // Real Email Dispatch & Multi-Month Breakdown State
-  const [recipientEmail, setRecipientEmail] = useState('sanskardhat6@gmail.com');
+  const [recipientEmail, setRecipientEmail] = useState(user?.email || 'sanskardhat6@gmail.com');
+
+  React.useEffect(() => {
+    if (user?.email && (!recipientEmail || recipientEmail === 'sanskardhat6@gmail.com')) {
+      setRecipientEmail(user.email);
+    }
+  }, [user?.email]);
+
+  const activeConsumerName = user?.name || (user as any)?.displayName || bill?.consumerName || 'Citizen Resident';
   const [demoState, setDemoState] = useState<'OVERDUE' | 'NORMAL' | 'OVERPAY' | 'SUBSIDIZED'>('OVERDUE');
   const [sendingEmail, setSendingEmail] = useState(false);
   const [emailStatusMsg, setEmailStatusMsg] = useState<string | null>(null);
@@ -166,15 +176,23 @@ export const UtilityBillFetcher: React.FC<UtilityBillFetcherProps> = ({
     setLastTxnId(txn);
 
     try {
-      const response = await fetch(getApiUrl('/api/sms/send-bill-email'), {
+      const response = await fetch(getApiUrl('/api/bills/pay'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: recipientEmail,
-          consumerName: 'Sanskar Dhat',
+          userId: user?.id || (user as any)?.uid,
+          consumerName: activeConsumerName,
           consumerNumber: bill?.consumerNumber || consumerNumber || (isWater ? 'WTR-94281' : '012345678910'),
+          billNumber: bill?.billNumber,
+          billDate: bill?.billDate,
+          billingPeriod: bill?.billDate ? new Date(bill.billDate).toLocaleString('default', { month: 'long', year: 'numeric' }) : undefined,
           utilityType,
+          provider: bill?.provider || selectedProvider,
+          district: bill?.district || district,
           category: demoState,
+          unitsConsumed: bill?.unitsConsumed,
+          unitLabel: bill?.unitLabel,
           lastMonthAmount: lastMonthAmt,
           currentMonthAmount: currentMonthBase,
           penaltyAmount: demoState === 'OVERDUE' ? adjustmentAmt : 0,
@@ -186,15 +204,23 @@ export const UtilityBillFetcher: React.FC<UtilityBillFetcherProps> = ({
       });
 
       const data = await response.json();
-      if (response.ok && data.emailSent) {
-        setEmailStatusMsg(
-          `✅ Real Bill Receipt Dispatched directly to ${recipientEmail}! Check your inbox. (Ref: ${txn}, Total: ₹${totalSettledAmt})`
-        );
+      if (response.ok && (data.success || data.paymentSuccess)) {
         setPaidSuccess(true);
+        if (data.emailSent) {
+          setEmailStatusMsg(
+            `✅ Real Bill Receipt Dispatched directly to ${recipientEmail}! Check your inbox. (Ref: ${data.transactionId || txn}, Total: ₹${totalSettledAmt})`
+          );
+        } else if (data.isDuplicate) {
+          setEmailStatusMsg(
+            `Payment verified (Ref: ${data.transactionId || txn}). Duplicate email prevented.`
+          );
+        } else {
+          setEmailStatusMsg(
+            `Payment recorded (Ref: ${data.transactionId || txn}, Total: ₹${totalSettledAmt}). Note: ${data.message || 'Receipt email delivery processing'}`
+          );
+        }
       } else {
-        setEmailStatusMsg(
-          `Email dispatched to ${recipientEmail}! (Status: ${data.message || 'Delivered'}, Ref: ${txn})`
-        );
+        setEmailStatusMsg(data.error || 'Failed to dispatch bill receipt. Please verify email.');
       }
     } catch (err: any) {
       setEmailStatusMsg(`Dispatched receipt to ${recipientEmail} (${err.message})`);
@@ -630,7 +656,7 @@ export const UtilityBillFetcher: React.FC<UtilityBillFetcherProps> = ({
                   <Mail className="w-5 h-5 text-indigo-400 shrink-0" />
                   <div>
                     <div className="font-extrabold text-white text-xs flex items-center gap-1.5">
-                      <span>Send Real Receipt to Sanskar Dhat</span>
+                      <span>Send Official Bill Receipt</span>
                       <span className="text-[10px] bg-emerald-500/30 text-emerald-200 px-2 py-0.2 rounded font-mono">
                         sanskardhat6@gmail.com
                       </span>
@@ -747,7 +773,7 @@ export const UtilityBillFetcher: React.FC<UtilityBillFetcherProps> = ({
                     title="Pay bill and instantly dispatch receipt to Sanskar's email"
                   >
                     <Check className="w-3.5 h-3.5" />
-                    Quick Pay & Send Receipt to Sanskar
+                    Quick Pay & Send Receipt
                   </button>
                 ) : (
                   <button

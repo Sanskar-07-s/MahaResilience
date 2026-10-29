@@ -69,7 +69,7 @@ export const ElectricityPage: React.FC = () => {
 
       {/* Interactive Billing Workflow Simulator & Real Email Dispatch */}
       <BillingWorkflowSimulator
-        defaultEmail="sanskardhat6@gmail.com"
+        defaultEmail={user?.email || 'sanskardhat6@gmail.com'}
         defaultConsumerName={user?.name || (user as any)?.displayName || 'Sanskar Dhat'}
       />
 
