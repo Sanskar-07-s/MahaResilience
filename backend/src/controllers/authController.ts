@@ -1,11 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import prisma from '../config/db.js';
-import { Role } from '@prisma/client';
-import { AuthenticatedRequest } from '../middleware/auth.js';
+import { PrismaClient, Role } from '@prisma/client';
 import { sendWelcomeEmail } from '../services/brevoEmailService.js';
 
+const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || 'maharesilience-secret-session-key-2026-auth';
 
 export const register = async (req: Request, res: Response, next: NextFunction) => {
@@ -13,47 +12,35 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
     const { email, password, name, phone, role } = req.body;
 
     if (!email || !password || !name) {
-      return res.status(400).json({ error: 'Email, password, and name are required.' });
+      return res.status(400).json({ error: 'Name, email, and password are required.' });
     }
 
-    const existingUser = await prisma.user.findUnique({ where: { email } });
-    if (existingUser) {
-      return res.status(400).json({ error: 'A user with this email already exists.' });
-    }
-
-    if (phone) {
-      const existingPhone = await prisma.user.findUnique({ where: { phone } });
-      if (existingPhone) {
-        return res.status(400).json({ error: 'A user with this phone number already exists.' });
+    let existingUser;
+    try {
+      existingUser = await prisma.user.findUnique({ where: { email } });
+    } catch (dbErr: any) {
+      if (dbErr.name === 'PrismaClientInitializationError' || (dbErr.message || '').includes("Can't reach database")) {
+        return res.status(503).json({ error: 'Database service is currently unreachable. Please try again shortly.' });
       }
+      throw dbErr;
+    }
+
+    if (existingUser) {
+      return res.status(400).json({ error: 'A user with this email address already exists.' });
     }
 
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
-
-    const userRole = role && Object.values(Role).includes(role as Role) ? (role as Role) : Role.CITIZEN;
 
     const user = await prisma.user.create({
       data: {
         email,
         passwordHash,
         name,
-        phone,
-        role: userRole,
-        isVerified: userRole === Role.CITIZEN || userRole === Role.TOURIST, // Volunteers/Officials need admin verification
+        phone: phone || null,
+        role: role && Object.values(Role).includes(role) ? role : Role.CITIZEN,
       },
     });
-
-    // If it's a volunteer, create volunteer profile
-    if (userRole === Role.VOLUNTEER) {
-      await prisma.volunteer.create({
-        data: {
-          userId: user.id,
-          skills: req.body.skills || [],
-          areaOfOperations: req.body.areaOfOperations || [],
-        },
-      });
-    }
 
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role, name: user.name },
@@ -61,9 +48,9 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
       { expiresIn: '7d' }
     );
 
-    // Send welcome email via Brevo REST API
+    // Asynchronously dispatch welcome email (non-blocking)
     sendWelcomeEmail(user.email, user.name).catch((err) => {
-      console.warn('[Brevo Welcome Email Dispatch Warning]:', err);
+      console.error('[Welcome Email Error]:', err.message || err);
     });
 
     return res.status(201).json({
@@ -90,7 +77,16 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       return res.status(400).json({ error: 'Email and password are required.' });
     }
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    let user;
+    try {
+      user = await prisma.user.findUnique({ where: { email } });
+    } catch (dbErr: any) {
+      if (dbErr.name === 'PrismaClientInitializationError' || (dbErr.message || '').includes("Can't reach database")) {
+        return res.status(503).json({ error: 'Database service is currently unreachable. Please try again shortly.' });
+      }
+      throw dbErr;
+    }
+
     if (!user || !user.passwordHash) {
       return res.status(401).json({ error: 'Invalid email or password.' });
     }
@@ -122,34 +118,39 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
   }
 };
 
-export const getProfile = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+export const getProfile = async (req: any, res: Response, next: NextFunction) => {
   try {
-    if (!req.user) {
+    const userId = req.user?.id;
+    if (!userId) {
       return res.status(401).json({ error: 'Unauthorized.' });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: req.user.id },
-      include: {
-        volunteerProfile: true,
-      },
-    });
-
-    if (!user) {
-      return res.status(404).json({ error: 'User not found.' });
+    let user;
+    try {
+      user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          phone: true,
+          role: true,
+          isVerified: true,
+          createdAt: true,
+        },
+      });
+    } catch (dbErr: any) {
+      if (dbErr.name === 'PrismaClientInitializationError' || (dbErr.message || '').includes("Can't reach database")) {
+        return res.status(503).json({ error: 'Database service is currently unreachable. Please try again shortly.' });
+      }
+      throw dbErr;
     }
 
-    return res.json({
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      phone: user.phone,
-      role: user.role,
-      profileImage: user.profileImage,
-      isVerified: user.isVerified,
-      volunteerProfile: user.volunteerProfile,
-      createdAt: user.createdAt,
-    });
+    if (!user) {
+      return res.status(404).json({ error: 'User profile not found.' });
+    }
+
+    return res.json(user);
   } catch (error) {
     next(error);
   }
