@@ -17,6 +17,11 @@ import {
   ChevronRight,
   Copy,
   ExternalLink,
+  Filter,
+  Info,
+  Clock,
+  Printer,
+  RotateCcw,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext.tsx';
 import {
@@ -26,6 +31,7 @@ import {
   createRechargeOrder,
   verifyPaymentAndRecharge,
   fetchRechargeHistory,
+  recordDemoOrderLocally,
   TelecomOperator,
   TelecomCircle,
   RechargePlan,
@@ -49,6 +55,9 @@ export const RechargePage: React.FC = () => {
   const [selectedOperator, setSelectedOperator] = useState('JIO');
   const [selectedCircle, setSelectedCircle] = useState('MAHARASHTRA_GOA');
   const [selectedCategory, setSelectedCategory] = useState('ALL');
+  const [priceFilter, setPriceFilter] = useState('ALL');
+  const [validityFilter, setValidityFilter] = useState('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
   const [autoDetected, setAutoDetected] = useState(false);
   const [isLookingUp, setIsLookingUp] = useState(false);
 
@@ -57,12 +66,12 @@ export const RechargePage: React.FC = () => {
   const [categories, setCategories] = useState<PlanCategorySummary[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<RechargePlan | null>(null);
   const [loadingPlans, setLoadingPlans] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
 
-  // Checkout & Payment State
+  // Checkout & Simulation State
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
+  const [simulationMode, setSimulationMode] = useState<'SUCCESS' | 'PAYMENT_FAILED' | 'RECHARGE_FAILED'>('SUCCESS');
   const [customerName, setCustomerName] = useState(user?.name || 'Maha Citizen');
-  const [customerEmail, setCustomerEmail] = useState(user?.email || '');
+  const [customerEmail, setCustomerEmail] = useState(user?.email || 'citizen@maharesilience.org');
   const [isProcessingOrder, setIsProcessingOrder] = useState(false);
   const [orderError, setOrderError] = useState<string | null>(null);
 
@@ -72,10 +81,22 @@ export const RechargePage: React.FC = () => {
   const [paymentStatusMsg, setPaymentStatusMsg] = useState('');
   const [fulfillmentResult, setFulfillmentResult] = useState<any | null>(null);
 
+  // Receipt Modal State
+  const [viewingReceipt, setViewingReceipt] = useState<RechargeHistoryItem | null>(null);
+
   // History State
   const [historyItems, setHistoryItems] = useState<RechargeHistoryItem[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [copiedTx, setCopiedTx] = useState<string | null>(null);
+
+  // Mask phone utility
+  const maskPhone = (phone: string): string => {
+    const clean = phone.replace(/\D/g, '');
+    if (clean.length === 10) {
+      return `${clean.substring(0, 2)}XXXXX${clean.substring(7)}`;
+    }
+    return phone;
+  };
 
   // Load operators and circles on mount
   useEffect(() => {
@@ -131,7 +152,7 @@ export const RechargePage: React.FC = () => {
     }
   };
 
-  // Handle phone number input with Indian 10-digit validation & auto-detection
+  // Handle phone input with 10-digit validation & auto-detection
   const handlePhoneChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawVal = e.target.value.replace(/\D/g, '').slice(0, 10);
     setMobileNumber(rawVal);
@@ -159,23 +180,48 @@ export const RechargePage: React.FC = () => {
     }
   };
 
-  // Filter plans by search query
+  // Clear all filters
+  const handleClearFilters = () => {
+    setSelectedCategory('ALL');
+    setPriceFilter('ALL');
+    setValidityFilter('ALL');
+    setSearchQuery('');
+  };
+
+  // Filter plans by search, price, and validity
   const filteredPlans = plans.filter((plan) => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      plan.price.toString().includes(q) ||
-      plan.data.toLowerCase().includes(q) ||
-      plan.validity.toLowerCase().includes(q) ||
-      plan.description.toLowerCase().includes(q) ||
-      plan.category.toLowerCase().includes(q)
-    );
+    // Search query
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const matchesSearch =
+        plan.price.toString().includes(q) ||
+        plan.data.toLowerCase().includes(q) ||
+        plan.validity.toLowerCase().includes(q) ||
+        plan.description.toLowerCase().includes(q) ||
+        plan.category.toLowerCase().includes(q);
+      if (!matchesSearch) return false;
+    }
+
+    // Price filter
+    if (priceFilter === 'UNDER_200' && plan.price >= 200) return false;
+    if (priceFilter === '200_500' && (plan.price < 200 || plan.price > 500)) return false;
+    if (priceFilter === '500_1000' && (plan.price < 500 || plan.price > 1000)) return false;
+    if (priceFilter === 'OVER_1000' && plan.price <= 1000) return false;
+
+    // Validity filter
+    if (validityFilter === 'UNDER_28' && plan.validityDays >= 28) return false;
+    if (validityFilter === '28_30' && (plan.validityDays < 28 || plan.validityDays > 30)) return false;
+    if (validityFilter === '56_84' && (plan.validityDays < 56 || plan.validityDays > 84)) return false;
+    if (validityFilter === '365' && plan.validityDays < 365) return false;
+
+    return true;
   });
 
   // Handle Plan Click
   const handleSelectPlan = (plan: RechargePlan) => {
     setSelectedPlan(plan);
     setOrderError(null);
+    setSimulationMode('SUCCESS');
     setShowCheckoutModal(true);
   };
 
@@ -186,11 +232,11 @@ export const RechargePage: React.FC = () => {
     setTimeout(() => setCopiedTx(null), 2500);
   };
 
-  // Initiate Payment / Checkout
-  const handleProceedToPayment = async (simulateOperatorFailure: boolean = false) => {
+  // Initiate Simulated Demo Checkout
+  const handleProceedToPayment = async () => {
     if (!selectedPlan) return;
     if (!mobileNumber || !/^[6-9]\d{9}$/.test(mobileNumber)) {
-      setOrderError('Please enter a valid 10-digit Indian prepaid mobile number.');
+      setOrderError('Please enter a valid 10-digit Indian prepaid mobile number starting with 6, 7, 8, or 9.');
       return;
     }
 
@@ -198,64 +244,117 @@ export const RechargePage: React.FC = () => {
     setOrderError(null);
 
     try {
-      // 1. Create Recharge Order
-      const targetPhone = simulateOperatorFailure ? '6000000000' : mobileNumber;
+      // 1. Create Demo Recharge Order
       const orderData = await createRechargeOrder({
-        mobileNumber: targetPhone,
+        mobileNumber,
         operator: selectedOperator,
         circle: selectedCircle,
         planId: selectedPlan.id,
         amount: selectedPlan.price,
         customerName: customerName || 'Citizen User',
         customerEmail: customerEmail || 'citizen@maharesilience.org',
+        idempotencyKey: `demo_${Date.now()}_${mobileNumber}_${selectedPlan.id}`,
       });
 
       setActiveOrder(orderData);
       setPaymentStep('PENDING');
-      setPaymentStatusMsg('Initiating UPI Payment Gateway...');
+      setPaymentStatusMsg('Initiating Simulated Demo UPI Gateway...');
 
-      // 2. Simulate or execute payment verification & recharge fulfillment
+      // 2. Simulated payment flow with state transitions
       setTimeout(async () => {
         setPaymentStep('VERIFYING');
-        setPaymentStatusMsg('Verifying UPI Signature & Dispatching Recharge to Telecom Switch...');
+        setPaymentStatusMsg('Simulating UPI Authorization & Checking Telecom Switch...');
 
-        try {
-          const verifyData = await verifyPaymentAndRecharge({
-            orderId: orderData.orderId,
-            transactionReference: orderData.transactionReference,
-            gatewayOrderId: orderData.gatewayOrder.orderId,
-            gatewayPaymentId: `pay_upi_${Date.now()}`,
-            gatewaySignature: 'test_valid_signature',
-            paymentMethod: 'UPI_INTENT',
-          });
+        setTimeout(async () => {
+          try {
+            const verifyData = await verifyPaymentAndRecharge({
+              orderId: orderData.orderId,
+              transactionReference: orderData.transactionReference,
+              gatewayOrderId: orderData.gatewayOrder.orderId,
+              gatewayPaymentId: `demo_pay_${Date.now()}`,
+              gatewaySignature: 'demo_simulated_valid_signature',
+              paymentMethod: 'SIMULATED_UPI',
+              simulationType: simulationMode,
+            });
 
-          if (verifyData.success) {
-            setPaymentStep('SUCCESS');
-            setFulfillmentResult(verifyData);
-            setPaymentStatusMsg('Recharge pack activated & tax invoice dispatched to email!');
-          } else if (verifyData.refundInitiated) {
-            setPaymentStep('REFUNDED');
-            setFulfillmentResult(verifyData);
-            setPaymentStatusMsg(verifyData.message || 'Operator rejected recharge. Full refund processed.');
-          } else {
+            if (verifyData.success) {
+              setPaymentStep('SUCCESS');
+              setFulfillmentResult(verifyData);
+              setPaymentStatusMsg('Demo recharge activated! Illustrative receipt generated.');
+
+              // Record in local history
+              recordDemoOrderLocally({
+                id: orderData.orderId,
+                transactionReference: orderData.transactionReference,
+                transactionId: orderData.transactionReference,
+                mobileNumber,
+                operator: selectedOperator,
+                circle: selectedCircle,
+                description: selectedPlan.description,
+                validity: selectedPlan.validity,
+                amount: selectedPlan.price,
+                status: 'SUCCESS',
+                operatorRef: verifyData.operatorReference,
+                paymentGateway: 'SIMULATED_UPI',
+                receiptSent: true,
+                createdAt: new Date().toISOString(),
+                isDemo: true,
+              });
+            } else if (verifyData.refundInitiated || simulationMode === 'RECHARGE_FAILED') {
+              setPaymentStep('REFUNDED');
+              setFulfillmentResult(verifyData);
+              setPaymentStatusMsg(verifyData.message || 'Operator simulated rejection. Full demo refund recorded.');
+
+              recordDemoOrderLocally({
+                id: orderData.orderId,
+                transactionReference: orderData.transactionReference,
+                transactionId: orderData.transactionReference,
+                mobileNumber,
+                operator: selectedOperator,
+                circle: selectedCircle,
+                description: selectedPlan.description,
+                validity: selectedPlan.validity,
+                amount: selectedPlan.price,
+                status: 'REFUND_COMPLETED',
+                operatorRef: 'SIMULATED_REJECTED',
+                paymentGateway: 'SIMULATED_UPI',
+                receiptSent: false,
+                createdAt: new Date().toISOString(),
+                isDemo: true,
+              });
+            } else {
+              setPaymentStep('FAILED');
+              setOrderError(verifyData.error || 'Simulated payment failed.');
+
+              recordDemoOrderLocally({
+                id: orderData.orderId,
+                transactionReference: orderData.transactionReference,
+                transactionId: orderData.transactionReference,
+                mobileNumber,
+                operator: selectedOperator,
+                circle: selectedCircle,
+                description: selectedPlan.description,
+                validity: selectedPlan.validity,
+                amount: selectedPlan.price,
+                status: 'PAYMENT_FAILED',
+                operatorRef: null,
+                paymentGateway: 'SIMULATED_UPI',
+                receiptSent: false,
+                createdAt: new Date().toISOString(),
+                isDemo: true,
+              });
+            }
+          } catch (err: any) {
             setPaymentStep('FAILED');
-            setOrderError(verifyData.error || 'Payment verification failed');
+            setOrderError(err.message || 'Simulation processing error.');
+          } finally {
+            setIsProcessingOrder(false);
           }
-        } catch (verifyErr: any) {
-          if (simulateOperatorFailure || (verifyErr.message || '').includes('refund')) {
-            setPaymentStep('REFUNDED');
-            setPaymentStatusMsg('Telecom operator simulated failure. Full refund automatically credited.');
-          } else {
-            setPaymentStep('FAILED');
-            setOrderError(verifyErr.message || 'Recharge processing error.');
-          }
-        } finally {
-          setIsProcessingOrder(false);
-        }
-      }, 1400);
+        }, 1200);
+      }, 1000);
     } catch (err: any) {
-      console.error('Order creation failed:', err);
-      setOrderError(err.message || 'Failed to create recharge order');
+      console.error('Demo order creation failed:', err);
+      setOrderError(err.message || 'Failed to initiate demo order');
       setIsProcessingOrder(false);
     }
   };
@@ -270,6 +369,30 @@ export const RechargePage: React.FC = () => {
 
   return (
     <div className="space-y-6 animate-fadeIn pb-12">
+      {/* DEMO MODE OFFICIAL DISCLAIMER BANNER */}
+      <div className="bg-gradient-to-r from-amber-500/20 via-orange-500/15 to-yellow-500/20 border-2 border-amber-500/40 rounded-2xl p-4 shadow-sm text-amber-200">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <span className="p-2 rounded-xl bg-amber-500/30 text-amber-300 font-extrabold text-xs uppercase tracking-wider flex-shrink-0">
+              DEMO MODE
+            </span>
+            <div>
+              <h2 className="text-sm font-bold text-amber-100 flex items-center gap-1.5">
+                <Info className="w-4 h-4 text-amber-400" />
+                Prepaid Mobile Recharge Simulator & Illustrative Plan Catalog
+              </h2>
+              <p className="text-xs text-amber-200/90 mt-0.5 leading-relaxed">
+                This feature operates in <strong>Simulated Demo Mode</strong> for project demonstration. 
+                No real payments are collected, no banking credentials are required, and all recharge plans are sample illustrative data.
+              </p>
+            </div>
+          </div>
+          <div className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-amber-950/60 border border-amber-500/30 text-amber-300 whitespace-nowrap self-start sm:self-auto">
+            Zero Real Financial Charges
+          </div>
+        </div>
+      </div>
+
       {/* Hero Header */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-sky-900 via-blue-900 to-indigo-950 p-6 md:p-8 text-white shadow-xl border border-sky-800/40">
         <div className="absolute right-0 top-0 -mt-10 -mr-10 w-72 h-72 rounded-full bg-sky-500/10 blur-3xl pointer-events-none" />
@@ -277,13 +400,13 @@ export const RechargePage: React.FC = () => {
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sky-500/20 text-sky-300 text-xs font-semibold uppercase tracking-wider mb-3 border border-sky-400/20">
-                <Radio className="w-3.5 h-3.5 animate-pulse" /> Official Maharashtra Telecom Utility
+                <Radio className="w-3.5 h-3.5 animate-pulse" /> Maharashtra Telecom Utility Demo
               </div>
               <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">
-                Prepaid Mobile Recharge & UPI Payments
+                Prepaid Mobile Recharge & UPI Simulation
               </h1>
               <p className="text-sky-200/80 text-sm md:text-base mt-1 max-w-2xl">
-                Instant recharge for Jio, Airtel, Vi, and BSNL with Zero convenience fees, automated circle detection, instant tax receipts, and direct UPI settlement.
+                Browse realistic sample packs for Jio, Airtel, Vi, and BSNL, test payment state machine transitions, and inspect simulated tax invoices.
               </p>
             </div>
 
@@ -297,7 +420,7 @@ export const RechargePage: React.FC = () => {
                     : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
                 }`}
               >
-                <Smartphone className="w-4 h-4" /> New Recharge
+                <Smartphone className="w-4 h-4" /> Demo Recharge
               </button>
               <button
                 onClick={() => setActiveTab('history')}
@@ -325,8 +448,9 @@ export const RechargePage: React.FC = () => {
 
               {/* Mobile Number Input */}
               <div className="space-y-2 mb-5">
-                <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                  Prepaid Mobile Number
+                <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex justify-between">
+                  <span>Prepaid Mobile Number</span>
+                  <span className="text-[10px] text-sky-400 font-normal">10 Digits (India)</span>
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 font-semibold text-sm">
@@ -352,12 +476,12 @@ export const RechargePage: React.FC = () => {
                 </div>
                 {mobileNumber.length > 0 && mobileNumber.length < 10 && (
                   <p className="text-xs text-amber-400/90 flex items-center gap-1">
-                    <AlertCircle className="w-3.5 h-3.5" /> Please enter full 10-digit number
+                    <AlertCircle className="w-3.5 h-3.5" /> Enter full 10 digits (e.g. 9822012345)
                   </p>
                 )}
                 {autoDetected && (
                   <p className="text-xs text-emerald-400 flex items-center gap-1 font-medium">
-                    <Sparkles className="w-3.5 h-3.5" /> Circle & Operator auto-detected!
+                    <Sparkles className="w-3.5 h-3.5" /> Operator & Circle auto-detected!
                   </p>
                 )}
               </div>
@@ -365,7 +489,7 @@ export const RechargePage: React.FC = () => {
               {/* Operator Selector */}
               <div className="space-y-2 mb-5">
                 <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                  Telecom Operator
+                  Select Telecom Operator
                 </label>
                 <div className="grid grid-cols-2 gap-2">
                   {operators.map((op) => {
@@ -393,7 +517,7 @@ export const RechargePage: React.FC = () => {
               </div>
 
               {/* Circle Selector */}
-              <div className="space-y-2 mb-4">
+              <div className="space-y-2 mb-5">
                 <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
                   Telecom Circle
                 </label>
@@ -410,10 +534,58 @@ export const RechargePage: React.FC = () => {
                 </select>
               </div>
 
-              {/* Trust Badge */}
-              <div className="mt-6 pt-5 border-t border-slate-800/80 flex items-center gap-3 text-xs text-slate-400">
-                <ShieldCheck className="w-5 h-5 text-emerald-400 flex-shrink-0" />
-                <span>Zero gateway surcharge. 100% verified encrypted transactions.</span>
+              {/* Secondary Filters: Price & Validity */}
+              <div className="pt-4 border-t border-slate-800/80 space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                    <Filter className="w-3.5 h-3.5 text-sky-400" /> Filter Options
+                  </span>
+                  {(priceFilter !== 'ALL' || validityFilter !== 'ALL' || searchQuery || selectedCategory !== 'ALL') && (
+                    <button
+                      onClick={handleClearFilters}
+                      className="text-[11px] text-sky-400 hover:text-sky-300 flex items-center gap-1"
+                    >
+                      <RotateCcw className="w-3 h-3" /> Reset
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <label className="text-[10px] text-slate-400 block mb-1">Price Range</label>
+                    <select
+                      value={priceFilter}
+                      onChange={(e) => setPriceFilter(e.target.value)}
+                      className="w-full px-2.5 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-white text-xs"
+                    >
+                      <option value="ALL">All Prices</option>
+                      <option value="UNDER_200">&lt; ₹200</option>
+                      <option value="200_500">₹200 - ₹500</option>
+                      <option value="500_1000">₹500 - ₹1000</option>
+                      <option value="OVER_1000">&gt; ₹1000</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-slate-400 block mb-1">Validity</label>
+                    <select
+                      value={validityFilter}
+                      onChange={(e) => setValidityFilter(e.target.value)}
+                      className="w-full px-2.5 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-white text-xs"
+                    >
+                      <option value="ALL">All Validity</option>
+                      <option value="UNDER_28">&lt; 28 Days</option>
+                      <option value="28_30">28 - 30 Days</option>
+                      <option value="56_84">56 - 84 Days</option>
+                      <option value="365">365 Days (Annual)</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Demo Notice */}
+              <div className="mt-5 pt-4 border-t border-slate-800/80 flex items-start gap-2.5 text-[11px] text-slate-400 leading-relaxed">
+                <ShieldCheck className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
+                <span>Zero real billing. Simulated state machine with automated demo receipts and refunds.</span>
               </div>
             </div>
           </div>
@@ -425,7 +597,14 @@ export const RechargePage: React.FC = () => {
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <Zap className="w-5 h-5 text-sky-400" />
-                  <h3 className="font-bold text-white text-base">Browse Verified Prepaid Plans</h3>
+                  <div>
+                    <h3 className="font-bold text-white text-base">
+                      {selectedOperator} Sample Prepaid Catalog
+                    </h3>
+                    <p className="text-[11px] text-slate-400">
+                      Illustrative plans for demo • Showing {filteredPlans.length} plan{filteredPlans.length === 1 ? '' : 's'}
+                    </p>
+                  </div>
                 </div>
 
                 {/* Plan Search Box */}
@@ -435,7 +614,7 @@ export const RechargePage: React.FC = () => {
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search price, GB, validity..."
+                    placeholder="Search GB, validity, price..."
                     className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500"
                   />
                 </div>
@@ -466,13 +645,23 @@ export const RechargePage: React.FC = () => {
             {loadingPlans ? (
               <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-12 text-center">
                 <RefreshCw className="w-8 h-8 text-sky-400 animate-spin mx-auto mb-3" />
-                <p className="text-slate-400 text-sm">Fetching verified telecom plans from switch...</p>
+                <p className="text-slate-400 text-sm">Loading illustrative sample plans for {selectedOperator}...</p>
               </div>
             ) : filteredPlans.length === 0 ? (
-              <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-12 text-center">
-                <Smartphone className="w-10 h-10 text-slate-600 mx-auto mb-3" />
-                <p className="text-white font-medium">No plans match your current search.</p>
-                <p className="text-slate-400 text-xs mt-1">Try selecting 'All Plans' or clearing search keywords.</p>
+              <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-12 text-center space-y-3">
+                <Smartphone className="w-12 h-12 text-slate-600 mx-auto" />
+                <div>
+                  <p className="text-white font-semibold text-base">No sample plans match current filters</p>
+                  <p className="text-slate-400 text-xs mt-1">
+                    Try clearing the search query or resetting category and price filters.
+                  </p>
+                </div>
+                <button
+                  onClick={handleClearFilters}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold transition-all"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" /> Show All {selectedOperator} Plans
+                </button>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -481,11 +670,17 @@ export const RechargePage: React.FC = () => {
                     key={plan.id}
                     className="relative bg-slate-900/90 border border-slate-800 hover:border-sky-500/50 rounded-2xl p-5 shadow-sm transition-all hover:shadow-lg flex flex-col justify-between group"
                   >
-                    {plan.popular && (
-                      <span className="absolute -top-2.5 right-4 bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-extrabold text-[10px] uppercase tracking-wider px-2.5 py-0.5 rounded-full shadow-md">
-                        Popular Choice
+                    {/* Demo Sample Badge */}
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-amber-400 border border-amber-500/30 uppercase tracking-wider">
+                        DEMO SAMPLE
                       </span>
-                    )}
+                      {plan.popular && (
+                        <span className="bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-extrabold text-[10px] uppercase tracking-wider px-2.5 py-0.5 rounded-full shadow-md">
+                          Popular
+                        </span>
+                      )}
+                    </div>
 
                     <div>
                       {/* Price & Validity Row */}
@@ -526,7 +721,7 @@ export const RechargePage: React.FC = () => {
                       onClick={() => handleSelectPlan(plan)}
                       className="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-sky-600 text-white font-semibold text-xs transition-all flex items-center justify-center gap-1.5 group-hover:bg-sky-600 shadow-sm"
                     >
-                      <span>Recharge ₹{plan.price}</span>
+                      <span>Select ₹{plan.price} (Demo)</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </button>
                   </div>
@@ -540,11 +735,15 @@ export const RechargePage: React.FC = () => {
         <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 shadow-sm space-y-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-800 pb-5">
             <div>
-              <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                <Receipt className="w-5 h-5 text-sky-400" /> Recharge History & Tax Invoices
-              </h2>
+              <div className="flex items-center gap-2">
+                <Receipt className="w-5 h-5 text-sky-400" />
+                <h2 className="text-lg font-bold text-white">Recharge History & Demo Receipts</h2>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                  DEMO LEDGER
+                </span>
+              </div>
               <p className="text-xs text-slate-400 mt-1">
-                Authoritative electronic receipts for all mobile recharge transactions.
+                Audited ledger of simulated transactions with printable electronic receipts.
               </p>
             </div>
             <button
@@ -560,15 +759,23 @@ export const RechargePage: React.FC = () => {
           {loadingHistory ? (
             <div className="py-12 text-center">
               <RefreshCw className="w-8 h-8 text-sky-400 animate-spin mx-auto mb-3" />
-              <p className="text-slate-400 text-sm">Loading recharge ledger...</p>
+              <p className="text-slate-400 text-sm">Loading simulated transaction ledger...</p>
             </div>
           ) : historyItems.length === 0 ? (
-            <div className="py-12 text-center">
-              <Receipt className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-              <p className="text-white font-semibold">No recharge transactions found yet</p>
-              <p className="text-slate-400 text-xs mt-1">
-                Complete a recharge to view your payment confirmation and tax receipt here.
-              </p>
+            <div className="py-12 text-center space-y-3">
+              <Receipt className="w-12 h-12 text-slate-600 mx-auto" />
+              <div>
+                <p className="text-white font-semibold">No demo recharge transactions recorded yet</p>
+                <p className="text-slate-400 text-xs mt-1">
+                  Complete a simulated recharge from the "Demo Recharge" tab to view your payment confirmation and receipt here.
+                </p>
+              </div>
+              <button
+                onClick={() => setActiveTab('recharge')}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold transition-all"
+              >
+                <Smartphone className="w-3.5 h-3.5" /> Start First Demo Recharge
+              </button>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -581,7 +788,7 @@ export const RechargePage: React.FC = () => {
                     <th className="pb-3 px-3">Pack Details</th>
                     <th className="pb-3 px-3 text-right">Amount</th>
                     <th className="pb-3 px-3 text-center">Status</th>
-                    <th className="pb-3 px-3 text-right">Ref & Receipt</th>
+                    <th className="pb-3 px-3 text-right">Receipt & Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60">
@@ -595,7 +802,7 @@ export const RechargePage: React.FC = () => {
                         })}
                       </td>
                       <td className="py-3.5 px-3 font-mono font-medium text-white whitespace-nowrap">
-                        +91 {item.mobileNumber}
+                        +91 {maskPhone(item.mobileNumber)}
                       </td>
                       <td className="py-3.5 px-3 font-semibold text-slate-200">
                         {item.operator}
@@ -604,7 +811,7 @@ export const RechargePage: React.FC = () => {
                         {item.description || `${item.validity} Pack`}
                       </td>
                       <td className="py-3.5 px-3 font-bold text-white text-right whitespace-nowrap">
-                        ₹{item.amount}
+                        ₹{item.amount}.00
                       </td>
                       <td className="py-3.5 px-3 text-center whitespace-nowrap">
                         {item.status === 'SUCCESS' ? (
@@ -616,23 +823,26 @@ export const RechargePage: React.FC = () => {
                             <RefreshCw className="w-3 h-3" /> REFUNDED
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 text-slate-300 border border-slate-700">
-                            {item.status}
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-950/80 text-rose-400 border border-rose-500/30">
+                            <XCircle className="w-3 h-3" /> FAILED
                           </span>
                         )}
                       </td>
                       <td className="py-3.5 px-3 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-2">
                           <button
+                            onClick={() => setViewingReceipt(item)}
+                            className="px-2.5 py-1 rounded-lg bg-sky-600/30 hover:bg-sky-600 text-sky-300 hover:text-white text-[11px] font-semibold border border-sky-500/30 transition-all flex items-center gap-1"
+                          >
+                            <Receipt className="w-3 h-3" /> View Receipt
+                          </button>
+                          <button
                             onClick={() => copyToClipboard(item.transactionReference)}
-                            title="Copy Transaction Reference"
+                            title="Copy Reference"
                             className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
                           >
                             <Copy className="w-3.5 h-3.5" />
                           </button>
-                          {copiedTx === item.transactionReference && (
-                            <span className="text-[10px] text-emerald-400">Copied!</span>
-                          )}
                         </div>
                       </td>
                     </tr>
@@ -644,17 +854,20 @@ export const RechargePage: React.FC = () => {
         </div>
       )}
 
-      {/* Checkout & Payment Modal */}
+      {/* Checkout & Simulated Payment Modal */}
       {showCheckoutModal && selectedPlan && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fadeIn">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
           <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col">
             {/* Modal Header */}
             <div className="bg-gradient-to-r from-sky-900 to-blue-900 p-5 text-white flex items-center justify-between">
               <div>
-                <h3 className="text-base font-bold flex items-center gap-2">
-                  <Smartphone className="w-4 h-4 text-sky-400" /> Confirm Prepaid Recharge
-                </h3>
-                <p className="text-xs text-sky-200 mt-0.5">MahaResilience Citizen Payment Gateway</p>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-bold">Simulated Prepaid Checkout</h3>
+                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-500 text-slate-950">
+                    DEMO
+                  </span>
+                </div>
+                <p className="text-xs text-sky-200 mt-0.5">MahaResilience Civic Platform Payment Simulator</p>
               </div>
               {paymentStep !== 'VERIFYING' && (
                 <button
@@ -670,10 +883,10 @@ export const RechargePage: React.FC = () => {
             <div className="p-6 space-y-5">
               {paymentStep === 'PENDING' ? (
                 <>
-                  {/* Recharge Order Summary */}
+                  {/* Order Summary */}
                   <div className="bg-slate-800/50 border border-slate-800 rounded-2xl p-4 space-y-3">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-400">Target Number:</span>
+                      <span className="text-slate-400">Mobile Number:</span>
                       <span className="font-mono font-bold text-white text-sm">
                         +91 {mobileNumber}
                       </span>
@@ -685,12 +898,16 @@ export const RechargePage: React.FC = () => {
                       </span>
                     </div>
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-400">Plan Validity:</span>
+                      <span className="text-slate-400">Pack Validity:</span>
                       <span className="font-semibold text-white">{selectedPlan.validity}</span>
                     </div>
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-slate-400">Data Allocation:</span>
                       <span className="font-semibold text-white">{selectedPlan.data}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-slate-400">Voice & SMS:</span>
+                      <span className="font-semibold text-emerald-400">{selectedPlan.calling}</span>
                     </div>
                     <div className="pt-2 border-t border-slate-700/60 flex items-center justify-between">
                       <span className="text-xs font-semibold text-slate-300">Total Payable Amount:</span>
@@ -698,10 +915,66 @@ export const RechargePage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Customer Information for Tax Receipt */}
+                  {/* Controlled Test Simulation Mode Selector */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-amber-300 uppercase tracking-wider block">
+                      Choose Simulation Outcome (For Examiner / Viva Testing)
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => setSimulationMode('SUCCESS')}
+                        className={`p-2.5 rounded-xl border text-left transition-all ${
+                          simulationMode === 'SUCCESS'
+                            ? 'bg-emerald-950/60 border-emerald-500 text-emerald-300 ring-1 ring-emerald-500'
+                            : 'bg-slate-800/60 border-slate-700 text-slate-400 hover:bg-slate-800'
+                        }`}
+                      >
+                        <div className="font-bold flex items-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>Success</span>
+                        </div>
+                        <span className="text-[10px] text-slate-400 block mt-0.5">Recharge credited OK</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setSimulationMode('PAYMENT_FAILED')}
+                        className={`p-2.5 rounded-xl border text-left transition-all ${
+                          simulationMode === 'PAYMENT_FAILED'
+                            ? 'bg-rose-950/60 border-rose-500 text-rose-300 ring-1 ring-rose-500'
+                            : 'bg-slate-800/60 border-slate-700 text-slate-400 hover:bg-slate-800'
+                        }`}
+                      >
+                        <div className="font-bold flex items-center gap-1">
+                          <XCircle className="w-3.5 h-3.5 text-rose-400" />
+                          <span>Pay Failed</span>
+                        </div>
+                        <span className="text-[10px] text-slate-400 block mt-0.5">Gateway decline test</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setSimulationMode('RECHARGE_FAILED')}
+                        className={`p-2.5 rounded-xl border text-left transition-all ${
+                          simulationMode === 'RECHARGE_FAILED'
+                            ? 'bg-amber-950/60 border-amber-500 text-amber-300 ring-1 ring-amber-500'
+                            : 'bg-slate-800/60 border-slate-700 text-slate-400 hover:bg-slate-800'
+                        }`}
+                      >
+                        <div className="font-bold flex items-center gap-1">
+                          <RefreshCw className="w-3.5 h-3.5 text-amber-400" />
+                          <span>Auto-Refund</span>
+                        </div>
+                        <span className="text-[10px] text-slate-400 block mt-0.5">Switch error & refund</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Customer Information for Demo Receipt */}
                   <div className="space-y-3">
                     <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">
-                      Receipt Delivery Information
+                      Citizen Information (For Demo Receipt)
                     </label>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
@@ -718,7 +991,7 @@ export const RechargePage: React.FC = () => {
                           type="email"
                           value={customerEmail}
                           onChange={(e) => setCustomerEmail(e.target.value)}
-                          placeholder="receipt@example.com"
+                          placeholder="citizen@maharesilience.org"
                           className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500"
                         />
                       </div>
@@ -732,26 +1005,24 @@ export const RechargePage: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Payment Buttons */}
-                  <div className="space-y-2 pt-2">
+                  {/* Checkout CTA Button */}
+                  <div className="pt-2">
                     <button
-                      onClick={() => handleProceedToPayment(false)}
+                      onClick={handleProceedToPayment}
                       disabled={isProcessingOrder}
-                      className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2"
+                      className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 disabled:opacity-50 text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
                     >
-                      <span>Pay ₹{selectedPlan.price} via UPI Intent</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </button>
-
-                    {/* Developer / Evaluator Simulation Button */}
-                    <button
-                      type="button"
-                      onClick={() => handleProceedToPayment(true)}
-                      disabled={isProcessingOrder}
-                      className="w-full py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700/80 text-amber-400 text-xs font-medium border border-amber-500/30 transition-all flex items-center justify-center gap-1.5"
-                    >
-                      <RefreshCw className="w-3.5 h-3.5" />
-                      <span>Simulate Operator Failure & Auto-Refund</span>
+                      {isProcessingOrder ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          <span>Processing Simulation...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>Execute Demo Payment (₹{selectedPlan.price})</span>
+                          <ArrowRight className="w-4 h-4" />
+                        </>
+                      )}
                     </button>
                   </div>
                 </>
@@ -761,7 +1032,7 @@ export const RechargePage: React.FC = () => {
                     <RefreshCw className="w-7 h-7 text-sky-400 animate-spin" />
                   </div>
                   <div>
-                    <h4 className="text-white font-bold text-base">Processing Transaction...</h4>
+                    <h4 className="text-white font-bold text-base">Processing Simulated Transaction...</h4>
                     <p className="text-slate-400 text-xs mt-1">{paymentStatusMsg}</p>
                   </div>
                 </div>
@@ -771,13 +1042,13 @@ export const RechargePage: React.FC = () => {
                     <CheckCircle2 className="w-8 h-8 text-emerald-400" />
                   </div>
                   <div>
-                    <h4 className="text-white font-bold text-lg">Recharge Successful!</h4>
+                    <h4 className="text-white font-bold text-lg">Demo Recharge Successful!</h4>
                     <p className="text-emerald-400 text-xs mt-1 font-medium">{paymentStatusMsg}</p>
                   </div>
 
                   <div className="bg-slate-800/60 border border-slate-800 rounded-2xl p-4 text-left space-y-2 text-xs">
                     <div className="flex justify-between">
-                      <span className="text-slate-400">Transaction Ref:</span>
+                      <span className="text-slate-400">Demo Reference:</span>
                       <span className="font-mono font-bold text-white">{activeOrder?.transactionReference}</span>
                     </div>
                     <div className="flex justify-between">
@@ -785,21 +1056,33 @@ export const RechargePage: React.FC = () => {
                       <span className="font-mono font-bold text-sky-400">{fulfillmentResult?.operatorReference}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-400">Amount Paid:</span>
-                      <span className="font-bold text-white">₹{selectedPlan.price}.00</span>
+                      <span className="text-slate-400">Mobile Number:</span>
+                      <span className="font-bold text-white">+91 {maskPhone(mobileNumber)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-400">Tax Invoice Sent:</span>
-                      <span className="font-medium text-emerald-400">{fulfillmentResult?.receiptEmailAddress || customerEmail}</span>
+                      <span className="text-slate-400">Amount Settled:</span>
+                      <span className="font-bold text-white">₹{selectedPlan.price}.00 (Simulated)</span>
                     </div>
                   </div>
 
-                  <button
-                    onClick={handleResetFlow}
-                    className="w-full py-2.5 px-4 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-semibold text-xs transition-all"
-                  >
-                    Done & Recharge Another Number
-                  </button>
+                  <div className="flex items-center gap-2 pt-2">
+                    <button
+                      onClick={() => {
+                        handleResetFlow();
+                        setActiveTab('history');
+                      }}
+                      className="flex-1 py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs transition-all flex items-center justify-center gap-1.5"
+                    >
+                      <Receipt className="w-3.5 h-3.5 text-sky-400" />
+                      <span>View in History</span>
+                    </button>
+                    <button
+                      onClick={handleResetFlow}
+                      className="flex-1 py-2.5 px-4 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-semibold text-xs transition-all"
+                    >
+                      Done
+                    </button>
+                  </div>
                 </div>
               ) : paymentStep === 'REFUNDED' ? (
                 <div className="py-6 text-center space-y-4">
@@ -807,18 +1090,18 @@ export const RechargePage: React.FC = () => {
                     <RefreshCw className="w-8 h-8 text-amber-400" />
                   </div>
                   <div>
-                    <h4 className="text-white font-bold text-lg">Recharge Failed & Refund Completed</h4>
+                    <h4 className="text-white font-bold text-lg">Simulated Recharge Failure & Refund</h4>
                     <p className="text-amber-400 text-xs mt-1 font-medium">{paymentStatusMsg}</p>
                   </div>
 
                   <div className="bg-slate-800/60 border border-slate-800 rounded-2xl p-4 text-left space-y-2 text-xs">
                     <div className="flex justify-between">
                       <span className="text-slate-400">Refund Status:</span>
-                      <span className="font-bold text-amber-400">100% REFUNDED</span>
+                      <span className="font-bold text-amber-400">100% REFUNDED (SIMULATED)</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-400">Refund Reference:</span>
-                      <span className="font-mono text-white">{fulfillmentResult?.refundId || 'rfnd_auto_completed'}</span>
+                      <span className="font-mono text-white">{fulfillmentResult?.refundId || 'DEMO-RFND-AUTOCREDITED'}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-400">Amount Returned:</span>
@@ -830,7 +1113,7 @@ export const RechargePage: React.FC = () => {
                     onClick={handleResetFlow}
                     className="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs transition-all"
                   >
-                    Close
+                    Close & Try Another Plan
                   </button>
                 </div>
               ) : (
@@ -839,8 +1122,8 @@ export const RechargePage: React.FC = () => {
                     <XCircle className="w-8 h-8 text-rose-400" />
                   </div>
                   <div>
-                    <h4 className="text-white font-bold text-lg">Payment / Recharge Error</h4>
-                    <p className="text-rose-400 text-xs mt-1">{orderError || 'Unable to complete transaction.'}</p>
+                    <h4 className="text-white font-bold text-lg">Simulated Payment Decline</h4>
+                    <p className="text-rose-400 text-xs mt-1">{orderError || 'Payment authorization was declined in simulation.'}</p>
                   </div>
                   <button
                     onClick={handleResetFlow}
@@ -854,9 +1137,92 @@ export const RechargePage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Viewing Receipt Modal */}
+      {viewingReceipt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
+          <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col">
+            <div className="bg-gradient-to-r from-sky-900 to-slate-900 p-5 text-white flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold flex items-center gap-2">
+                  <Receipt className="w-4 h-4 text-sky-400" /> Official Demo Electronic Receipt
+                </h3>
+                <p className="text-xs text-sky-200 mt-0.5">MahaResilience Civic Management Engine</p>
+              </div>
+              <button
+                onClick={() => setViewingReceipt(null)}
+                className="p-1 rounded-xl bg-slate-800/60 hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
+              >
+                <XCircle className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 text-xs">
+              <div className="bg-slate-800/60 border border-slate-700/80 rounded-2xl p-4 text-center">
+                <span className="text-[10px] text-slate-400 uppercase font-semibold block">Total Reconciled Amount</span>
+                <span className="text-2xl font-extrabold text-white">₹{viewingReceipt.amount}.00</span>
+                <div className="mt-1">
+                  {viewingReceipt.status === 'SUCCESS' ? (
+                    <span className="text-[11px] font-bold text-emerald-400">✓ 100% FULFILLED (DEMO)</span>
+                  ) : viewingReceipt.status === 'REFUND_COMPLETED' ? (
+                    <span className="text-[11px] font-bold text-amber-400">✓ FULLY REFUNDED (DEMO)</span>
+                  ) : (
+                    <span className="text-[11px] font-bold text-rose-400">DECLINED</span>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-2 border-t border-b border-slate-800 py-3">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Transaction ID:</span>
+                  <span className="font-mono text-white">{viewingReceipt.transactionReference}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Operator Reference:</span>
+                  <span className="font-mono text-sky-300">{viewingReceipt.operatorRef || 'N/A'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Mobile Number:</span>
+                  <span className="font-bold text-white">+91 {maskPhone(viewingReceipt.mobileNumber)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Telecom Operator:</span>
+                  <span className="font-semibold text-white">{viewingReceipt.operator}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Circle:</span>
+                  <span className="text-slate-300">{viewingReceipt.circle}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Pack Validity:</span>
+                  <span className="text-slate-300">{viewingReceipt.validity}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Date & Timestamp:</span>
+                  <span className="text-slate-300">{new Date(viewingReceipt.createdAt).toLocaleString()}</span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 pt-2">
+                <button
+                  onClick={() => window.print()}
+                  className="flex-1 py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition-all"
+                >
+                  <Printer className="w-3.5 h-3.5 text-slate-400" /> Print Receipt
+                </button>
+                <button
+                  onClick={() => setViewingReceipt(null)}
+                  className="flex-1 py-2 px-3 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-semibold text-xs transition-all"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
 export default RechargePage;
-
